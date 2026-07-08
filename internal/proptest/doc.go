@@ -8,7 +8,7 @@
 //	rapid.Check(t, func(t *rapid.T) {
 //	    a := proptest.AnyXY(t)
 //	    b := proptest.AnyXY(t)
-//	    if planar.Default.Distance(a, b) != planar.Default.Distance(b, a) {
+//	    if planar.Default().Distance(a, b) != planar.Default().Distance(b, a) {
 //	        t.Fatalf("distance not symmetric")
 //	    }
 //	})

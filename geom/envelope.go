@@ -3,8 +3,9 @@ package geom
 import "math"
 
 // Envelope is the 2D axis-aligned bounding box used throughout go-topology-suite.
-// Z and M coordinates are ignored. The zero value is the empty envelope:
-// MinX > MaxX signals "no extent yet."
+// Z and M coordinates are ignored. An envelope is empty when MinX > MaxX or
+// MinY > MaxY ("no extent yet"). Note the zero value is NOT empty — it is a
+// degenerate box at the origin; use EmptyEnvelope for an empty starting point.
 type Envelope struct {
 	MinX, MinY, MaxX, MaxY float64
 }

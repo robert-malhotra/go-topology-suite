@@ -30,7 +30,7 @@ func (l *LocationIndexedLine) Geometry() geom.Geometry { return l.g }
 // ExtractPoint returns the coordinate at the given index. Out-of-range
 // indices return the corresponding endpoint.
 func (l *LocationIndexedLine) ExtractPoint(loc LinearLocation) geom.XY {
-	return loc.GetCoordinate(l.g)
+	return loc.Coordinate(l.g)
 }
 
 // ExtractLine returns the sub-line between two indices. If end < start
@@ -187,7 +187,7 @@ func computeLinear(g geom.Geometry, start, end LinearLocation) geom.Geometry {
 	b.fixInvalidLines = true
 
 	if !start.IsVertex() {
-		b.add(start.GetCoordinate(g))
+		b.add(start.Coordinate(g))
 	}
 	for it := newLinearIteratorFromLocation(g, start); it.hasNext(); it.next() {
 		// Stop once we've passed the end location.
@@ -201,7 +201,7 @@ func computeLinear(g geom.Geometry, start, end LinearLocation) geom.Geometry {
 		}
 	}
 	if !end.IsVertex() {
-		b.add(end.GetCoordinate(g))
+		b.add(end.Coordinate(g))
 	}
 	return b.build()
 }

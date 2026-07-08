@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/noding"
 	"github.com/exergy-dev/go-topology-suite/measure"
 	"github.com/exergy-dev/go-topology-suite/wkt"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCase9SymDiffTraceClassify(t *testing.T) {

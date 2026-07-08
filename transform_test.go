@@ -72,7 +72,7 @@ func TestTransformWGS84ToUTM(t *testing.T) {
 // TestTransformErrUntransformable verifies that a Transform attempt
 // against a CRS without a Definition returns the expected sentinel.
 func TestTransformErrUntransformable(t *testing.T) {
-	bare := &crs.CRS{Authority: "EPSG", Code: 12345, Kind: crs.Projected}
+	bare := crs.New("EPSG", 12345, crs.Projected)
 	pt := geom.NewPoint(epsg.WGS84, geom.XY{X: 1, Y: 1})
 	_, err := gts.Transform(pt, bare)
 	assert.Equal(t, crs.ErrUntransformable, err)

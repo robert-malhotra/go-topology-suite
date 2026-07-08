@@ -20,4 +20,8 @@
 // implementation-defined but well-defined results (no panics, no NaN
 // silent-propagation); the package documents specific behaviours per
 // primitive.
+//
+// This package is experimental: it may evolve within a major version
+// (with a release-note entry). See the README "Versioning and
+// stability" section.
 package spherical

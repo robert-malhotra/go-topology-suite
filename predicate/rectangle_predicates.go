@@ -194,7 +194,7 @@ func rectCornerInPolygonalComponent(g geom.Geometry, rect *geom.Polygon) bool {
 		{X: rectEnv.MaxX, Y: rectEnv.MaxY},
 		{X: rectEnv.MaxX, Y: rectEnv.MinY},
 	}
-	k := planar.Default
+	k := planar.Default()
 	hit := false
 	visitConnectedComponents(g, func(c geom.Geometry) bool {
 		var poly *geom.Polygon
@@ -230,7 +230,7 @@ func rectEdgesCrossSegments(g geom.Geometry, rectEnv geom.Envelope) bool {
 	if rectEnv.IsEmpty() {
 		return false
 	}
-	k := planar.Default
+	k := planar.Default()
 	c00 := geom.XY{X: rectEnv.MinX, Y: rectEnv.MinY}
 	c01 := geom.XY{X: rectEnv.MinX, Y: rectEnv.MaxY}
 	c11 := geom.XY{X: rectEnv.MaxX, Y: rectEnv.MaxY}

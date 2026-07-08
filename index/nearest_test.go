@@ -5,9 +5,9 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
 // pointDist is a simple ItemDistance treating each item's envelope as

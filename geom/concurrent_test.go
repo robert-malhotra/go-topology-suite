@@ -4,8 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/crs"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestEnvelopeCacheConcurrent exercises the atomic.Pointer envelope cache

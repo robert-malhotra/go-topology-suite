@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"fmt"
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -117,8 +118,8 @@ func pointCoveredBy(p geom.XY, g geom.Geometry, k kernel.Kernel) bool {
 //   - Point/MultiPoint vs anything (polygonal or pointal): filter A's
 //     points by membership in the closure of B.
 //   - Polygonal-vs-Pointal: dispatch with operands swapped.
-//   - Other combinations (Line-vs-anything, Polygon-vs-Line) fall back
-//     to ErrUnsupportedKernel — line-overlay is a separate engine.
+//   - Line and mixed combinations route to the line-overlay engine;
+//     anything left over returns an error wrapping gts.ErrUnsupported.
 func intersectionNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	if !crs.Equal(a.CRS(), b.CRS()) {
 		return nil, gts.ErrCRSMismatch
@@ -126,7 +127,7 @@ func intersectionNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	if as, bs, ok := simplifyGCPair(a, b); ok {
 		return Intersection(as, bs)
 	}
-	k := planar.Default
+	k := planar.Default()
 	if isPointal(a) {
 		pts := extractPoints(a)
 		out := pts[:0]
@@ -150,7 +151,7 @@ func intersectionNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	if isPolygonal(a) && isLineal(b) {
 		return linePolygonOverlay(a, b, opIntersection)
 	}
-	return nil, gts.ErrUnsupportedKernel
+	return nil, fmt.Errorf("overlay: Intersection unsupported for %T vs %T: %w", a, b, gts.ErrUnsupported)
 }
 
 // unionNonPolygonal handles union with at least one non-polygonal
@@ -164,7 +165,7 @@ func unionNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	if as, bs, ok := simplifyGCPair(a, b); ok {
 		return Union(as, bs)
 	}
-	k := planar.Default
+	k := planar.Default()
 	if isPointal(a) && isPointal(b) {
 		seen := map[geom.XY]struct{}{}
 		var out []geom.XY
@@ -199,7 +200,7 @@ func unionNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 		if (isLineal(a) && isPolygonal(b)) || (isPolygonal(a) && isLineal(b)) {
 			return linePolygonOverlay(a, b, opUnion)
 		}
-		return nil, gts.ErrUnsupportedKernel
+		return nil, fmt.Errorf("overlay: Union unsupported for %T vs %T: %w", a, b, gts.ErrUnsupported)
 	}
 	pts := extractPoints(pointsSide)
 	uncovered := pts[:0]
@@ -227,7 +228,7 @@ func differenceNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	if as, bs, ok := simplifyGCPair(a, b); ok {
 		return Difference(as, bs)
 	}
-	k := planar.Default
+	k := planar.Default()
 	if isPointal(a) {
 		pts := extractPoints(a)
 		out := pts[:0]
@@ -261,7 +262,7 @@ func differenceNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 		// LineStrings.
 		return linePolygonOverlay(a, b, opDifference)
 	}
-	return nil, gts.ErrUnsupportedKernel
+	return nil, fmt.Errorf("overlay: Difference unsupported for %T vs %T: %w", a, b, gts.ErrUnsupported)
 }
 
 // symDifferenceNonPolygonal handles symmetric difference with at least

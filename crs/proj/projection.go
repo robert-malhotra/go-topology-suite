@@ -13,6 +13,10 @@
 // the conic projections. Both are public-domain references PROJ also
 // implements from. Validation uses PROJ's own gie test fixtures (see
 // crs/proj/testdata/gie/).
+//
+// This package is experimental: it may evolve within a major version
+// (with a release-note entry) as projection coverage grows. See the
+// README "Versioning and stability" section.
 package proj
 
 import "math"

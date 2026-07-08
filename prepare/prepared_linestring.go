@@ -227,15 +227,15 @@ func (pl *PreparedLineString) intersectsSegment(a, b geom.XY) bool {
 	pl.tree.Search(q, func(it index.Item[segmentRef]) bool {
 		vi := int(it.Value.vertex)
 		c, d := pl.pts[vi], pl.pts[vi+1]
-		if _, ok := planar.Default.SegmentIntersection(a, b, c, d); ok {
+		if _, ok := planar.Default().SegmentIntersection(a, b, c, d); ok {
 			hit = true
 			return false
 		}
 		// Touch-only via collinear endpoints.
-		if planar.Default.SegmentDistance(a, c, d) == 0 ||
-			planar.Default.SegmentDistance(b, c, d) == 0 ||
-			planar.Default.SegmentDistance(c, a, b) == 0 ||
-			planar.Default.SegmentDistance(d, a, b) == 0 {
+		if planar.Default().SegmentDistance(a, c, d) == 0 ||
+			planar.Default().SegmentDistance(b, c, d) == 0 ||
+			planar.Default().SegmentDistance(c, a, b) == 0 ||
+			planar.Default().SegmentDistance(d, a, b) == 0 {
 			hit = true
 			return false
 		}
@@ -260,7 +260,7 @@ func segmentIntersectsEnvelope(a, b geom.XY, env geom.Envelope) bool {
 	}
 	for i := 0; i < 4; i++ {
 		c, d := corners[i], corners[(i+1)%4]
-		if _, ok := planar.Default.SegmentIntersection(a, b, c, d); ok {
+		if _, ok := planar.Default().SegmentIntersection(a, b, c, d); ok {
 			return true
 		}
 	}
@@ -273,14 +273,14 @@ func pointInPolygonForPrepared(p geom.XY, poly *geom.Polygon) bool {
 	if poly.NumRings() == 0 {
 		return false
 	}
-	if planar.Default.PointInRing(p, poly.Ring(0)) == kernel.Outside {
+	if planar.Default().PointInRing(p, poly.Ring(0)) == kernel.Outside {
 		return false
 	}
 	for r := 1; r < poly.NumRings(); r++ {
 		// A point strictly inside a hole is outside the polygon. We treat
 		// boundary-of-hole as still inside (covers semantics) — the prepared
 		// line touching a hole boundary still intersects the polygon.
-		if planar.Default.PointInRing(p, poly.Ring(r)) == kernel.Inside {
+		if planar.Default().PointInRing(p, poly.Ring(r)) == kernel.Inside {
 			return false
 		}
 	}

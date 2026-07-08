@@ -161,7 +161,7 @@ func polygonContains(p *geom.Polygon, other geom.Geometry) (geom.XY, bool) {
 		if hit {
 			return
 		}
-		k := planar.Default
+		k := planar.Default()
 		if c := k.PointInRing(q, p.Ring(0)); c != kernel.Outside {
 			inHole := false
 			for r := 1; r < p.NumRings(); r++ {

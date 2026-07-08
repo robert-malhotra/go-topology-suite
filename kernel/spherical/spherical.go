@@ -15,8 +15,11 @@ type Kernel struct {
 	radius float64
 }
 
-// Default uses EarthRadius.
-var Default kernel.Kernel = Kernel{radius: EarthRadius}
+// defaultKernel is boxed once so Default never allocates.
+var defaultKernel kernel.Kernel = Kernel{radius: EarthRadius}
+
+// Default returns the canonical spherical kernel (EarthRadius).
+func Default() kernel.Kernel { return defaultKernel }
 
 // NewWithRadius returns a spherical kernel with the given sphere radius
 // in metres.

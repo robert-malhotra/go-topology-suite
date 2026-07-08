@@ -27,12 +27,13 @@
 //
 // # Output convention
 //
-// Following the bench/conformance convention, divergences are recorded
-// via t.Logf, not t.Errorf. The harness reports aggregate
-// pass / fail / skip counts plus per-failure detail without breaking
-// CI. This makes it usable as a tracking baseline against which
-// targeted fixes can be measured. Intentional divergences should be
-// added to KNOWN-DIVERGENCES.md once their root cause is understood.
+// Individual divergences are recorded via t.Logf, not t.Errorf; the
+// harness reports aggregate pass / fail / skip counts plus per-failure
+// detail, and fails only when the failure count regresses past the
+// maxKnownDivergences baseline in harness_test.go. That constant is the
+// single source of truth for accepted divergences: fixes must lower it
+// in the same PR, and new intentional divergences must raise it with a
+// documented rationale.
 //
 // # Supported ops
 //

@@ -6,9 +6,9 @@ import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
-// GetLength computes the planar length-along-line for the given
+// Length computes the planar length-along-line for the given
 // LinearLocation on g. Mirrors JTS LengthLocationMap.getLength.
-func GetLength(g geom.Geometry, loc LinearLocation) float64 {
+func Length(g geom.Geometry, loc LinearLocation) float64 {
 	if numComponents(g) == 0 {
 		return 0
 	}
@@ -34,19 +34,19 @@ func GetLength(g geom.Geometry, loc LinearLocation) float64 {
 	return total
 }
 
-// GetLocation returns the LinearLocation at the given length-along-line
+// Location returns the LinearLocation at the given length-along-line
 // distance on g. Negative lengths are measured from the end. Out-of-
 // range values are clamped. Ambiguous indexes resolve to the lowest
 // possible location. Mirrors JTS LengthLocationMap.getLocation.
-func GetLocation(g geom.Geometry, length float64) LinearLocation {
-	return GetLocationResolve(g, length, true)
+func Location(g geom.Geometry, length float64) LinearLocation {
+	return LocationResolve(g, length, true)
 }
 
-// GetLocationResolve is GetLocation with explicit control over how an
+// LocationResolve is Location with explicit control over how an
 // ambiguous index (one falling exactly at a component endpoint) is
 // resolved. resolveLower=true picks the lowest possible location;
 // false picks the highest. Mirrors the two-arg JTS overload.
-func GetLocationResolve(g geom.Geometry, length float64, resolveLower bool) LinearLocation {
+func LocationResolve(g geom.Geometry, length float64, resolveLower bool) LinearLocation {
 	if numComponents(g) == 0 {
 		return LinearLocation{}
 	}

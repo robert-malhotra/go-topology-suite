@@ -3,12 +3,12 @@ package overlay
 import (
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
+	"github.com/exergy-dev/go-topology-suite/measure"
+	"github.com/exergy-dev/go-topology-suite/wkt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/exergy-dev/go-topology-suite/geom"
-	"github.com/exergy-dev/go-topology-suite/measure"
-	"github.com/exergy-dev/go-topology-suite/overlay/overlayng"
-	"github.com/exergy-dev/go-topology-suite/wkt"
 )
 
 func mp(t *testing.T, s string) geom.Geometry {
@@ -25,7 +25,7 @@ func mp(t *testing.T, s string) geom.Geometry {
 func TestGHIntersectionTwoSquares(t *testing.T) {
 	a := mp(t, "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0))")
 	b := mp(t, "POLYGON ((5 5, 15 5, 15 15, 5 15, 5 5))")
-	got, err := IntersectionGeneral(a, b)
+	got, err := intersectionGeneral(a, b)
 	require.NoError(t, err)
 	want := 25.0 // 5×5
 	assert.InDelta(t, want, measure.Area(got), 0.01, "area")
@@ -66,7 +66,7 @@ func TestGHContainmentNoIntersection(t *testing.T) {
 	inner := mp(t, "POLYGON ((40 40, 60 40, 60 60, 40 60, 40 40))")
 
 	// Intersection: smaller one.
-	ix, _ := IntersectionGeneral(outer, inner)
+	ix, _ := intersectionGeneral(outer, inner)
 	assert.InDelta(t, 400.0, measure.Area(ix), 1.0, "contained intersection area")
 
 	// Union: larger one.
@@ -82,7 +82,7 @@ func TestGHDisjointNoIntersection(t *testing.T) {
 	a := mp(t, "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))")
 	b := mp(t, "POLYGON ((5 5, 6 5, 6 6, 5 6, 5 5))")
 
-	ix, _ := IntersectionGeneral(a, b)
+	ix, _ := intersectionGeneral(a, b)
 	assert.True(t, ix.IsEmpty(), "disjoint intersection should be empty")
 	un, _ := Union(a, b)
 	assert.Equal(t, geom.MultiPolygonType, un.Type(), "disjoint union should be MultiPolygon")
@@ -98,7 +98,7 @@ func TestGHCrossingRectangles(t *testing.T) {
 	// Their intersection is a 2×2 square at the centre.
 	a := mp(t, "POLYGON ((-5 -1, 5 -1, 5 1, -5 1, -5 -1))")
 	b := mp(t, "POLYGON ((-1 -5, 1 -5, 1 5, -1 5, -1 -5))")
-	got, err := IntersectionGeneral(a, b)
+	got, err := intersectionGeneral(a, b)
 	require.NoError(t, err)
 	require.False(t, got.IsEmpty(), "intersection of crossing rectangles should not be empty")
 	assert.InDelta(t, 4.0, measure.Area(got), 0.01, "crossing-rect intersection area")
@@ -129,7 +129,7 @@ func TestOverlayAreaIsConserved(t *testing.T) {
 		"oversized union (>A+B) must fail area conservation")
 
 	// Intersection upper bound = min(A,B) + tol = 100 + tol.
-	ix, err := IntersectionGeneral(a, b)
+	ix, err := intersectionGeneral(a, b)
 	require.NoError(t, err)
 	assert.True(t, overlayAreaIsConserved(ix, overlayng.OpIntersection, subj, clip),
 		"valid intersection should pass area conservation")

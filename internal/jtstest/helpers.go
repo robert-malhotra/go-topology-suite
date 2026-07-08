@@ -424,7 +424,7 @@ func densifyGeometry(g geom.Geometry, tol float64) geom.Geometry {
 			densifyFlat(lineXY(v), v.Layout().Stride(), tol))
 	case *geom.LinearRing:
 		ls := v.AsLineString()
-		return geom.NewLinearRingFlatNoClone(v.Layout(), v.CRS(),
+		return geom.NewLinearRingOwned(v.Layout(), v.CRS(),
 			densifyFlat(lineXY(ls), v.Layout().Stride(), tol))
 	case *geom.Polygon:
 		rings := make([][]geom.XY, v.NumRings())
@@ -526,7 +526,7 @@ func reducePrecision(g geom.Geometry, scale float64) geom.Geometry {
 		for _, p := range pts {
 			flat = append(flat, p.X, p.Y)
 		}
-		return geom.NewLinearRingFlatNoClone(geom.LayoutXY, v.CRS(), flat)
+		return geom.NewLinearRingOwned(geom.LayoutXY, v.CRS(), flat)
 	case *geom.Polygon:
 		rings := make([][]geom.XY, v.NumRings())
 		for i := 0; i < v.NumRings(); i++ {

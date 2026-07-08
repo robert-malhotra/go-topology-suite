@@ -42,7 +42,7 @@ func bufferPolygon(p *geom.Polygon, distance float64, cfg config) (geom.Geometry
 		return geom.NewEmptyPolygon(p.CRS(), p.Layout()), nil
 	}
 
-	outerSigned := planar.Default.RingArea(outer)
+	outerSigned := planar.Default().RingArea(outer)
 	outerCCW := outerSigned > 0
 	// Zero-area outer ring (collinear points) is geometrically a
 	// line/point. Route through the line-string buffer for positive
@@ -216,7 +216,7 @@ func bufferPolygonNegativeLegacy(
 	if ringDegenerate(shrunkOuter) {
 		return geom.NewEmptyPolygon(p.CRS(), p.Layout()), nil
 	}
-	shrunkSigned := planar.Default.RingArea(shrunkOuter)
+	shrunkSigned := planar.Default().RingArea(shrunkOuter)
 	if (outerSigned > 0) != (shrunkSigned > 0) {
 		return geom.NewEmptyPolygon(p.CRS(), p.Layout()), nil
 	}
@@ -231,7 +231,7 @@ func bufferPolygonNegativeLegacy(
 	var result geom.Geometry = geom.NewPolygon(p.CRS(), shrunkOuter)
 	for r := 1; r < p.NumRings(); r++ {
 		hole := p.Ring(r)
-		holeSigned := planar.Default.RingArea(hole)
+		holeSigned := planar.Default().RingArea(hole)
 		holeCCW := holeSigned > 0
 		grown, ok := offsetClosedRing(hole, d, holeCCW, cfg)
 		if !ok {
@@ -240,7 +240,7 @@ func bufferPolygonNegativeLegacy(
 		if ringDegenerate(grown) {
 			continue
 		}
-		grownSigned := planar.Default.RingArea(grown)
+		grownSigned := planar.Default().RingArea(grown)
 		if (holeSigned > 0) != (grownSigned > 0) {
 			continue
 		}
@@ -383,7 +383,7 @@ func geomTotalArea(g geom.Geometry) float64 {
 	case *geom.Polygon:
 		a := 0.0
 		for i := 0; i < v.NumRings(); i++ {
-			r := math.Abs(planar.Default.RingArea(v.Ring(i)))
+			r := math.Abs(planar.Default().RingArea(v.Ring(i)))
 			if i == 0 {
 				a += r
 			} else {

@@ -7,11 +7,32 @@ import (
 )
 
 func TestEqualByAuthorityCode(t *testing.T) {
-	a := &CRS{Authority: "EPSG", Code: 4326, Kind: Geographic}
-	b := &CRS{Authority: "EPSG", Code: 4326}
+	a := New("EPSG", 4326, Geographic)
+	b := New("EPSG", 4326, UnknownKind)
 	assert.True(t, Equal(a, b), "matching EPSG codes should be Equal regardless of kind")
-	c := &CRS{Authority: "EPSG", Code: 3857}
+	c := New("EPSG", 3857, UnknownKind)
 	assert.False(t, Equal(a, c), "different codes should not be Equal")
+}
+
+func TestAccessors(t *testing.T) {
+	a := New("EPSG", 4326, Geographic)
+	assert.Equal(t, "EPSG", a.Authority())
+	assert.Equal(t, 4326, a.Code())
+	assert.Equal(t, Geographic, a.Kind())
+	assert.Equal(t, "", a.WKT2())
+	code, ok := a.EPSG()
+	assert.True(t, ok)
+	assert.Equal(t, 4326, code)
+
+	var nilCRS *CRS
+	assert.Equal(t, "", nilCRS.Authority())
+	assert.Equal(t, 0, nilCRS.Code())
+	assert.Equal(t, UnknownKind, nilCRS.Kind())
+	_, ok = nilCRS.EPSG()
+	assert.False(t, ok)
+
+	_, ok = NewFromWKT2(`GEOGCRS["custom",...]`, "", 0, Geographic).EPSG()
+	assert.False(t, ok, "WKT2-only CRS has no EPSG code")
 }
 
 func TestEqualNilHandling(t *testing.T) {
@@ -21,10 +42,10 @@ func TestEqualNilHandling(t *testing.T) {
 
 func TestEqualWKT2Fallback(t *testing.T) {
 	wkt := `GEOGCRS["custom",...]`
-	a := &CRS{WKT2: wkt}
-	b := &CRS{WKT2: wkt}
+	a := NewFromWKT2(wkt, "", 0, UnknownKind)
+	b := NewFromWKT2(wkt, "", 0, UnknownKind)
 	assert.True(t, Equal(a, b), "matching WKT2 should be Equal")
-	c := &CRS{WKT2: `GEOGCRS["other",...]`}
+	c := NewFromWKT2(`GEOGCRS["other",...]`, "", 0, UnknownKind)
 	assert.False(t, Equal(a, c), "differing WKT2 should not be Equal")
 }
 

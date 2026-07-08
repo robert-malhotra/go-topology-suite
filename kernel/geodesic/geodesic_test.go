@@ -4,9 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
+	"github.com/stretchr/testify/assert"
 )
 
 var k = Kernel{}
@@ -19,8 +19,8 @@ func near(t *testing.T, got, want, tol float64, msg string) {
 }
 
 func TestSatisfiesKernel(t *testing.T) {
-	var _ kernel.Kernel = Default
-	assert.Equal(t, "geodesic", Default.Name(), "name")
+	var _ kernel.Kernel = Default()
+	assert.Equal(t, "geodesic", Default().Name(), "name")
 }
 
 // TestVincentyAgainstReferences uses canonical NGS reference distances

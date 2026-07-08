@@ -3,9 +3,9 @@ package predicate_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/predicate"
 	"github.com/exergy-dev/go-topology-suite/wkt"
+	"github.com/stretchr/testify/require"
 )
 
 // TestRelateNG_DeterministicNodeOrder regression-tests the EvaluateNodes

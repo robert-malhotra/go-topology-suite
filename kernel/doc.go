@@ -9,8 +9,10 @@
 //   - kernel/geodesic  WGS84 ellipsoid; Karney's algorithm.
 //
 // Operations select the kernel via a functional Option (predicate.WithKernel
-// etc.); when omitted the default is inferred from the geometry's CRS.
+// etc.); when omitted the default is inferred from the geometry's CRS:
+// geographic CRSes route to spherical, everything else to planar.
 //
-// Phase 0 of the implementation plan ships only this interface and the
-// Orientation/Containment enums. Concrete kernels land in Phase 1.
+// Third-party implementations are possible: the interface is public and
+// kernels are passed by value, so a custom kernel.Kernel can be injected
+// per call via the same options.
 package kernel

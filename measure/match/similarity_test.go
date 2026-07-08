@@ -1,4 +1,4 @@
-package measure
+package match
 
 import (
 	"math"

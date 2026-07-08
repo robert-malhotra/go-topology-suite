@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
 func env(minX, minY, maxX, maxY float64) geom.Envelope {

@@ -323,7 +323,7 @@ func linePolygonOverlay(a, b geom.Geometry, op overlayOp) (geom.Geometry, error)
 		swapped = true
 	}
 	c := a.CRS()
-	k := planar.Default
+	k := planar.Default()
 
 	// Collect polygon-boundary segments for noding.
 	lineSegs := linealSegments(lineSide, 1)
@@ -933,7 +933,7 @@ func polygonArea(p *geom.Polygon) float64 {
 	if p == nil || p.NumRings() == 0 {
 		return 0
 	}
-	k := planar.Default
+	k := planar.Default()
 	a := math.Abs(k.RingArea(p.Ring(0)))
 	for r := 1; r < p.NumRings(); r++ {
 		a -= math.Abs(k.RingArea(p.Ring(r)))

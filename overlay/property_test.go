@@ -4,9 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/measure"
+	"github.com/stretchr/testify/assert"
 	"pgregory.net/rapid"
 )
 
@@ -53,7 +53,7 @@ func TestUnionIntersectionAreaConservation(t *testing.T) {
 		if err != nil {
 			t.Skipf("Union failed (acceptable v0.1 limitation): %v", err)
 		}
-		iG, err := IntersectionGeneral(a, b)
+		iG, err := intersectionGeneral(a, b)
 		if err != nil {
 			t.Skipf("Intersection failed: %v", err)
 		}
@@ -94,7 +94,7 @@ func TestIntersectionContainedInBoth(t *testing.T) {
 		b := randomTriangle(t, "b")
 		areaA := measure.Area(a)
 		areaB := measure.Area(b)
-		iG, err := IntersectionGeneral(a, b)
+		iG, err := intersectionGeneral(a, b)
 		if err != nil {
 			t.Skipf("Intersection failed: %v", err)
 		}
@@ -119,7 +119,7 @@ func TestSymmetricDifferenceAreaIdentity(t *testing.T) {
 		areaA := measure.Area(a)
 		areaB := measure.Area(b)
 
-		iG, err := IntersectionGeneral(a, b)
+		iG, err := intersectionGeneral(a, b)
 		if err != nil {
 			t.Skipf("Intersection failed: %v", err)
 		}

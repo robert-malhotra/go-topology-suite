@@ -113,7 +113,7 @@ func locatePointInRing(p geom.XY, ring []geom.XY) Location {
 	if len(ring) < 4 {
 		return Exterior
 	}
-	switch planar.Default.PointInRing(p, ring) {
+	switch planar.Default().PointInRing(p, ring) {
 	case kernel.Inside:
 		return Interior
 	case kernel.OnBoundary:

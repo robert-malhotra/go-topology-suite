@@ -4,9 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
+	"github.com/stretchr/testify/assert"
 )
 
 // bitEqual checks that two float64 values have identical bit patterns.

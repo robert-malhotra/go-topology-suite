@@ -7,11 +7,11 @@ import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
-// DecodeHex parses a hex-encoded WKB string. Whitespace is rejected; the
+// UnmarshalHex parses a hex-encoded WKB string. Whitespace is rejected; the
 // input must be an even-length string of hex digits (case-insensitive).
 //
 // JTS reference: WKBReader.hexToBytes (org.locationtech.jts.io.WKBReader).
-func DecodeHex(s string) (geom.Geometry, error) {
+func UnmarshalHex(s string) (geom.Geometry, error) {
 	if len(s)%2 != 0 {
 		return nil, fmt.Errorf("wkb: hex string has odd length %d", len(s))
 	}
@@ -22,10 +22,10 @@ func DecodeHex(s string) (geom.Geometry, error) {
 	return Unmarshal(data)
 }
 
-// EncodeHex returns the WKB encoding of g as an upper-case hex string.
+// MarshalHex returns the WKB encoding of g as an upper-case hex string.
 //
 // JTS reference: WKBWriter.toHex (org.locationtech.jts.io.WKBWriter).
-func EncodeHex(g geom.Geometry, opts ...Option) (string, error) {
+func MarshalHex(g geom.Geometry, opts ...Option) (string, error) {
 	data, err := Marshal(g, opts...)
 	if err != nil {
 		return "", err

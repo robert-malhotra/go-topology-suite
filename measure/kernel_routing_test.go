@@ -3,11 +3,11 @@ package measure
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // When a geometry carries a geographic CRS the default kernel is
@@ -35,7 +35,7 @@ func TestWithKernelOverridesDefault(t *testing.T) {
 	// Geographic CRS would normally pick geodesic; force planar.
 	a := geom.NewPoint(crs.WGS84, geom.XY{X: 0, Y: 0})
 	b := geom.NewPoint(crs.WGS84, geom.XY{X: 3, Y: 4})
-	d, _ := Distance(a, b, WithKernel(planar.Default))
+	d, _ := Distance(a, b, WithKernel(planar.Default()))
 	assert.InDelta(t, 5.0, d, 1e-9, "planar override expected 5, got %v", d)
 }
 
@@ -70,7 +70,7 @@ func TestMultiPolygonCentroid_GeographicWeighting(t *testing.T) {
 		"centroid latitude should be near geodesic midpoint (got %v)", c.XY().Y)
 
 	// Sanity: forcing planar via WithKernel reproduces the biased value.
-	cPlanar := Centroid(mp, WithKernel(planar.Default))
+	cPlanar := Centroid(mp, WithKernel(planar.Default()))
 	assert.True(t, cPlanar.XY().Y > 35,
 		"planar override should still be biased toward equator (got %v)", cPlanar.XY().Y)
 }

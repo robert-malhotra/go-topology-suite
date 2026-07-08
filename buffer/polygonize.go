@@ -139,7 +139,7 @@ func emitPolygonOffsetSegments(p *geom.Polygon, distance float64, cfg config) []
 		if len(ring) < 4 {
 			continue
 		}
-		ringCCW := planar.Default.RingArea(ring) > 0
+		ringCCW := planar.Default().RingArea(ring) > 0
 		isHole := r > 0
 		// Choose the offset side: which side of the RING is the buffer
 		// expanding INTO?
@@ -421,7 +421,7 @@ func polygonizeBufferWithFilter(
 	}
 	filtered := rings[:0]
 	for _, r := range rings {
-		if minArea > 0 && math.Abs(planar.Default.RingArea(r)) < minArea {
+		if minArea > 0 && math.Abs(planar.Default().RingArea(r)) < minArea {
 			continue
 		}
 		if keep != nil {
@@ -614,7 +614,7 @@ func outerOrientationSign(orig *geom.Polygon) int {
 	if orig == nil || orig.IsEmpty() || orig.NumRings() == 0 {
 		return 0
 	}
-	a := planar.Default.RingArea(orig.Ring(0))
+	a := planar.Default().RingArea(orig.Ring(0))
 	if a > 0 {
 		return +1
 	}

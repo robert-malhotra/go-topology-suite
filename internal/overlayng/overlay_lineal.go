@@ -2,6 +2,7 @@ package overlayng
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 
 	"github.com/exergy-dev/go-topology-suite"
@@ -36,7 +37,7 @@ import (
 // route through the float lineal-overlay path instead.
 func OverlayLinealWithTolerance(a, b geom.Geometry, op Op, tolerance float64) (geom.Geometry, error) {
 	if tolerance <= 0 {
-		return nil, gts.ErrUnsupportedKernel
+		return nil, fmt.Errorf("overlayng: tolerance must be positive, got %v", tolerance)
 	}
 	if !crs.Equal(a.CRS(), b.CRS()) {
 		return nil, gts.ErrCRSMismatch

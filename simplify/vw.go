@@ -4,7 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
-	"github.com/exergy-dev/go-topology-suite/overlay/overlayng"
+	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 )
 
 // Visvalingam returns a Visvalingam-Whyatt area-based simplification of g.

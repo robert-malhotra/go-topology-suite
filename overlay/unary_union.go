@@ -283,7 +283,3 @@ func unionGeometryCollection(gc *geom.GeometryCollection) (geom.Geometry, error)
 		return geom.NewGeometryCollection(gc.CRS(), members...), nil
 	}
 }
-
-func init() {
-	predicate.SetUnaryUnion(UnaryUnion)
-}

@@ -54,11 +54,6 @@ func (a XY) Equal(b XY) bool {
 // raw ==) or as a fingerprint.
 func (a XY) EqualBitwise(b XY) bool { return a.X == b.X && a.Y == b.Y }
 
-// EqualOrBothNaN is a synonym for Equal kept for backwards compatibility.
-//
-// Deprecated: prefer Equal — its NaN behaviour is now identical.
-func (a XY) EqualOrBothNaN(b XY) bool { return a.Equal(b) }
-
 // Compare orders two XY values lexicographically: X-major, then Y. Returns
 // -1, 0, or +1 for a<b, a==b, a>b respectively. NaN ordinates are ordered
 // after every finite value (matching the convention used by JTS

@@ -3,9 +3,9 @@ package predicate
 import (
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/wkt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/exergy-dev/go-topology-suite/wkt"
 )
 
 // expectMatch asserts that Relate(a,b) matches `pattern`.

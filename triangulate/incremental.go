@@ -116,7 +116,7 @@ func isConcaveAtOrigin(e *quadedge.QuadEdge) bool {
 	p := e.Orig().P
 	pp := e.OPrev().Dest().P
 	pn := e.ONext().Dest().P
-	return planar.Default.Orient(pp, pn, p) == kernel.CounterClockwise
+	return planar.Default().Orient(pp, pn, p) == kernel.CounterClockwise
 }
 
 func (t *IncrementalDelaunayTriangulator) isBetweenFrameAndInserted(e *quadedge.QuadEdge, v *quadedge.Vertex) bool {
@@ -145,7 +145,7 @@ func DelaunayOf(points []geom.XY) ([]Triangle, error) {
 	if err := tri.InsertSites(verts); err != nil {
 		return nil, err
 	}
-	tris := subdiv.GetTriangleVertices(false)
+	tris := subdiv.TriangleVertices(false)
 	out := make([]Triangle, 0, len(tris))
 	for _, t := range tris {
 		out = append(out, Triangle{

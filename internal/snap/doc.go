@@ -58,8 +58,9 @@
 // segments that graze a pixel corner or edge. v1 uses a strict
 // "distance to centre < tolerance/2" test, which treats grazing-edge
 // cases as non-splits. For the inputs the conformance harness exercises
-// this is invisible; document any user-surfaced divergence in
-// KNOWN-DIVERGENCES.md as it appears.
+// this is invisible; any user-surfaced divergence should be captured as
+// a conformance-harness case (internal/jtstest) and noted in the
+// CHANGELOG as it appears.
 //
 // The package is internal: only go-topology-suite packages can import it.
 package snap

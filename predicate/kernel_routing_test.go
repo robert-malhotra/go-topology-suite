@@ -3,9 +3,9 @@ package predicate
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/stretchr/testify/assert"
 )
 
 // A polygon enclosing the antimeridian is correctly tested only by the

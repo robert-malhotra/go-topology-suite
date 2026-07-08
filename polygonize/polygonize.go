@@ -383,7 +383,7 @@ func (g *graph) traceFace(start *dirEdge) *traceRing {
 	if coords[0] != coords[len(coords)-1] {
 		coords = append(coords, coords[0])
 	}
-	area := planar.Default.RingArea(coords)
+	area := planar.Default().RingArea(coords)
 	return &traceRing{coords: coords, area: area, edges: edges}
 }
 
@@ -506,7 +506,7 @@ func assignHolesToShells(shells, holes []*traceRing) {
 		// representative point of hole = first vertex
 		rep := h.coords[0]
 		for _, s := range shells {
-			if planar.Default.PointInRing(rep, s.coords) == kernel.Inside {
+			if planar.Default().PointInRing(rep, s.coords) == kernel.Inside {
 				if s.area < bestArea {
 					bestArea = s.area
 					best = s
@@ -595,10 +595,10 @@ func ringLineworkSimple(ls *geom.LineString) bool {
 // a point that is not an endpoint of one of the two segments. Used
 // only by ringLineworkSimple as a coarse self-intersection check.
 func segmentsCross(a, b, c, d geom.XY) bool {
-	o1 := planar.Default.Orient(a, b, c)
-	o2 := planar.Default.Orient(a, b, d)
-	o3 := planar.Default.Orient(c, d, a)
-	o4 := planar.Default.Orient(c, d, b)
+	o1 := planar.Default().Orient(a, b, c)
+	o2 := planar.Default().Orient(a, b, d)
+	o3 := planar.Default().Orient(c, d, a)
+	o4 := planar.Default().Orient(c, d, b)
 	if o1 != o2 && o3 != o4 {
 		return true
 	}

@@ -3,10 +3,10 @@ package noding
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
+	"github.com/stretchr/testify/assert"
 )
 
 // recordingIntersector counts hit pairs and records the unordered

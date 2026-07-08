@@ -3,8 +3,8 @@ package predicate
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/wkt"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCoversBoundaryPoint(t *testing.T) {

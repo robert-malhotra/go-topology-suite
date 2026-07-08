@@ -102,7 +102,7 @@ func earClipTriangulate(polyShell []geom.XY) []Triangle {
 }
 
 func cornerIsConvex(c [3]geom.XY) bool {
-	return planar.Default.Orient(c[0], c[1], c[2]) == kernel.Clockwise
+	return planar.Default().Orient(c[0], c[1], c[2]) == kernel.Clockwise
 }
 
 // cornerIsInvalid mirrors JTS isCornerInvalid — true when the apex is a
@@ -151,7 +151,7 @@ func cornerIsValidEar(vertex []geom.XY, vertexNext []int, apexIndex int, corner 
 // signs (of p relative to each directed edge) are consistent — all
 // non-negative or all non-positive — with collinear treated as inside.
 func pointInTriangle(a, b, c, p geom.XY) bool {
-	o := planar.Default
+	o := planar.Default()
 	o1 := o.Orient(a, b, p)
 	o2 := o.Orient(b, c, p)
 	o3 := o.Orient(c, a, p)
@@ -203,7 +203,7 @@ func validEarScan(vertex []geom.XY, vertexNext []int, apexIndex int, corner [3]g
 // pointInTriangleStrict tests strictly-inside (no edges) for triangle
 // (a, b, c) which is in CW orientation when convex.
 func pointInTriangleStrict(a, b, c, p geom.XY) bool {
-	o := planar.Default
+	o := planar.Default()
 	o1 := o.Orient(a, b, p)
 	o2 := o.Orient(b, c, p)
 	o3 := o.Orient(c, a, p)

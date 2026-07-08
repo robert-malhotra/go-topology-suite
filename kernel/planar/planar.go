@@ -8,12 +8,15 @@ import (
 )
 
 // Kernel is the planar implementation of kernel.Kernel.
-// It is a stateless value type; callers may use the package-level Default
+// It is a stateless value type; callers may use the package-level Default()
 // rather than instantiating their own.
 type Kernel struct{}
 
-// Default is the canonical planar kernel instance.
-var Default kernel.Kernel = Kernel{}
+// defaultKernel is boxed once so Default never allocates.
+var defaultKernel kernel.Kernel = Kernel{}
+
+// Default returns the canonical planar kernel instance.
+func Default() kernel.Kernel { return defaultKernel }
 
 func (Kernel) Name() string { return "planar" }
 

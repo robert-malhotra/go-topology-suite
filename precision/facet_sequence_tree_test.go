@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/stretchr/testify/require"
 )
 
 // TestMinimumClearance_FacetTreeParity_RandomPolygons exercises the

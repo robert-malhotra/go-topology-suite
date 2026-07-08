@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEncodePoint(t *testing.T) {
@@ -67,7 +67,7 @@ func TestSRIDPrefix(t *testing.T) {
 	g, err := Unmarshal("SRID=4326;POINT (1 2)")
 	require.NoError(t, err)
 	require.NotNil(t, g.CRS(), "SRID prefix not attached")
-	assert.Equal(t, 4326, g.CRS().Code, "SRID prefix not attached: %+v", g.CRS())
+	assert.Equal(t, 4326, g.CRS().Code(), "SRID prefix not attached: %+v", g.CRS())
 	out, _ := MarshalEWKT(g)
 	assert.Equal(t, "SRID=4326;POINT (1 2)", out, "EWKT round-trip")
 }

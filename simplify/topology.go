@@ -4,7 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
-	"github.com/exergy-dev/go-topology-suite/overlay/overlayng"
+	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 )
 
 // TopologyPreserving returns a simplified copy of g that is guaranteed

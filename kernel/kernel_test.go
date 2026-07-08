@@ -3,8 +3,8 @@ package kernel
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOrientationString(t *testing.T) {

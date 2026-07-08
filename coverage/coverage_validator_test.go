@@ -3,8 +3,8 @@ package coverage
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestValidator_ValidEdgeAdjacent: two squares sharing an exact edge

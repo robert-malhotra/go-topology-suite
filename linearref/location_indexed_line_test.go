@@ -47,7 +47,7 @@ func TestLocIndexedProjectExternal(t *testing.T) {
 	// Y-aligned offset: project should land on the line at the foot.
 	idx := NewLocationIndexedLine(line100())
 	loc := idx.Project(geom.XY{X: 30, Y: 25})
-	got := loc.GetCoordinate(line100())
+	got := loc.Coordinate(line100())
 	assert.InDeltaf(t, 30.0, got.X, 1e-9, "projected coord: %+v", got)
 	assert.Equalf(t, 0.0, got.Y, "projected coord: %+v", got)
 }
@@ -55,7 +55,7 @@ func TestLocIndexedProjectExternal(t *testing.T) {
 func TestLocIndexedIndexOf(t *testing.T) {
 	idx := NewLocationIndexedLine(line100())
 	loc := idx.IndexOf(geom.XY{X: 70, Y: 0})
-	got := loc.GetCoordinate(line100())
+	got := loc.Coordinate(line100())
 	assert.InDeltaf(t, 70.0, got.X, 1e-9, "indexOf(70,0): got %+v", got)
 }
 

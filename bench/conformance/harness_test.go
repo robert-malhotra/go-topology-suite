@@ -5,9 +5,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/measure"
+	"github.com/stretchr/testify/require"
 
 	"github.com/exergy-dev/go-topology-suite/internal/corpus"
 )
@@ -72,9 +72,8 @@ func buildPairs() []pairList {
 //
 // It is intentionally NOT a pass/fail test: divergences between
 // independent geometry libraries are documented behaviour, not bugs in
-// go-topology-suite. Every disagreement is recorded via t.Logf so a developer can
-// audit the discrepancies (and append accepted ones to
-// KNOWN-DIVERGENCES.md at the repo root).
+// go-topology-suite. Every disagreement is recorded via t.Logf so a
+// developer can audit the discrepancies.
 //
 // The test prints one summary line per (gts, other) pairing per Op
 // at the end: "[conformance] gts vs simplefeatures: 87/100 ops
@@ -100,7 +99,7 @@ func TestConformance(t *testing.T) {
 		agreeCount[im.Name()] = map[Op]int{}
 	}
 
-	terraArea := func(g geom.Geometry) float64 { return measure.Area(g) }
+	gtsArea := func(g geom.Geometry) float64 { return measure.Area(g) }
 
 	for _, p := range pairs {
 		for _, op := range AllOps {
@@ -108,7 +107,7 @@ func TestConformance(t *testing.T) {
 			totalCount[op]++
 			for _, im := range others {
 				othRes := run(im, op, p.a, p.b)
-				ok, detail := agree(op, refRes, othRes, terraArea)
+				ok, detail := agree(op, refRes, othRes, gtsArea)
 				if ok {
 					agreeCount[im.Name()][op]++
 					continue

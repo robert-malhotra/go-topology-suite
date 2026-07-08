@@ -7,12 +7,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 	"github.com/exergy-dev/go-topology-suite/prepare"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // circleRing builds a closed CCW ring approximating a circle of radius r
@@ -47,7 +47,7 @@ func TestPreparedPolygon_ContainsPoint_MatchesKernel(t *testing.T) {
 			X: (rng.Float64()*2 - 1) * 15,
 			Y: (rng.Float64()*2 - 1) * 15,
 		}
-		want := planar.Default.PointInRing(p, ring)
+		want := planar.Default().PointInRing(p, ring)
 		got := pp.ContainsPoint(p)
 		if got != want {
 			// OnBoundary is highly sensitive to floating-point luck on a

@@ -264,7 +264,7 @@ func (v *validator) checkPolygon(p *geom.Polygon) {
 		}
 	}
 	if p.NumRings() > 1 {
-		k := planar.Default
+		k := planar.Default()
 		v.checkPolygonHoles(p, k)
 		v.checkInteriorConnectivity(p, k)
 	}
@@ -518,7 +518,7 @@ func (v *validator) checkHolePair(i, j int, a, b []geom.XY, k kernel.Kernel) {
 }
 
 func (v *validator) checkMultiPolygon(mp *geom.MultiPolygon) {
-	k := planar.Default
+	k := planar.Default()
 	for i := 0; i < mp.NumGeometries(); i++ {
 		a := mp.PolygonAt(i)
 		if a.IsEmpty() || a.NumRings() == 0 {
@@ -713,7 +713,7 @@ func ringsShareCurve(a, b []geom.XY) bool {
 
 func ringTouchPointCount(a, b []geom.XY) int {
 	points := map[geom.XY]struct{}{}
-	k := planar.Default
+	k := planar.Default()
 	for i := 0; i+1 < len(a); i++ {
 		for j := 0; j+1 < len(b); j++ {
 			if collinearShare(a[i], a[i+1], b[j], b[j+1]) {

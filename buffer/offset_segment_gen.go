@@ -10,8 +10,8 @@ import (
 
 // JTS-published constants from
 // org.locationtech.jts.operation.buffer.OffsetSegmentGenerator. Values
-// are kept in sync with JTS — do not edit without updating the JTS
-// reference link in KNOWN-DIVERGENCES.md.
+// are kept in sync with JTS — do not edit without re-running the JTS
+// conformance harness (go test -tags=jts ./internal/jtstest/...).
 const (
 	// offsetSegmentSeparationFactor controls how close two adjacent
 	// offset endpoints can be before the corner-emission code skips
@@ -179,7 +179,7 @@ func (g *offsetSegmentGenerator) addNextSegment(p geom.XY, addStartPoint bool) {
 		return
 	}
 
-	orientation := planar.Default.Orient(g.s0, g.s1, g.s2)
+	orientation := planar.Default().Orient(g.s0, g.s1, g.s2)
 	outsideTurn := (orientation == kernel.Clockwise && g.side == positionLeft) ||
 		(orientation == kernel.CounterClockwise && g.side == positionRight)
 
@@ -264,7 +264,7 @@ func (g *offsetSegmentGenerator) addOutsideTurn(orientation kernel.Orientation, 
 // final buffer outline (it sits inside the buffer's interior) but is
 // essential for the noder to correctly classify the corner geometry.
 func (g *offsetSegmentGenerator) addInsideTurn(orientation kernel.Orientation, addStartPoint bool) {
-	if pt, ok := planar.Default.SegmentIntersection(
+	if pt, ok := planar.Default().SegmentIntersection(
 		g.offset0.p0, g.offset0.p1, g.offset1.p0, g.offset1.p1); ok {
 		g.segList.addPt(pt)
 		return
@@ -449,7 +449,7 @@ func dist(a, b geom.XY) float64 {
 // pointSegDist is the perpendicular distance from p to the segment
 // [a, b], clamped at the endpoints.
 func pointSegDist(p, a, b geom.XY) float64 {
-	return planar.Default.SegmentDistance(p, a, b)
+	return planar.Default().SegmentDistance(p, a, b)
 }
 
 // lineLineIntersection returns the intersection of the infinite lines

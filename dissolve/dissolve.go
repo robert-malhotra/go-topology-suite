@@ -22,13 +22,13 @@ import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
-// LineDissolver dissolves the linear components in geometries and returns
+// Lines dissolves the linear components in geometries and returns
 // a slice of LineStrings whose union covers every unique input segment
 // exactly once. Output linestrings run between node vertices (degree 1 or
 // degree ≥3); degree-2 vertices are merged through.
 //
-// Mirrors LineDissolver.dissolve(Geometry).
-func LineDissolver(geometries []geom.Geometry) []*geom.LineString {
+// Port of org.locationtech.jts.dissolve.LineDissolver.dissolve(Geometry).
+func Lines(geometries []geom.Geometry) []*geom.LineString {
 	d := newDissolver()
 	for _, g := range geometries {
 		d.add(g)

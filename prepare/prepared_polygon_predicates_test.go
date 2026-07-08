@@ -3,9 +3,9 @@ package prepare_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/prepare"
+	"github.com/stretchr/testify/assert"
 )
 
 func unitSquarePolygon() *geom.Polygon {

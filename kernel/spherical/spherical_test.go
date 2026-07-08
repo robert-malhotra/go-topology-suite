@@ -4,10 +4,10 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var k = Kernel{radius: EarthRadius}
@@ -21,7 +21,7 @@ func near(t *testing.T, got, want, tol float64, msg string) {
 }
 
 func TestSatisfiesKernel(t *testing.T) {
-	var _ kernel.Kernel = Default
+	var _ kernel.Kernel = Default()
 }
 
 func TestDistanceKnownPairs(t *testing.T) {

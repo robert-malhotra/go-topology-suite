@@ -39,11 +39,11 @@ func TestLinearLocationCompare(t *testing.T) {
 func TestLinearLocationGetCoordinate(t *testing.T) {
 	ls := line100()
 	loc := NewLinearLocation(0, 0.5)
-	got := loc.GetCoordinate(ls)
+	got := loc.Coordinate(ls)
 	assert.Equalf(t, 25.0, got.X, "midpoint of first segment: got %+v", got)
 	assert.Equalf(t, 0.0, got.Y, "midpoint of first segment: got %+v", got)
 	end := EndLocation(ls)
-	got = end.GetCoordinate(ls)
+	got = end.Coordinate(ls)
 	assert.Equalf(t, 100.0, got.X, "end coord: got %+v", got)
 	assert.Equalf(t, 0.0, got.Y, "end coord: got %+v", got)
 }
@@ -77,7 +77,7 @@ func TestLinearLocationOnMultiLine(t *testing.T) {
 	b := geom.NewLineString(nil, []geom.XY{{X: 100, Y: 0}, {X: 110, Y: 0}})
 	mls := geom.NewMultiLineString(nil, a, b)
 	loc := NewLinearLocationFull(1, 0, 0.5)
-	got := loc.GetCoordinate(mls)
+	got := loc.Coordinate(mls)
 	assert.InDeltaf(t, 105.0, got.X, 1e-9, "midpoint of second component: got %+v", got)
 	assert.Equalf(t, 0.0, got.Y, "midpoint of second component: got %+v", got)
 }

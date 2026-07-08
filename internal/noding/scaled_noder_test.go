@@ -3,8 +3,8 @@ package noding
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/stretchr/testify/assert"
 )
 
 // recordingNoder captures the input it received so tests can verify

@@ -1,13 +1,14 @@
 package overlay
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 	"github.com/exergy-dev/go-topology-suite/measure"
-	"github.com/exergy-dev/go-topology-suite/overlay/overlayng"
 )
 
 // tryOverlayNG runs the overlay-NG path on polygonal inputs (single
@@ -570,11 +571,11 @@ func unwrapLinearRing(g geom.Geometry) geom.Geometry {
 	return g
 }
 
-// IntersectionGeneral returns subject ∩ clipper for arbitrary polygons
+// intersectionGeneral returns subject ∩ clipper for arbitrary polygons
 // or multipolygons. Falls back to the v0.1 Greiner-Hormann path on
 // inputs the overlay-NG path can't handle (currently only single-polygon
 // inputs go through GH; multi-polygon inputs always use overlay-NG).
-func IntersectionGeneral(subject, clipper geom.Geometry) (geom.Geometry, error) {
+func intersectionGeneral(subject, clipper geom.Geometry) (geom.Geometry, error) {
 	if err := requireSameCRS(subject, clipper); err != nil {
 		return nil, err
 	}
@@ -598,7 +599,7 @@ func IntersectionGeneral(subject, clipper geom.Geometry) (geom.Geometry, error) 
 	}
 	// Greiner-Hormann fallback only handles single-polygon inputs.
 	if len(subj) != 1 || len(clip) != 1 {
-		return nil, gts.ErrUnsupportedKernel
+		return nil, fmt.Errorf("overlay: Intersection fallback handles only single-polygon operands: %w", gts.ErrUnsupported)
 	}
 	sp, cp := subj[0], clip[0]
 	rings, hadIx := runGreinerHormann(outerRing(sp), outerRing(cp), string(opIntersection))
@@ -645,7 +646,7 @@ func Union(subject, other geom.Geometry) (geom.Geometry, error) {
 		return g, nil
 	}
 	if len(subj) != 1 || len(oth) != 1 {
-		return nil, gts.ErrUnsupportedKernel
+		return nil, fmt.Errorf("overlay: Union fallback handles only single-polygon operands: %w", gts.ErrUnsupported)
 	}
 	sp, op := subj[0], oth[0]
 	rings, hadIx := runGreinerHormann(outerRing(sp), outerRing(op), string(opUnion))
@@ -696,7 +697,7 @@ func Difference(subject, other geom.Geometry) (geom.Geometry, error) {
 		return g, nil
 	}
 	if len(subj) != 1 || len(oth) != 1 {
-		return nil, gts.ErrUnsupportedKernel
+		return nil, fmt.Errorf("overlay: Difference fallback handles only single-polygon operands: %w", gts.ErrUnsupported)
 	}
 	sp, op := subj[0], oth[0]
 	rings, hadIx := runGreinerHormann(outerRing(sp), outerRing(op), string(opDifference))
@@ -826,7 +827,7 @@ func emptyOfDim(c *crs.CRS, dim int) geom.Geometry {
 // unwrapPolygonal normalises operands to ([]*geom.Polygon, []*geom.Polygon)
 // after CRS-equal checks. Empty inputs return nil slices (caller must
 // handle). Both *geom.Polygon and *geom.MultiPolygon are accepted; any
-// other geometry type returns ErrUnsupportedKernel.
+// other geometry type returns an error wrapping gts.ErrUnsupported.
 func unwrapPolygonal(a, b geom.Geometry) ([]*geom.Polygon, []*geom.Polygon, error) {
 	if err := requireSameCRS(a, b); err != nil {
 		return nil, nil, err
@@ -861,7 +862,7 @@ func polygonsOf(g geom.Geometry) ([]*geom.Polygon, error) {
 		}
 		return out, nil
 	}
-	return nil, gts.ErrUnsupportedKernel
+	return nil, fmt.Errorf("overlay: unsupported geometry type %T: %w", g, gts.ErrUnsupported)
 }
 
 // polygonsToGeometry returns a single polygon, multipolygon, or empty

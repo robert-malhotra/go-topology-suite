@@ -15,7 +15,7 @@ func ls(pts ...geom.XY) *geom.LineString {
 func TestDissolve_NoSharedSegments(t *testing.T) {
 	a := ls(geom.XY{X: 0, Y: 0}, geom.XY{X: 1, Y: 0})
 	b := ls(geom.XY{X: 2, Y: 0}, geom.XY{X: 3, Y: 0})
-	out := LineDissolver([]geom.Geometry{a, b})
+	out := Lines([]geom.Geometry{a, b})
 	require.Equalf(t, 2, len(out), "got %d, want 2 (disjoint inputs)", len(out))
 }
 
@@ -23,7 +23,7 @@ func TestDissolve_SharedSegmentDeduped(t *testing.T) {
 	// Two identical lines — should collapse to one.
 	a := ls(geom.XY{X: 0, Y: 0}, geom.XY{X: 1, Y: 0})
 	b := ls(geom.XY{X: 0, Y: 0}, geom.XY{X: 1, Y: 0})
-	out := LineDissolver([]geom.Geometry{a, b})
+	out := Lines([]geom.Geometry{a, b})
 	require.Equalf(t, 1, len(out), "got %d, want 1", len(out))
 	assert.Equalf(t, 2, out[0].NumPoints(), "npoints %d", out[0].NumPoints())
 }
@@ -32,7 +32,7 @@ func TestDissolve_ChainMergedThroughDegree2(t *testing.T) {
 	// (0,0)→(1,0)→(2,0) — interior vertex degree 2, should merge.
 	a := ls(geom.XY{X: 0, Y: 0}, geom.XY{X: 1, Y: 0})
 	b := ls(geom.XY{X: 1, Y: 0}, geom.XY{X: 2, Y: 0})
-	out := LineDissolver([]geom.Geometry{a, b})
+	out := Lines([]geom.Geometry{a, b})
 	require.Equalf(t, 1, len(out), "got %d, want 1 (merged chain)", len(out))
 	assert.Equalf(t, 3, out[0].NumPoints(), "expected 3 points after merge, got %d", out[0].NumPoints())
 }
@@ -42,14 +42,14 @@ func TestDissolve_BranchingNotMerged(t *testing.T) {
 	a := ls(geom.XY{X: 0, Y: 0}, geom.XY{X: 1, Y: 0})
 	b := ls(geom.XY{X: 1, Y: 0}, geom.XY{X: 2, Y: 0})
 	c := ls(geom.XY{X: 1, Y: 0}, geom.XY{X: 1, Y: 1})
-	out := LineDissolver([]geom.Geometry{a, b, c})
+	out := Lines([]geom.Geometry{a, b, c})
 	require.Equalf(t, 3, len(out), "got %d, want 3 (T-junction)", len(out))
 }
 
 func TestDissolve_IsolatedRing(t *testing.T) {
 	// Closed square — every node degree 2, emit single ring.
 	a := ls(geom.XY{X: 0, Y: 0}, geom.XY{X: 1, Y: 0}, geom.XY{X: 1, Y: 1}, geom.XY{X: 0, Y: 1}, geom.XY{X: 0, Y: 0})
-	out := LineDissolver([]geom.Geometry{a})
+	out := Lines([]geom.Geometry{a})
 	require.Equalf(t, 1, len(out), "got %d, want 1 ring", len(out))
 	assert.Equalf(t, 5, out[0].NumPoints(), "expected closed ring of 5 points, got %d", out[0].NumPoints())
 	assert.True(t, out[0].IsClosed(), "ring should be closed")
@@ -65,11 +65,11 @@ func TestDissolve_PolygonBoundary(t *testing.T) {
 	// shared interior edges; a separate operation is needed for that.)
 	left := geom.NewPolygon(nil, []geom.XY{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}, {X: 0, Y: 0}})
 	right := geom.NewPolygon(nil, []geom.XY{{X: 1, Y: 0}, {X: 2, Y: 0}, {X: 2, Y: 1}, {X: 1, Y: 1}, {X: 1, Y: 0}})
-	out := LineDissolver([]geom.Geometry{left, right})
+	out := Lines([]geom.Geometry{left, right})
 	require.Equalf(t, 3, len(out), "got %d chains, want 3", len(out))
 }
 
 func TestDissolve_EmptyInput(t *testing.T) {
-	got := LineDissolver(nil)
+	got := Lines(nil)
 	assert.Nilf(t, got, "nil input should give nil, got %v", got)
 }

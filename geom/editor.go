@@ -3,8 +3,8 @@
 // Tree-walking helper that produces a new Geometry by applying a per-vertex
 // transformation function to every coordinate of the input. The result has
 // the same structural shape as the input (Polygon → Polygon, MultiPolygon →
-// MultiPolygon, GeometryCollection → GeometryCollection, etc.) — see
-// GeometryTransformer if a structure-changing edit is required.
+// MultiPolygon, GeometryCollection → GeometryCollection, etc.); Edit cannot
+// express structure-changing transformations.
 //
 // The editor does NOT validate the result; callers that need invariants
 // (closed rings, non-self-intersection, …) should run the result through
@@ -16,10 +16,9 @@ package geom
 // coordinate has been replaced by fn(xy). Z and M ordinates are preserved
 // unchanged.
 //
-// Empty children that result from editing a non-empty input are dropped
-// from collection types, matching JTS behaviour. If the resulting top-level
-// geometry collapses to empty (e.g. a Polygon shell whose ring is rejected)
-// an empty geometry of the same Type is returned.
+// Structure is preserved exactly: collection types keep their children in
+// order, including empty children, and per-vertex editing never changes a
+// child's coordinate count.
 //
 // fn must be deterministic; the editor may call it once per coordinate.
 func Edit(g Geometry, fn func(XY) XY) Geometry {
@@ -113,11 +112,7 @@ func editMultiPoint(mp *MultiPoint, fn func(XY) XY) *MultiPoint {
 func editMultiLineString(m *MultiLineString, fn func(XY) XY) *MultiLineString {
 	parts := make([]*LineString, 0, len(m.parts))
 	for _, ls := range m.parts {
-		edited := editLineString(ls, fn)
-		if edited.IsEmpty() {
-			continue
-		}
-		parts = append(parts, edited)
+		parts = append(parts, editLineString(ls, fn))
 	}
 	return &MultiLineString{layout: m.layout, crs: m.crs, parts: parts}
 }
@@ -125,11 +120,7 @@ func editMultiLineString(m *MultiLineString, fn func(XY) XY) *MultiLineString {
 func editMultiPolygon(m *MultiPolygon, fn func(XY) XY) *MultiPolygon {
 	parts := make([]*Polygon, 0, len(m.parts))
 	for _, p := range m.parts {
-		edited := editPolygon(p, fn)
-		if edited.IsEmpty() {
-			continue
-		}
-		parts = append(parts, edited)
+		parts = append(parts, editPolygon(p, fn))
 	}
 	return &MultiPolygon{layout: m.layout, crs: m.crs, parts: parts}
 }
@@ -137,11 +128,9 @@ func editMultiPolygon(m *MultiPolygon, fn func(XY) XY) *MultiPolygon {
 func editGeometryCollection(gc *GeometryCollection, fn func(XY) XY) *GeometryCollection {
 	parts := make([]Geometry, 0, len(gc.parts))
 	for _, child := range gc.parts {
-		edited := Edit(child, fn)
-		if edited == nil || edited.IsEmpty() {
-			continue
+		if edited := Edit(child, fn); edited != nil {
+			parts = append(parts, edited)
 		}
-		parts = append(parts, edited)
 	}
 	return &GeometryCollection{layout: gc.layout, crs: gc.crs, parts: parts}
 }

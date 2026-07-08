@@ -3,11 +3,11 @@ package overlay
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/measure"
 	"github.com/exergy-dev/go-topology-suite/wkt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestMultiPolygon_IntersectionWithSingle: a MultiPolygon (two
@@ -23,7 +23,7 @@ func TestMultiPolygon_IntersectionWithSingle(t *testing.T) {
 	clip, err := wkt.Unmarshal(`POLYGON ((1 0, 14 0, 14 4, 1 4, 1 0))`)
 	require.NoError(t, err)
 
-	got, err := IntersectionGeneral(subj, clip)
+	got, err := intersectionGeneral(subj, clip)
 	require.NoError(t, err)
 
 	// Expect total area = 4×4 (left piece) + 4×4 (right piece) = 32.
@@ -107,7 +107,7 @@ func TestMultiPolygon_IntersectionDisjoint(t *testing.T) {
 	)`)
 	require.NoError(t, err)
 
-	got, err := IntersectionGeneral(subj, clip)
+	got, err := intersectionGeneral(subj, clip)
 	require.NoError(t, err)
 	assert.True(t, got.IsEmpty(), "disjoint multipoly intersection should be empty (got area %v)", measure.Area(got))
 }
@@ -125,7 +125,7 @@ func TestMultiPolygon_NestedContainment(t *testing.T) {
 	clip, err := wkt.Unmarshal(`POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0))`)
 	require.NoError(t, err)
 
-	got, err := IntersectionGeneral(subj, clip)
+	got, err := intersectionGeneral(subj, clip)
 	require.NoError(t, err)
 	// Only the 4×4 inner component intersects the clip.
 	assert.InDelta(t, 16.0, measure.Area(got), 1e-9, "intersection area")

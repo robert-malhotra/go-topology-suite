@@ -193,9 +193,9 @@ func (l LinearLocation) CompareLocationValues(componentIndex, segmentIndex int, 
 	return 0
 }
 
-// GetCoordinate returns the XY of the location on g. Out-of-range
+// Coordinate returns the XY of the location on g. Out-of-range
 // locations return the corresponding endpoint vertex.
-func (l LinearLocation) GetCoordinate(g geom.Geometry) geom.XY {
+func (l LinearLocation) Coordinate(g geom.Geometry) geom.XY {
 	n := numComponents(g)
 	if n == 0 {
 		return geom.XY{X: math.NaN(), Y: math.NaN()}

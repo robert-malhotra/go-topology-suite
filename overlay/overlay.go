@@ -29,7 +29,7 @@ func Intersection(subject, clipper geom.Geometry) (geom.Geometry, error) {
 	clip, cIsPoly := clipper.(*geom.Polygon)
 	if !sIsPoly || !cIsPoly {
 		if isPolygonal(subject) && isPolygonal(clipper) {
-			return IntersectionGeneral(subject, clipper)
+			return intersectionGeneral(subject, clipper)
 		}
 		return intersectionNonPolygonal(subject, clipper)
 	}
@@ -63,7 +63,7 @@ func Intersection(subject, clipper geom.Geometry) (geom.Geometry, error) {
 		xybuf.Release(clipRingP)
 	}
 	// General path: Greiner-Hormann.
-	return IntersectionGeneral(subject, clipper)
+	return intersectionGeneral(subject, clipper)
 }
 
 // isConvexCCW returns true iff the ring is convex and counter-clockwise.
@@ -72,7 +72,7 @@ func isConvexCCW(ring []geom.XY) bool {
 	if len(ring) < 4 {
 		return false
 	}
-	k := planar.Default
+	k := planar.Default()
 	prev := 0 // 0 means undecided
 	for i := 0; i+2 < len(ring); i++ {
 		o := k.Orient(ring[i], ring[i+1], ring[i+2])

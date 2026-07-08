@@ -49,8 +49,8 @@ func resolveSRID(g geom.Geometry, c *config) int {
 	if c.srid > 0 {
 		return c.srid
 	}
-	if cr := g.CRS(); cr != nil && cr.Authority == "EPSG" && cr.Code != 0 {
-		return cr.Code
+	if code, ok := g.CRS().EPSG(); ok {
+		return code
 	}
 	return 0
 }

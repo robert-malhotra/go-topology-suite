@@ -3,9 +3,9 @@ package predicate
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/wkt"
+	"github.com/stretchr/testify/require"
 )
 
 // rectFromWKT parses a WKT polygon and asserts the result is a Polygon.

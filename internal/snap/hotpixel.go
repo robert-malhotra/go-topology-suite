@@ -199,7 +199,7 @@ func (s *HotPixelSet) segmentSplits(a, b geom.XY, threshold float64) []geom.XY {
 				continue
 			}
 		} else {
-			d := planar.Default.SegmentDistance(hp.Centre, a, b)
+			d := planar.Default().SegmentDistance(hp.Centre, a, b)
 			if d >= threshold {
 				continue
 			}

@@ -4,11 +4,11 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/wkt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // roundTrip encodes g, decodes the result, and re-encodes — round-trip
@@ -54,7 +54,7 @@ func TestEWKBSRIDPreserved(t *testing.T) {
 	got, err := Unmarshal(data)
 	require.NoError(t, err)
 	require.NotNil(t, got.CRS(), "SRID lost in round-trip")
-	assert.Equal(t, 4326, got.CRS().Code, "SRID lost in round-trip: %+v", got.CRS())
+	assert.Equal(t, 4326, got.CRS().Code(), "SRID lost in round-trip: %+v", got.CRS())
 
 	// Now without CRS — no SRID flag should be set.
 	data2, _ := Marshal(g) // g has nil CRS

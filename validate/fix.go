@@ -16,9 +16,9 @@ import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
-// FixOptions controls Fix behaviour. The zero value matches JTS
+// fixOptions controls Fix behaviour. The zero value matches JTS
 // GeometryFixer's defaults: KeepCollapsed=false, KeepMulti=true.
-type FixOptions struct {
+type fixOptions struct {
 	// KeepCollapsed: when a Polygon shell or LineString collapses to a
 	// lower-dimension geometry, return that lower-dimension result
 	// instead of an empty geometry. Default: false (collapses become
@@ -31,17 +31,17 @@ type FixOptions struct {
 	KeepMulti bool
 }
 
-// FixOption mutates a FixOptions value. Pass to Fix.
-type FixOption func(*FixOptions)
+// FixOption mutates a fixOptions value. Pass to Fix.
+type FixOption func(*fixOptions)
 
 // WithKeepCollapsed sets the KeepCollapsed flag.
 func WithKeepCollapsed(b bool) FixOption {
-	return func(o *FixOptions) { o.KeepCollapsed = b }
+	return func(o *fixOptions) { o.KeepCollapsed = b }
 }
 
 // WithKeepMulti sets the KeepMulti flag.
 func WithKeepMulti(b bool) FixOption {
-	return func(o *FixOptions) { o.KeepMulti = b }
+	return func(o *fixOptions) { o.KeepMulti = b }
 }
 
 // Fix returns a valid geometry approximating g. Mirrors JTS
@@ -55,7 +55,7 @@ func WithKeepMulti(b bool) FixOption {
 //
 // Currently the implementation delegates to validate.MakeValid, which
 // covers the MakeValid/GeometryFixer rules ported in earlier waves
-// (Wave 1+4). The FixOptions surface is wired through where supported
+// (Wave 1+4). The fixOptions surface is wired through where supported
 // — KeepMulti is honoured for MultiPoint / MultiLineString /
 // MultiPolygon results; KeepCollapsed currently has no MakeValid hook
 // and is reserved for future use.
@@ -63,7 +63,7 @@ func Fix(g geom.Geometry, opts ...FixOption) geom.Geometry {
 	if g == nil {
 		return nil
 	}
-	cfg := FixOptions{KeepCollapsed: false, KeepMulti: true}
+	cfg := fixOptions{KeepCollapsed: false, KeepMulti: true}
 	for _, opt := range opts {
 		opt(&cfg)
 	}

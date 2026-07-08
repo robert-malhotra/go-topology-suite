@@ -32,13 +32,13 @@ func OperationFor(src, dst *CRS) (Operation, error) {
 	if src == nil || dst == nil {
 		return nil, ErrUntransformable
 	}
-	if src.Definition == nil || dst.Definition == nil {
+	if src.definition == nil || dst.definition == nil {
 		return nil, ErrUntransformable
 	}
 	return &pipelineOp{
-		src:             src.Definition,
-		dst:             dst.Definition,
-		needsDatumShift: src.Definition.Datum.Name != dst.Definition.Datum.Name,
+		src:             src.definition,
+		dst:             dst.definition,
+		needsDatumShift: src.definition.Datum.Name != dst.definition.Datum.Name,
 	}, nil
 }
 

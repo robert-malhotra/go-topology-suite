@@ -182,7 +182,7 @@ func (pp *PreparedPolygon) anyProperSegmentCrossing(g geom.Geometry) bool {
 			ring := pp.rings[it.Value.ring]
 			vi := int(it.Value.vertex)
 			c, d := ring[vi], ring[vi+1]
-			ip, ok := planar.Default.SegmentIntersection(a, b, c, d)
+			ip, ok := planar.Default().SegmentIntersection(a, b, c, d)
 			if !ok {
 				return true
 			}
@@ -206,15 +206,15 @@ func (pp *PreparedPolygon) segmentHitsAnyEdge(a, b geom.XY) bool {
 		ring := pp.rings[it.Value.ring]
 		vi := int(it.Value.vertex)
 		c, d := ring[vi], ring[vi+1]
-		if _, ok := planar.Default.SegmentIntersection(a, b, c, d); ok {
+		if _, ok := planar.Default().SegmentIntersection(a, b, c, d); ok {
 			hit = true
 			return false
 		}
 		// Collinear-touch (endpoint-on-other-segment) cases.
-		if planar.Default.SegmentDistance(a, c, d) == 0 ||
-			planar.Default.SegmentDistance(b, c, d) == 0 ||
-			planar.Default.SegmentDistance(c, a, b) == 0 ||
-			planar.Default.SegmentDistance(d, a, b) == 0 {
+		if planar.Default().SegmentDistance(a, c, d) == 0 ||
+			planar.Default().SegmentDistance(b, c, d) == 0 ||
+			planar.Default().SegmentDistance(c, a, b) == 0 ||
+			planar.Default().SegmentDistance(d, a, b) == 0 {
 			hit = true
 			return false
 		}

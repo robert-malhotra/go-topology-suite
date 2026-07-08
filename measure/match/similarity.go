@@ -1,28 +1,23 @@
-package measure
+// Package match provides similarity measures between geometries,
+// porting org.locationtech.jts.algorithm.match.
+//
+// The measures return scores in [0, 1]: 1 means identical, 0 means
+// fully dissimilar. Scores from different measures can be combined
+// with CombineSimilarities (geometric mean) or CombineMin (JTS
+// pairwise-min parity).
+//
+// The package lives outside measure because AreaSimilarity computes
+// real overlay intersections and unions: measure is a leaf package
+// imported by overlay, so the similarity family sits above both.
+package match
 
 import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/densify"
 	"github.com/exergy-dev/go-topology-suite/geom"
-)
-
-// IntersectionFunc and UnionFunc are pluggable hooks used by
-// AreaSimilarity to compute geometric intersection and union without
-// pulling overlay into the measure package's dependency graph: overlay
-// already depends on measure (for Area / Centroid helpers), so a direct
-// import would form a cycle.
-//
-// Importing the github.com/exergy-dev/go-topology-suite/measure/match package wires
-// these hooks via that package's init(); blank-importing it from a
-// build is the simplest way to enable AreaSimilarity:
-//
-//	import _ "github.com/exergy-dev/go-topology-suite/measure/match"
-//
-// Callers that do not register the hooks see NaN from AreaSimilarity.
-var (
-	IntersectionFunc func(a, b geom.Geometry) (geom.Geometry, error)
-	UnionFunc        func(a, b geom.Geometry) (geom.Geometry, error)
+	"github.com/exergy-dev/go-topology-suite/measure"
+	"github.com/exergy-dev/go-topology-suite/overlay"
 )
 
 // hausdorffSimilarityDensifyFraction is the relative segment-length
@@ -65,7 +60,7 @@ func HausdorffSimilarity(a, b geom.Geometry) float64 {
 	if envSize == 0 {
 		// Both inputs collapsed to a point — distance also collapses
 		// to 0, so similarity is 1 if they coincide.
-		if DiscreteHausdorff(a, b) == 0 {
+		if measure.DiscreteHausdorff(a, b) == 0 {
 			return 1
 		}
 		return 0
@@ -78,7 +73,7 @@ func HausdorffSimilarity(a, b geom.Geometry) float64 {
 	dA := densify.Densify(a, maxLen)
 	dB := densify.Densify(b, maxLen)
 
-	dist := DiscreteHausdorff(dA, dB)
+	dist := measure.DiscreteHausdorff(dA, dB)
 	if dist == 0 {
 		return 1
 	}
@@ -96,11 +91,8 @@ func HausdorffSimilarity(a, b geom.Geometry) float64 {
 //
 // Empty inputs: both empty returns 1; only one empty returns 0.
 //
-// Returns NaN if either input is nil, or if the overlay hook
-// (IntersectionFunc / UnionFunc) has not been registered. Importing
-// the github.com/exergy-dev/go-topology-suite/overlay package wires the hook
-// automatically; otherwise the caller must set IntersectionFunc and
-// UnionFunc explicitly.
+// Returns NaN if either input is nil or if the underlying overlay
+// operation fails (for example on invalid or mixed-CRS inputs).
 //
 // Port of org.locationtech.jts.algorithm.match.AreaSimilarityMeasure.
 func AreaSimilarity(a, b geom.Geometry) float64 {
@@ -115,19 +107,16 @@ func AreaSimilarity(a, b geom.Geometry) float64 {
 	if aEmpty || bEmpty {
 		return 0
 	}
-	if IntersectionFunc == nil || UnionFunc == nil {
-		return math.NaN()
-	}
-	inter, err := IntersectionFunc(a, b)
+	inter, err := overlay.Intersection(a, b)
 	if err != nil {
 		return math.NaN()
 	}
-	un, err := UnionFunc(a, b)
+	un, err := overlay.Union(a, b)
 	if err != nil {
 		return math.NaN()
 	}
-	areaInter := Area(inter)
-	areaUnion := Area(un)
+	areaInter := measure.Area(inter)
+	areaUnion := measure.Area(un)
 	if areaUnion == 0 {
 		// Both inputs are non-areal (lines/points) or coincide on a
 		// measure-zero set. Treat as fully similar iff the union's
@@ -162,7 +151,7 @@ func FrechetSimilarity(a, b *geom.LineString) float64 {
 		return 0
 	}
 
-	dist := DiscreteFrechet(a, b)
+	dist := measure.DiscreteFrechet(a, b)
 	if dist == 0 {
 		return 1
 	}

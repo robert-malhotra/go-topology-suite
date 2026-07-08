@@ -150,7 +150,7 @@ func (p *parser) parseSRIDPrefix() error {
 		return errors.New("wkt: SRID prefix missing terminator ';'")
 	}
 	p.pos++ // consume ';'
-	p.crs = &crs.CRS{Authority: "EPSG", Code: code}
+	p.crs = crs.New("EPSG", code, crs.UnknownKind)
 	return nil
 }
 
@@ -366,7 +366,7 @@ func (p *parser) parseLinearRing() (geom.Geometry, error) {
 	if err != nil {
 		return nil, err
 	}
-	return geom.NewLinearRingFlatNoClone(layout, p.crs, flat), nil
+	return geom.NewLinearRingOwned(layout, p.crs, flat), nil
 }
 
 func (p *parser) parsePolygon() (geom.Geometry, error) {

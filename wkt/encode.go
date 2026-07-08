@@ -57,8 +57,8 @@ func MarshalEWKT(g geom.Geometry, opts ...Option) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if c := g.CRS(); c != nil && c.Authority == "EPSG" && c.Code != 0 {
-		return "SRID=" + strconv.Itoa(c.Code) + ";" + core, nil
+	if code, ok := g.CRS().EPSG(); ok {
+		return "SRID=" + strconv.Itoa(code) + ";" + core, nil
 	}
 	return core, nil
 }

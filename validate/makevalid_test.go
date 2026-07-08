@@ -5,11 +5,11 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMakeValid_UnclosedRing(t *testing.T) {
@@ -28,13 +28,13 @@ func TestMakeValid_CWRingReorientedToCCW(t *testing.T) {
 	cw := []geom.XY{
 		{X: 0, Y: 0}, {X: 0, Y: 10}, {X: 10, Y: 10}, {X: 10, Y: 0}, {X: 0, Y: 0},
 	}
-	require.Less(t, planar.Default.RingArea(cw), 0.0, "test setup: ring should be CW (negative area), got %v", planar.Default.RingArea(cw))
+	require.Less(t, planar.Default().RingArea(cw), 0.0, "test setup: ring should be CW (negative area), got %v", planar.Default().RingArea(cw))
 	p := geom.NewPolygon(nil, cw)
 	g, err := MakeValid(p)
 	require.NoError(t, err)
 	out, ok := g.(*geom.Polygon)
 	require.True(t, ok, "expected *Polygon, got %T", g)
-	assert.Greater(t, planar.Default.RingArea(out.ExteriorRing()), 0.0, "expected CCW outer ring (positive area)")
+	assert.Greater(t, planar.Default().RingArea(out.ExteriorRing()), 0.0, "expected CCW outer ring (positive area)")
 	assert.NoError(t, Validate(out), "expected valid result")
 }
 
@@ -164,7 +164,7 @@ func TestMakeValid_HolePreservedWhenInsideShell(t *testing.T) {
 	require.True(t, ok, "expected *Polygon, got %T", g)
 	assert.Equal(t, 2, out.NumRings(), "expected hole preserved (2 rings), got %d rings", out.NumRings())
 	// Hole orientation must be CW (negative signed area) when shell is CCW.
-	assert.Less(t, planar.Default.RingArea(out.Ring(1)), 0.0, "expected CW hole")
+	assert.Less(t, planar.Default().RingArea(out.Ring(1)), 0.0, "expected CW hole")
 	assert.NoError(t, Validate(out), "expected valid polygon-with-hole")
 }
 
@@ -228,10 +228,10 @@ func TestMakeValid_HoleOverlapsShellSubtracted(t *testing.T) {
 	// was carved out by the hole).
 	out, ok := g.(*geom.Polygon)
 	require.True(t, ok, "expected *Polygon, got %T", g)
-	shellArea := planar.Default.RingArea(outer)
-	resultArea := planar.Default.RingArea(out.ExteriorRing())
+	shellArea := planar.Default().RingArea(outer)
+	resultArea := planar.Default().RingArea(out.ExteriorRing())
 	for i := 1; i < out.NumRings(); i++ {
-		resultArea += planar.Default.RingArea(out.Ring(i))
+		resultArea += planar.Default().RingArea(out.Ring(i))
 	}
 	assert.Less(t, resultArea, shellArea, "expected overlap subtracted (result smaller than shell)")
 }

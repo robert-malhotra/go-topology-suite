@@ -42,9 +42,9 @@ func resolve(g geom.Geometry, opts []Option) config {
 
 func defaultKernel(g geom.Geometry) kernel.Kernel {
 	if g != nil && g.CRS().IsGeographic() {
-		return geodesic.Default
+		return geodesic.Default()
 	}
-	return planar.Default
+	return planar.Default()
 }
 
 // Distance returns the kernel-appropriate distance between a and b.

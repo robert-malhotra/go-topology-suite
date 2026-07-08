@@ -1,7 +1,6 @@
 package buffer
 
 import (
-	"errors"
 	"fmt"
 	"math"
 
@@ -13,22 +12,25 @@ import (
 )
 
 // errGeometryCollectionNotImplemented is returned for GeometryCollection
-// inputs. Polygon and MultiPolygon are now supported (see polygon.go); a
+// inputs. Polygon and MultiPolygon are supported (see polygon.go); a
 // general collection buffer requires per-member dispatch + union, which is
-// still pending.
-var errGeometryCollectionNotImplemented = errors.New("buffer.Buffer: GeometryCollection input not yet supported")
+// still pending. Wraps gts.ErrUnsupported.
+var errGeometryCollectionNotImplemented = fmt.Errorf("buffer.Buffer: GeometryCollection input not yet supported: %w", gts.ErrUnsupported)
 
 // Buffer returns the planar buffer of g at the given distance.
 //
-// See package documentation for the supported geometry types and the
-// limitations of v0.1 (notably: polygon inputs are rejected, and the
-// result is not unioned across multi-geometry members).
+// All geometry types except GeometryCollection are supported;
+// GeometryCollection input returns an error wrapping gts.ErrUnsupported.
 //
 // Behavior for special distance values:
 //
-//   - distance == 0 returns g unchanged.
-//   - distance < 0 is only meaningful for polygon inputs (inset buffer);
-//     it is rejected with gts.ErrInvalidGeometry for points and lines.
+//   - distance <= 0 on point or line inputs returns POLYGON EMPTY
+//     (JTS semantics: a 0/1-dimensional geometry has no inset).
+//   - distance == 0 on polygon inputs performs JTS's "polygonal
+//     cleanup": degenerate zero-area rings collapse to POLYGON EMPTY,
+//     otherwise the polygon is returned unchanged.
+//   - distance < 0 on polygon inputs is the inset buffer.
+//   - NaN or infinite distance returns gts.ErrInvalidGeometry.
 func Buffer(g geom.Geometry, distance float64, opts ...Option) (geom.Geometry, error) {
 	if g == nil {
 		return nil, gts.ErrInvalidGeometry
@@ -160,7 +162,7 @@ func Buffer(g geom.Geometry, distance float64, opts ...Option) (geom.Geometry, e
 		return nil, errGeometryCollectionNotImplemented
 	}
 
-	return nil, fmt.Errorf("buffer.Buffer: unsupported geometry type %T: %w", g, gts.ErrInvalidGeometry)
+	return nil, fmt.Errorf("buffer.Buffer: unsupported geometry type %T: %w", g, gts.ErrUnsupported)
 }
 
 // isDegenerateAreal reports whether a polygon's outer ring is too
@@ -175,7 +177,7 @@ func isDegenerateAreal(p *geom.Polygon) bool {
 	if len(outer) < 4 {
 		return true
 	}
-	return planar.Default.RingArea(outer) == 0
+	return planar.Default().RingArea(outer) == 0
 }
 
 // bufferPoint produces a regular polygon approximating a circle of radius
@@ -257,7 +259,7 @@ func bufferLineString(ls *geom.LineString, distance float64, cfg config) (*geom.
 		bestArea := math.Inf(-1)
 		for i := 0; i < v.NumGeometries(); i++ {
 			pp := v.PolygonAt(i)
-			a := math.Abs(planar.Default.RingArea(pp.Ring(0)))
+			a := math.Abs(planar.Default().RingArea(pp.Ring(0)))
 			if a > bestArea {
 				bestArea = a
 				best = pp
@@ -329,7 +331,7 @@ func bufferClosedLineAnnulus(ls *geom.LineString, distance float64, cfg config) 
 	// Wrap the closed line as a polygon; orient it CCW so bufferPolygon's
 	// dilation/inset logic applies correctly.
 	poly := geom.NewPolygon(ls.CRS(), pts)
-	if planar.Default.RingArea(poly.Ring(0)) < 0 {
+	if planar.Default().RingArea(poly.Ring(0)) < 0 {
 		// Reverse to CCW.
 		reversed := make([]geom.XY, len(pts))
 		for i, p := range pts {

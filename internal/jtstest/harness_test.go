@@ -9,15 +9,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// maxKnownDivergences is the tracked residual-failure baseline against
+// the vendored JTS testxml corpus (8951 cases): 11 failures, all either
+// external-tracker known (GEOS upstream), flagged failure/ in JTS's own
+// corpus, or fixture version drift. This constant is the single source
+// of truth for "we know about this gap": lowering it after a fix is
+// mandatory in the same PR, and any regression above it fails the test.
+// Per-failure detail is in the DIVERGE log lines this harness emits.
+const maxKnownDivergences = 11
+
 // TestJTSConformance walks the testdata corpus (including the vendored
 // upstream JTS testxml at testdata/upstream/) and runs every op against
 // go-topology-suite.
 //
-// Following the bench/conformance convention, divergences are recorded
-// via t.Logf rather than t.Errorf — the harness reports aggregate
-// pass/fail/skip counts and per-failure detail without breaking CI.
-// This makes it usable as a tracking baseline; intentional divergences
-// belong in KNOWN-DIVERGENCES.md.
+// Individual divergences are recorded via t.Logf rather than t.Errorf so
+// the harness reports aggregate pass/fail/skip counts and per-failure
+// detail; the test fails only when the failure count exceeds the
+// maxKnownDivergences baseline.
 func TestJTSConformance(t *testing.T) {
 	files, err := findCorpus("testdata")
 	require.NoError(t, err, "walk testdata")
@@ -85,6 +93,9 @@ func TestJTSConformance(t *testing.T) {
 			t.Logf("  %s: %d", reason, n)
 		}
 	}
+
+	require.LessOrEqual(t, failed, maxKnownDivergences,
+		"conformance regression: more failures than the tracked baseline; see DIVERGE log lines")
 }
 
 func makeLabel(file string, caseIdx, testIdx int, caseDesc, testDesc, op string) string {

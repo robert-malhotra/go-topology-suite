@@ -23,8 +23,6 @@ func TestXYEqual_NaN(t *testing.T) {
 	// Equal is now NaN-safe: NaN ordinates compare equal to NaN ordinates.
 	assert.True(t, a.Equal(b), "Equal should treat matching NaN as equal")
 	assert.False(t, a.Equal(c), "Equal should still respect non-NaN differences")
-	// EqualOrBothNaN is preserved as a deprecated synonym.
-	assert.True(t, a.EqualOrBothNaN(b))
 }
 
 func TestXYEqualBitwise(t *testing.T) {

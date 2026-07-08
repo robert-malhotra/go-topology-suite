@@ -4,9 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
+	"github.com/stretchr/testify/assert"
 )
 
 var k = Kernel{}
@@ -15,7 +15,7 @@ func xy(x, y float64) geom.XY { return geom.XY{X: x, Y: y} }
 
 func TestPlanarSatisfiesKernel(t *testing.T) {
 	var _ kernel.Kernel = Kernel{}
-	assert.Equal(t, "planar", Default.Name(), "Default.Name()")
+	assert.Equal(t, "planar", Default().Name(), "Default.Name()")
 }
 
 func TestDistance(t *testing.T) {

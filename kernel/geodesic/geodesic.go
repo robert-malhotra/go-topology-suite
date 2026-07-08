@@ -12,8 +12,11 @@ import (
 // ellipsoid.
 type Kernel struct{}
 
-// Default is the package-level singleton.
-var Default kernel.Kernel = Kernel{}
+// defaultKernel is boxed once so Default never allocates.
+var defaultKernel kernel.Kernel = Kernel{}
+
+// Default returns the canonical geodesic (WGS84) kernel instance.
+func Default() kernel.Kernel { return defaultKernel }
 
 // fallback is the spherical kernel we delegate topology primitives to and
 // fall back to for non-converged Vincenty inputs.

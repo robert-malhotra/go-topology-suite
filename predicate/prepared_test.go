@@ -5,9 +5,9 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/prepare"
+	"github.com/stretchr/testify/assert"
 )
 
 func makeCirclePolygon(n int, radius float64) *geom.Polygon {

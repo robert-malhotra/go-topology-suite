@@ -277,9 +277,9 @@ func (s *Subdivision) VisitTriangles(visit func(triEdges [3]*QuadEdge), includeF
 	}
 }
 
-// GetTriangleVertices returns the triangle vertices in the subdivision.
+// TriangleVertices returns the triangle vertices in the subdivision.
 // If includeFrame is false, frame triangles are excluded.
-func (s *Subdivision) GetTriangleVertices(includeFrame bool) [][3]*Vertex {
+func (s *Subdivision) TriangleVertices(includeFrame bool) [][3]*Vertex {
 	var out [][3]*Vertex
 	s.VisitTriangles(func(tri [3]*QuadEdge) {
 		out = append(out, [3]*Vertex{tri[0].Orig(), tri[1].Orig(), tri[2].Orig()})
@@ -287,9 +287,9 @@ func (s *Subdivision) GetTriangleVertices(includeFrame bool) [][3]*Vertex {
 	return out
 }
 
-// GetPrimaryEdges returns one quadedge per geometric edge. If includeFrame
+// PrimaryEdges returns one quadedge per geometric edge. If includeFrame
 // is false, edges touching the frame are excluded.
-func (s *Subdivision) GetPrimaryEdges(includeFrame bool) []*QuadEdge {
+func (s *Subdivision) PrimaryEdges(includeFrame bool) []*QuadEdge {
 	visited := make(map[*QuadEdge]struct{}, 2*len(s.quadEdges))
 	var out []*QuadEdge
 	stack := []*QuadEdge{s.startingEdge}
@@ -349,7 +349,7 @@ func (s *Subdivision) VertexUniqueEdges(includeFrame bool) []*QuadEdge {
 // Note that the frame triangulation may be non-Delaunay when convex
 // boundary enforcement is enabled.
 func (s *Subdivision) IsDelaunay() bool {
-	for _, e := range s.GetPrimaryEdges(false) {
+	for _, e := range s.PrimaryEdges(false) {
 		a0 := e.OPrev().Dest()
 		a1 := e.ONext().Dest()
 		if s.IsFrameVertex(a0) || s.IsFrameVertex(a1) {

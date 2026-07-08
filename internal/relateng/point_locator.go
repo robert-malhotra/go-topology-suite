@@ -264,7 +264,7 @@ func envelopeContainsXY(e geom.Envelope, p geom.XY) bool {
 // non-zero residual on long segments; the orient + envelope check is
 // exact for collinear inputs and safe across all coordinate magnitudes.
 func isOnSegment(p, a, b geom.XY) bool {
-	if planar.Default.Orient(a, b, p) != kernel.Collinear {
+	if planar.Default().Orient(a, b, p) != kernel.Collinear {
 		return false
 	}
 	// p is collinear with [a,b]; check it lies within the axis-aligned

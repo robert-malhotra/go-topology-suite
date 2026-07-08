@@ -24,7 +24,7 @@ func compareAngle(origin, p, q geom.XY) int {
 		return -1
 	}
 	// same quadrant — relative orientation determines order
-	o := planar.Default.Orient(origin, q, p)
+	o := planar.Default().Orient(origin, q, p)
 	switch o {
 	case kernel.CounterClockwise:
 		return 1
@@ -64,7 +64,7 @@ func isAngleGreater(origin, p, q geom.XY) bool {
 	if qp < qq {
 		return false
 	}
-	o := planar.Default.Orient(origin, q, p)
+	o := planar.Default().Orient(origin, q, p)
 	return o == kernel.CounterClockwise
 }
 

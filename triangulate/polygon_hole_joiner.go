@@ -68,7 +68,7 @@ func orientedRing(ring []geom.XY, wantCW bool) []geom.XY {
 	if n == 0 {
 		return nil
 	}
-	signed := planar.Default.RingArea(ring) // > 0 for CCW
+	signed := planar.Default().RingArea(ring) // > 0 for CCW
 	isCW := signed < 0
 	out := make([]geom.XY, n)
 	if isCW == wantCW {
@@ -231,7 +231,7 @@ func bridgeCrossesShell(shell []geom.XY, holePt, anchor geom.XY, anchorIdx int) 
 // segmentsCrossProper reports whether segments p1-p2 and p3-p4 cross at
 // a point strictly interior to both. Endpoint touches return false.
 func segmentsCrossProper(p1, p2, p3, p4 geom.XY) bool {
-	o := planar.Default
+	o := planar.Default()
 	d1 := o.Orient(p3, p4, p1)
 	d2 := o.Orient(p3, p4, p2)
 	d3 := o.Orient(p1, p2, p3)

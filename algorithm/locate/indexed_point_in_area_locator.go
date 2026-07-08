@@ -148,7 +148,7 @@ func (r *rayCrossingCounter) countSegment(p1, p2 geom.XY) {
 	// Standard half-open crossing rule: upward edges include their start,
 	// downward edges include their end.
 	if (p1.Y > r.p.Y && p2.Y <= r.p.Y) || (p2.Y > r.p.Y && p1.Y <= r.p.Y) {
-		orient := planar.Default.Orient(p1, p2, r.p)
+		orient := planar.Default().Orient(p1, p2, r.p)
 		if orient == kernel.Collinear {
 			r.isOnSegment = true
 			return

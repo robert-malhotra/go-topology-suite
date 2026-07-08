@@ -5,13 +5,13 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/buffer"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/measure"
 	"github.com/exergy-dev/go-topology-suite/overlay"
 	"github.com/exergy-dev/go-topology-suite/validate"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // dimension reports the topological dimension of g (point=0, line=1,

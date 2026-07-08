@@ -12,11 +12,15 @@ import (
 // An Option is a value type carrying a kernel choice and/or a prepared
 // handle. Callers construct Options via WithKernel / WithPrepared.
 //
-// The historic shape (a closure) caused the per-call config to escape to
-// the heap on every predicate call that used options; the value-type
-// representation keeps the per-call accumulator on the stack. Option
-// doubles as both the carrier produced by WithKernel/WithPrepared/etc.
-// and the merged accumulator returned by resolve.
+// Unlike most packages in this module, Option is deliberately a struct
+// value rather than a func(*config) closure: predicates are the hottest
+// call sites in the library, and the closure shape forced the per-call
+// config to escape to the heap. At the call site the two styles read
+// identically — predicate.Intersects(a, b, predicate.WithKernel(k)) —
+// only authors of custom options would notice, and Option's fields are
+// unexported so there is no extension point either way. Option doubles
+// as both the carrier produced by WithKernel/WithPrepared/etc. and the
+// merged accumulator returned by resolve.
 type Option struct {
 	kernel    kernel.Kernel
 	kernelSet bool
@@ -125,7 +129,7 @@ func resolve(g geom.Geometry, opts []Option) Option {
 // the topological answer is the same for non-degenerate inputs.
 func defaultKernelFor(g geom.Geometry) kernel.Kernel {
 	if g != nil && g.CRS().IsGeographic() {
-		return spherical.Default
+		return spherical.Default()
 	}
-	return planar.Default
+	return planar.Default()
 }

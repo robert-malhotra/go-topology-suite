@@ -64,7 +64,7 @@ func LargestEmptyCircle(obstacles, boundary geom.Geometry, tolerance float64) (c
 		return firstCoordinate(obstacles), 0, true
 	}
 
-	k := planar.Default
+	k := planar.Default()
 	lec := &lecContext{
 		obstacles:    obstacles,
 		boundary:     bnds,

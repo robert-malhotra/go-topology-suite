@@ -4,7 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
-	"github.com/exergy-dev/go-topology-suite/overlay/overlayng"
+	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 )
 
 // Simplify returns a Douglas-Peucker simplification of g with the given

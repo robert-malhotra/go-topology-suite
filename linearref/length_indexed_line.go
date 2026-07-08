@@ -30,8 +30,8 @@ func (l *LengthIndexedLine) Geometry() geom.Geometry { return l.g }
 // ExtractPoint returns the coordinate at the given length-along-line.
 // Out-of-range indexes return the corresponding endpoint coordinate.
 func (l *LengthIndexedLine) ExtractPoint(index float64) geom.XY {
-	loc := GetLocation(l.g, index)
-	return loc.GetCoordinate(l.g)
+	loc := Location(l.g, index)
+	return loc.Coordinate(l.g)
 }
 
 // ExtractLine returns the sub-line between two length indices. If
@@ -41,8 +41,8 @@ func (l *LengthIndexedLine) ExtractLine(startIndex, endIndex float64) geom.Geome
 	s := l.ClampIndex(startIndex)
 	e := l.ClampIndex(endIndex)
 	resolveStartLower := s == e
-	startLoc := GetLocationResolve(l.g, s, resolveStartLower)
-	endLoc := GetLocation(l.g, e)
+	startLoc := LocationResolve(l.g, s, resolveStartLower)
+	endLoc := Location(l.g, e)
 	return extractLineByLocation(l.g, startLoc, endLoc)
 }
 
@@ -51,19 +51,19 @@ func (l *LengthIndexedLine) ExtractLine(startIndex, endIndex float64) geom.Geome
 // line).
 func (l *LengthIndexedLine) IndexOf(p geom.XY) float64 {
 	loc, _ := indexOfFromStart(l.g, p, nil)
-	return GetLength(l.g, loc)
+	return Length(l.g, loc)
 }
 
 // IndexOfAfter returns the smallest length-along-line at which p occurs
 // strictly after minIndex.
 func (l *LengthIndexedLine) IndexOfAfter(p geom.XY, minIndex float64) float64 {
-	min := GetLocation(l.g, minIndex)
+	min := Location(l.g, minIndex)
 	endLoc := EndLocation(l.g)
 	if endLoc.Compare(min) <= 0 {
-		return GetLength(l.g, endLoc)
+		return Length(l.g, endLoc)
 	}
 	loc, _ := indexOfFromStart(l.g, p, &min)
-	return GetLength(l.g, loc)
+	return Length(l.g, loc)
 }
 
 // Project returns the length-along-line of the point on the line

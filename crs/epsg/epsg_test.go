@@ -3,10 +3,10 @@ package epsg_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/crs/epsg"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // namedCase is one row in the table-driven sanity test of every named
@@ -41,9 +41,9 @@ func TestNamedLookups(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			require.NotNil(t, tc.v, "named var %s is nil", tc.name)
-			assert.Equal(t, "EPSG", tc.v.Authority, "Authority")
-			assert.Equal(t, tc.code, tc.v.Code, "Code")
-			assert.Equal(t, tc.kind, tc.v.Kind, "Kind")
+			assert.Equal(t, "EPSG", tc.v.Authority(), "Authority")
+			assert.Equal(t, tc.code, tc.v.Code(), "Code")
+			assert.Equal(t, tc.kind, tc.v.Kind(), "Kind")
 			got := epsg.Lookup(tc.code)
 			require.NotNil(t, got, "Lookup(%d) returned nil", tc.code)
 			assert.Same(t, tc.v, got, "Lookup(%d) returned a different pointer than the named var", tc.code)
@@ -84,9 +84,9 @@ func TestUTMZoneCoverage(t *testing.T) {
 			if !assert.NotNil(t, c, "Lookup(%d) = nil, want non-nil", code) {
 				continue
 			}
-			assert.Equal(t, "EPSG", c.Authority, "Lookup(%d).Authority", code)
-			assert.Equal(t, code, c.Code, "Lookup(%d).Code", code)
-			assert.Equal(t, crs.Projected, c.Kind, "Lookup(%d).Kind", code)
+			assert.Equal(t, "EPSG", c.Authority(), "Lookup(%d).Authority()", code)
+			assert.Equal(t, code, c.Code(), "Lookup(%d).Code()", code)
+			assert.Equal(t, crs.Projected, c.Kind(), "Lookup(%d).Kind", code)
 		}
 	}
 

@@ -12,8 +12,9 @@ import (
 // outermost authority code (if any), and the kind classified from the
 // top-level keyword.
 //
-// v0.1 deliberately does not build a structural CRS model: go-topology-suite has
-// no projection engine yet, so parsing exists only to extract identity.
+// Parsing deliberately does not build a structural CRS model: it exists
+// only to extract identity. The returned CRS carries no transform
+// Definition.
 func Parse(s string) (*crs.CRS, error) {
 	if strings.TrimSpace(s) == "" {
 		return nil, errAt(0, "empty input")
@@ -22,11 +23,19 @@ func Parse(s string) (*crs.CRS, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := &crs.CRS{WKT2: s}
-	if err := p.parseTopLevel(out); err != nil {
+	var out identity
+	if err := p.parseTopLevel(&out); err != nil {
 		return nil, err
 	}
-	return out, nil
+	return crs.NewFromWKT2(s, out.authority, out.code, out.kind), nil
+}
+
+// identity accumulates the fields extracted during the parse; the
+// immutable *crs.CRS is constructed once at the end.
+type identity struct {
+	authority string
+	code      int
+	kind      crs.Kind
 }
 
 // parser is a thin wrapper over the lexer with a one-token lookahead.
@@ -91,7 +100,7 @@ func kindFor(keyword string) crs.Kind {
 
 // parseTopLevel parses the outermost CRS object. It dispatches on the
 // top-level keyword, recursing into BOUNDCRS to find the inner SOURCECRS.
-func (p *parser) parseTopLevel(out *crs.CRS) error {
+func (p *parser) parseTopLevel(out *identity) error {
 	tok, err := p.consume()
 	if err != nil {
 		return err
@@ -105,14 +114,14 @@ func (p *parser) parseTopLevel(out *crs.CRS) error {
 		return p.parseBoundCRS(tok.offset, out)
 	}
 
-	out.Kind = kindFor(keyword)
+	out.kind = kindFor(keyword)
 	return p.parseObjectBody(tok.offset, out, true)
 }
 
 // parseBoundCRS handles a BOUNDCRS top-level wrapper. Per the spec, a
 // BOUNDCRS contains a SOURCECRS whose inner CRS object dictates kind and
 // — in our v0.1 — the authority code that we surface.
-func (p *parser) parseBoundCRS(startOff int, out *crs.CRS) error {
+func (p *parser) parseBoundCRS(startOff int, out *identity) error {
 	if _, err := p.expect(tokLBracket); err != nil {
 		return err
 	}
@@ -148,7 +157,7 @@ func (p *parser) parseBoundCRS(startOff int, out *crs.CRS) error {
 				if inner.kind != tokKeyword {
 					return errAt(inner.offset, "expected CRS keyword in SOURCECRS, got %s", describeToken(inner))
 				}
-				out.Kind = kindFor(inner.value)
+				out.kind = kindFor(inner.value)
 				if err := p.parseObjectBody(inner.offset, out, false); err != nil {
 					return err
 				}
@@ -163,8 +172,8 @@ func (p *parser) parseBoundCRS(startOff int, out *crs.CRS) error {
 				if idErr != nil {
 					return idErr
 				}
-				if out.Authority == "" && out.Code == 0 {
-					out.Authority, out.Code = auth, code
+				if out.authority == "" && out.code == 0 {
+					out.authority, out.code = auth, code
 				}
 			}
 		}
@@ -181,7 +190,7 @@ func (p *parser) parseBoundCRS(startOff int, out *crs.CRS) error {
 // counter. If extractOuterID is false, an ID found at depth 1 is treated
 // as a fallback (used by BOUNDCRS's SOURCECRS path, where a separate
 // outer ID may also exist).
-func (p *parser) parseObjectBody(startOff int, out *crs.CRS, extractOuterID bool) error {
+func (p *parser) parseObjectBody(startOff int, out *identity, extractOuterID bool) error {
 	if _, err := p.expect(tokLBracket); err != nil {
 		return err
 	}
@@ -210,8 +219,8 @@ func (p *parser) parseObjectBody(startOff int, out *crs.CRS, extractOuterID bool
 				// so there is normally only one. We honour the rule
 				// regardless.
 				if extractOuterID || !idAtDepth1Set {
-					out.Authority = auth
-					out.Code = code
+					out.authority = auth
+					out.code = code
 					idAtDepth1Set = true
 				}
 			}

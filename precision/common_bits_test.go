@@ -5,9 +5,9 @@ import (
 	"math"
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
 func TestCommonBits_SingleValueIsThePrefix(t *testing.T) {

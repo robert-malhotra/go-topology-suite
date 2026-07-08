@@ -189,7 +189,7 @@ func collectFixedHoles(p *geom.Polygon) [][]geom.XY {
 // holes that overlap the shell are subtracted via overlay.Difference;
 // holes that lie entirely outside become additional shells.
 func classifyAndApplyHoles(c *crs.CRS, outer []geom.XY, holes [][]geom.XY) geom.Geometry {
-	k := planar.Default
+	k := planar.Default()
 	insideHoles := make([][]geom.XY, 0, len(holes))
 	overlapRings := make([][]geom.XY, 0)
 	outsideRings := make([][]geom.XY, 0)
@@ -308,7 +308,7 @@ func classifyHole(hole, shell []geom.XY, k kernel.Kernel) holeClassification {
 // orientCW returns ring as CW (negative shoelace area). Holes
 // require CW orientation when shells are CCW.
 func orientCW(ring []geom.XY) []geom.XY {
-	if planar.Default.RingArea(ring) > 0 {
+	if planar.Default().RingArea(ring) > 0 {
 		return reverseRing(ring)
 	}
 	return ring
@@ -330,7 +330,7 @@ func closeRing(ring []geom.XY) []geom.XY {
 // orientCCW returns ring as CCW (positive shoelace area). Hole orientation
 // is the reverse — see orientCW.
 func orientCCW(ring []geom.XY) []geom.XY {
-	if planar.Default.RingArea(ring) < 0 {
+	if planar.Default().RingArea(ring) < 0 {
 		return reverseRing(ring)
 	}
 	return ring

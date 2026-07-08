@@ -33,9 +33,10 @@
 //
 // Remaining v1.0 limitations:
 //
-//   - MultiPolygon inputs are not yet accepted by the public Overlay
-//     entry points (overlay/general.go rejects them with
-//     ErrUnsupportedKernel).
+//   - When this pipeline bails out (snap-round non-convergence), the
+//     Greiner-Hormann fallback in overlay/general.go handles only
+//     single-polygon operands and returns an error wrapping
+//     gts.ErrUnsupported for multi-polygon inputs.
 //   - Snap rounding does not yet implement Goodrich-Guibas hot-pixel
 //     detection; for adversarial inputs with near-coincident vertices,
 //     pre-node externally or pass an explicit tolerance via

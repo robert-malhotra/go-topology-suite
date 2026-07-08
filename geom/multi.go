@@ -22,13 +22,19 @@ func NewMultiPoint(c *crs.CRS, pts []XY) *MultiPoint {
 	return &MultiPoint{baseGeom{layout: LayoutXY, coords: flat, crs: c}}
 }
 
+// NewEmptyMultiPoint returns an empty MultiPoint carrying the given layout.
+func NewEmptyMultiPoint(c *crs.CRS, layout Layout) *MultiPoint {
+	return &MultiPoint{baseGeom{layout: layout, crs: c}}
+}
+
 func (mp *MultiPoint) isGeometry()        {}
 func (mp *MultiPoint) Type() Type         { return MultiPointType }
 func (mp *MultiPoint) Envelope() Envelope { return mp.envelope() }
 func (mp *MultiPoint) IsEmpty() bool      { return len(mp.coords) == 0 }
 func (mp *MultiPoint) NumGeometries() int { return mp.numCoords() }
 
-// PointAt returns the i-th point projected to XY.
+// PointAt returns the i-th point projected to XY. An out-of-range index
+// is programmer error and panics.
 func (mp *MultiPoint) PointAt(i int) XY {
 	stride := mp.stride()
 	off := i * stride
@@ -57,8 +63,9 @@ func NewMultiLineString(c *crs.CRS, parts ...*LineString) *MultiLineString {
 }
 
 // NewMultiLineStringStrict is NewMultiLineString that validates every
-// child has the same Layout as the first. Returns an error on mismatch
-// instead of silently coercing to the first child's layout.
+// child has the same Layout as the first. Returns an error wrapping
+// ErrLayoutMismatch instead of silently coercing to the first child's
+// layout.
 func NewMultiLineStringStrict(c *crs.CRS, parts ...*LineString) (*MultiLineString, error) {
 	if len(parts) == 0 {
 		return &MultiLineString{layout: LayoutXY, crs: c}, nil
@@ -67,11 +74,17 @@ func NewMultiLineStringStrict(c *crs.CRS, parts ...*LineString) (*MultiLineStrin
 	for i := 1; i < len(parts); i++ {
 		if parts[i].Layout() != layout {
 			return nil, fmt.Errorf(
-				"geom: MultiLineString child %d has layout %v, expected %v",
-				i, parts[i].Layout(), layout)
+				"MultiLineString child %d has layout %v, expected %v: %w",
+				i, parts[i].Layout(), layout, ErrLayoutMismatch)
 		}
 	}
 	return &MultiLineString{layout: layout, crs: c, parts: parts}, nil
+}
+
+// NewEmptyMultiLineString returns an empty MultiLineString carrying the
+// given layout.
+func NewEmptyMultiLineString(c *crs.CRS, layout Layout) *MultiLineString {
+	return &MultiLineString{layout: layout, crs: c}
 }
 
 func (m *MultiLineString) isGeometry()        {}
@@ -81,7 +94,8 @@ func (m *MultiLineString) CRS() *crs.CRS      { return m.crs }
 func (m *MultiLineString) IsEmpty() bool      { return len(m.parts) == 0 }
 func (m *MultiLineString) NumGeometries() int { return len(m.parts) }
 
-// LineStringAt returns the i-th member.
+// LineStringAt returns the i-th member. An out-of-range index is
+// programmer error and panics.
 func (m *MultiLineString) LineStringAt(i int) *LineString { return m.parts[i] }
 
 // Envelope returns the union of member envelopes (cached).
@@ -116,7 +130,8 @@ func NewMultiPolygon(c *crs.CRS, parts ...*Polygon) *MultiPolygon {
 }
 
 // NewMultiPolygonStrict is NewMultiPolygon that validates every child has
-// the same Layout as the first. Returns an error on mismatch.
+// the same Layout as the first. Returns an error wrapping ErrLayoutMismatch
+// on mismatch.
 func NewMultiPolygonStrict(c *crs.CRS, parts ...*Polygon) (*MultiPolygon, error) {
 	if len(parts) == 0 {
 		return &MultiPolygon{layout: LayoutXY, crs: c}, nil
@@ -125,19 +140,28 @@ func NewMultiPolygonStrict(c *crs.CRS, parts ...*Polygon) (*MultiPolygon, error)
 	for i := 1; i < len(parts); i++ {
 		if parts[i].Layout() != layout {
 			return nil, fmt.Errorf(
-				"geom: MultiPolygon child %d has layout %v, expected %v",
-				i, parts[i].Layout(), layout)
+				"MultiPolygon child %d has layout %v, expected %v: %w",
+				i, parts[i].Layout(), layout, ErrLayoutMismatch)
 		}
 	}
 	return &MultiPolygon{layout: layout, crs: c, parts: parts}, nil
 }
 
-func (m *MultiPolygon) isGeometry()              {}
-func (m *MultiPolygon) Type() Type               { return MultiPolygonType }
-func (m *MultiPolygon) Layout() Layout           { return m.layout }
-func (m *MultiPolygon) CRS() *crs.CRS            { return m.crs }
-func (m *MultiPolygon) IsEmpty() bool            { return len(m.parts) == 0 }
-func (m *MultiPolygon) NumGeometries() int       { return len(m.parts) }
+// NewEmptyMultiPolygon returns an empty MultiPolygon carrying the given
+// layout.
+func NewEmptyMultiPolygon(c *crs.CRS, layout Layout) *MultiPolygon {
+	return &MultiPolygon{layout: layout, crs: c}
+}
+
+func (m *MultiPolygon) isGeometry()        {}
+func (m *MultiPolygon) Type() Type         { return MultiPolygonType }
+func (m *MultiPolygon) Layout() Layout     { return m.layout }
+func (m *MultiPolygon) CRS() *crs.CRS      { return m.crs }
+func (m *MultiPolygon) IsEmpty() bool      { return len(m.parts) == 0 }
+func (m *MultiPolygon) NumGeometries() int { return len(m.parts) }
+
+// PolygonAt returns the i-th member. An out-of-range index is programmer
+// error and panics.
 func (m *MultiPolygon) PolygonAt(i int) *Polygon { return m.parts[i] }
 
 func (m *MultiPolygon) Envelope() Envelope {
@@ -172,8 +196,8 @@ func NewGeometryCollection(c *crs.CRS, parts ...Geometry) *GeometryCollection {
 }
 
 // NewGeometryCollectionStrict is NewGeometryCollection that validates
-// every child has the same Layout as the first. Returns an error on
-// mismatch.
+// every child has the same Layout as the first. Returns an error wrapping
+// ErrLayoutMismatch on mismatch.
 func NewGeometryCollectionStrict(c *crs.CRS, parts ...Geometry) (*GeometryCollection, error) {
 	if len(parts) == 0 {
 		return &GeometryCollection{layout: LayoutXY, crs: c}, nil
@@ -182,19 +206,28 @@ func NewGeometryCollectionStrict(c *crs.CRS, parts ...Geometry) (*GeometryCollec
 	for i := 1; i < len(parts); i++ {
 		if parts[i].Layout() != layout {
 			return nil, fmt.Errorf(
-				"geom: GeometryCollection child %d has layout %v, expected %v",
-				i, parts[i].Layout(), layout)
+				"GeometryCollection child %d has layout %v, expected %v: %w",
+				i, parts[i].Layout(), layout, ErrLayoutMismatch)
 		}
 	}
 	return &GeometryCollection{layout: layout, crs: c, parts: parts}, nil
 }
 
-func (g *GeometryCollection) isGeometry()               {}
-func (g *GeometryCollection) Type() Type                { return GeometryCollectionType }
-func (g *GeometryCollection) Layout() Layout            { return g.layout }
-func (g *GeometryCollection) CRS() *crs.CRS             { return g.crs }
-func (g *GeometryCollection) IsEmpty() bool             { return len(g.parts) == 0 }
-func (g *GeometryCollection) NumGeometries() int        { return len(g.parts) }
+// NewEmptyGeometryCollection returns an empty GeometryCollection carrying
+// the given layout.
+func NewEmptyGeometryCollection(c *crs.CRS, layout Layout) *GeometryCollection {
+	return &GeometryCollection{layout: layout, crs: c}
+}
+
+func (g *GeometryCollection) isGeometry()        {}
+func (g *GeometryCollection) Type() Type         { return GeometryCollectionType }
+func (g *GeometryCollection) Layout() Layout     { return g.layout }
+func (g *GeometryCollection) CRS() *crs.CRS      { return g.crs }
+func (g *GeometryCollection) IsEmpty() bool      { return len(g.parts) == 0 }
+func (g *GeometryCollection) NumGeometries() int { return len(g.parts) }
+
+// GeometryAt returns the i-th member. An out-of-range index is programmer
+// error and panics.
 func (g *GeometryCollection) GeometryAt(i int) Geometry { return g.parts[i] }
 
 func (g *GeometryCollection) Envelope() Envelope {

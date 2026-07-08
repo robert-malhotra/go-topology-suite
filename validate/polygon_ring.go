@@ -216,7 +216,7 @@ func selfNodeIsExterior(sn polygonRingSelfNode, interiorOnRight bool) bool {
 	// side opposite the polygon exterior when the corner is a pinch.
 	// Compute orientation of (e00, pt, e10): if e10 lies on the
 	// interior side of edge (e00->e01), the touch is invalid.
-	k := planar.Default
+	k := planar.Default()
 	o := k.Orient(sn.e00, sn.pt, sn.e10)
 	// Interior on the right of the ring => CW orientation marks the
 	// interior side; CCW marks exterior. Flip when interior is on

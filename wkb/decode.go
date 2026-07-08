@@ -157,7 +157,7 @@ func (d *decoder) readGeometry(inheritedCRS *crs.CRS) (geom.Geometry, error) {
 		if err != nil {
 			return nil, err
 		}
-		cr = &crs.CRS{Authority: "EPSG", Code: int(srid)}
+		cr = crs.New("EPSG", int(srid), crs.UnknownKind)
 	}
 	return d.readBody(base, layout, cr, o)
 }

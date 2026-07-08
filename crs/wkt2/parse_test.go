@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/exergy-dev/go-topology-suite/crs"
 )
 
 func TestParse_TopLevelKinds(t *testing.T) {
@@ -123,10 +123,10 @@ func TestParse_TopLevelKinds(t *testing.T) {
 			got, err := Parse(tc.input)
 			require.NoError(t, err, "Parse: unexpected error")
 			require.NotNil(t, got, "Parse: returned nil CRS")
-			assert.Equal(t, tc.input, got.WKT2, "WKT2 not preserved verbatim")
-			assert.Equal(t, tc.kind, got.Kind, "Kind")
-			assert.Equal(t, tc.auth, got.Authority, "Authority")
-			assert.Equal(t, tc.code, got.Code, "Code")
+			assert.Equal(t, tc.input, got.WKT2(), "WKT2 not preserved verbatim")
+			assert.Equal(t, tc.kind, got.Kind(), "Kind")
+			assert.Equal(t, tc.auth, got.Authority(), "Authority")
+			assert.Equal(t, tc.code, got.Code(), "Code")
 		})
 	}
 }
@@ -178,15 +178,15 @@ func TestParse_NestedIDOuterWins(t *testing.T) {
 		`CONVERSION["c",METHOD["m"]],CS[Cartesian,2],ID["EPSG",3857]]`
 	got, err := Parse(input)
 	require.NoError(t, err)
-	assert.Equal(t, 3857, got.Code, "Code (outer ID)")
-	assert.Equal(t, "EPSG", got.Authority, "Authority")
+	assert.Equal(t, 3857, got.Code(), "Code (outer ID)")
+	assert.Equal(t, "EPSG", got.Authority(), "Authority")
 }
 
 func TestParse_PreservesOriginalInWKT2(t *testing.T) {
 	in := `  GeogCRS["WGS 84",ID["EPSG",4326]]  `
 	got, err := Parse(in)
 	require.NoError(t, err)
-	assert.Equal(t, in, got.WKT2, "WKT2 was normalised; want verbatim original input")
+	assert.Equal(t, in, got.WKT2(), "WKT2 was normalised; want verbatim original input")
 }
 
 func TestLexer_NumberFormats(t *testing.T) {

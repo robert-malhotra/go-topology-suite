@@ -110,5 +110,5 @@ func isOnSegmentStrict(p, a, b geom.XY) bool {
 	if p == a || p == b {
 		return false
 	}
-	return planar.Default.SegmentDistance(p, a, b) == 0
+	return planar.Default().SegmentDistance(p, a, b) == 0
 }

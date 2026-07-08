@@ -1,17 +1,21 @@
-// Package overlay computes the four boolean polygon operations
-// (Intersection, Union, Difference, SymmetricDifference).
+// Package overlay computes boolean operations between geometries:
+// Intersection, Union, Difference, SymmetricDifference, and the
+// n-ary UnaryUnion.
 //
-// **v0.1 status: PARTIAL.** Only convex-clipper cases are supported,
-// implemented via Sutherland-Hodgman: Intersection works correctly when
-// the second operand (the "clipper") is a convex polygon and the first
-// (the "subject") is any polygon. Union, Difference, SymmetricDifference,
-// and the general non-convex Intersection all return ErrUnsupportedKernel
-// with a message pointing at the JTS overlay-NG port that gates this
-// work (Phase 3, E5 in the parallel plan).
+// Polygonal operands run through the overlay-NG pipeline (a port of the
+// JTS overlay-NG design, in internal/overlayng): offset-free noding with
+// snap-rounding retries, a half-edge DCEL planar subdivision, per-face
+// classification against the original inputs, and boundary extraction.
+// A Greiner-Hormann clipper remains as a fallback for single-polygon
+// operands when snap-rounding does not converge, and a Sutherland-Hodgman
+// fast path handles convex clippers. Lineal and pointal operands route
+// to dedicated line-overlay and point-membership engines.
 //
-// Callers requiring full overlay today should not use this package — they
-// should either project to PostGIS and call ST_Intersection, or wait for
-// the overlay-NG port. The convex-clip path is included because it is
-// genuinely useful (clip-to-bbox, clip-to-tile-quad) and the algorithm
-// is standalone, robust, and easy to audit.
+// Operands must share a CRS (compared with crs.Equal); mixing returns
+// gts.ErrCRSMismatch. Combinations the engines cannot handle return an
+// error wrapping gts.ErrUnsupported with the specific detail.
+//
+// The EnhancedPrecision* variants retry a failed operation with
+// common-bits precision reduction, trading exactness of coordinates for
+// robustness on near-degenerate inputs.
 package overlay

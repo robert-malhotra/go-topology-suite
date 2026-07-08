@@ -3,9 +3,9 @@ package precision
 import (
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
 // SnapTo: a vertex within tolerance of a target vertex is moved

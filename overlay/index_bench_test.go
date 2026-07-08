@@ -24,7 +24,7 @@ func BenchmarkOverlayLargePolygons(b *testing.B) {
 	a := makeNgon(1000, 0, 0, 100)
 	c := makeNgon(1000, 50, 0, 100)
 	for i := 0; i < b.N; i++ {
-		_, err := IntersectionGeneral(a, c)
+		_, err := intersectionGeneral(a, c)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -37,7 +37,7 @@ func BenchmarkOverlaySmallPolygons(b *testing.B) {
 	a := makeNgon(8, 0, 0, 10)
 	c := makeNgon(8, 5, 0, 10)
 	for i := 0; i < b.N; i++ {
-		_, err := IntersectionGeneral(a, c)
+		_, err := intersectionGeneral(a, c)
 		if err != nil {
 			b.Fatal(err)
 		}

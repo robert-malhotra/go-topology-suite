@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/wkt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/exergy-dev/go-topology-suite/wkt"
 )
 
 // Inverted-shell pinch: a single shell that touches itself at one

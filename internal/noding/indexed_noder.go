@@ -14,7 +14,7 @@ import (
 // R-tree of segment envelopes to prune the O(n^2) pairwise comparison
 // down to O((n+m) log n) on typical inputs. Behaviour is byte-for-byte
 // identical to SimpleNoder on every supported input — the same kernel
-// primitive (planar.Default.SegmentIntersection) decides hits, the same
+// primitive (planar.Default().SegmentIntersection) decides hits, the same
 // epsilon-based endpoint filter applies, and the same split-and-emit
 // logic constructs output strings.
 //

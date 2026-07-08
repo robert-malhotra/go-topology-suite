@@ -32,9 +32,9 @@ func NewLinearRingFlat(layout Layout, c *crs.CRS, flat []float64) *LinearRing {
 	return &LinearRing{baseGeom{layout: layout, coords: cloneFloats(flat), crs: c}}
 }
 
-// NewLinearRingFlatNoClone takes ownership of flat without copying.
-// Intended for format decoders.
-func NewLinearRingFlatNoClone(layout Layout, c *crs.CRS, flat []float64) *LinearRing {
+// NewLinearRingOwned takes ownership of flat without copying, matching
+// NewLineStringOwned and NewPolygonOwned. Intended for format decoders.
+func NewLinearRingOwned(layout Layout, c *crs.CRS, flat []float64) *LinearRing {
 	return &LinearRing{baseGeom{layout: layout, coords: flat, crs: c}}
 }
 

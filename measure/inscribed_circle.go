@@ -44,7 +44,7 @@ func MaximumInscribedCircle(g geom.Geometry, tolerance float64) (center geom.XY,
 		return geom.XY{}, 0, false
 	}
 	// Reject zero-area inputs: degenerate polygons collapse to lines/points.
-	k := planar.Default
+	k := planar.Default()
 	if a := totalPolygonArea(g, k); a == 0 {
 		return geom.XY{}, 0, false
 	}
