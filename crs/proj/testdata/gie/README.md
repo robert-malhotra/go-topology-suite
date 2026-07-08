@@ -4,7 +4,7 @@ The `.gie` files in this directory are taken verbatim from PROJ's own
 regression-test corpus
 ([github.com/OSGeo/PROJ](https://github.com/OSGeo/PROJ/tree/master/test/gie)).
 They are the same fixtures PROJ itself runs to verify projection
-correctness; Terra uses them to validate its pure-Go reimplementations
+correctness; go-topology-suite uses them to validate its pure-Go reimplementations
 of Mercator, Transverse Mercator, Lambert Conformal Conic, Albers
 Equal-Area, and Lambert Azimuthal Equal-Area.
 

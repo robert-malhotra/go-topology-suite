@@ -43,7 +43,7 @@ go test -tags=jts ./internal/jtstest/...
 
 ## Code style
 
-- `gofmt`-clean. CI does not run `gofmt -l`, but reviewers will. Use `gofmt -w .` before pushing.
+- `gofmt`-clean. CI enforces `gofmt -l`. Use `gofmt -w .` before pushing.
 - Identifier names follow JTS where the JTS name is a common term of art (`DE9IM`, `IntervalRTree`, `HPRtree`); otherwise Go-idiomatic.
 - Functional options use `WithFoo(value)` and a value-typed `Option`. See `predicate.Option`, `wkb.Option` for templates.
 - No global mutable state on the hot path (this is a v1 promise — see [`README.md`](./README.md)). Configure per-call via `Option`.
@@ -71,8 +71,8 @@ Architectural notes worth highlighting; trade-offs taken.
 
 ## Tests
 Which suites cover this. If `-tags=jts` was run, paste the
-"X / 8951 passing" tally. If conformance changed, update
-KNOWN-DIVERGENCES.md.
+"X / 8951 passing" tally. If conformance changed, update the
+`maxKnownDivergences` baseline in internal/jtstest/harness_test.go.
 ```
 
 ## JTS porting discipline
@@ -80,10 +80,10 @@ KNOWN-DIVERGENCES.md.
 go-topology-suite is a *port*, not a fork. When a JTS algorithm is ported:
 
 1. Cite the source file and method names in the Go doc comment or commit message. "Mirrors `BufferOp.bufferReducedPrecision`" is a useful breadcrumb for the next person to revisit the algorithm.
-2. Preserve JTS's *behaviour* in edge cases, even when a Go-idiomatic refactor is tempting. Behavioural divergences from JTS belong in [`KNOWN-DIVERGENCES.md`](./KNOWN-DIVERGENCES.md) with a documented rationale, not silently in code.
-3. When the JTS implementation has known bugs (cases under `failure/` in the JTS corpus, or upstream GEOS issues), prefer matching JTS over fixing the bug unilaterally — flag it in `KNOWN-DIVERGENCES.md` and open a parallel issue upstream if appropriate.
+2. Preserve JTS's *behaviour* in edge cases, even when a Go-idiomatic refactor is tempting. Behavioural divergences from JTS need a documented rationale — in the doc comment at the divergence site and in the CHANGELOG — not a silent code change.
+3. When the JTS implementation has known bugs (cases under `failure/` in the JTS corpus, or upstream GEOS issues), prefer matching JTS over fixing the bug unilaterally — document it and open a parallel issue upstream if appropriate.
 
-The `KNOWN-DIVERGENCES.md` file is the single source of truth for "we know about this gap." Every entry records the operation, the trigger fixture, and the resolution rationale. New divergences must be transcribed there in the same PR that introduces them.
+The `maxKnownDivergences` baseline in `internal/jtstest/harness_test.go` is the single source of truth for "we know about this gap": the conformance harness fails on any regression past it, fixes must lower it in the same PR, and new intentional divergences must raise it with a documented rationale. Per-case detail is in the harness's `DIVERGE` log lines.
 
 ## Tests
 
@@ -91,7 +91,7 @@ The `KNOWN-DIVERGENCES.md` file is the single source of truth for "we know about
 - **Property tests** use `pgregory.net/rapid` and live in `*_property_test.go`.
 - **Fuzz tests** are native Go fuzz targets in `wkt/`, `wkb/`, `geojson/`, `crs/wkt2/`. To extend: add a `func FuzzX(f *testing.F)` and seed it with a few representative inputs. CI runs each target nightly for 10 minutes via `.github/workflows/fuzz.yml`.
 - **JTS conformance** lives under `internal/jtstest/`, gated on `-tags=jts`. The corpus itself is under `internal/jtstest/testdata/upstream/` and is sourced from the LocationTech JTS repository.
-- **Cross-impl conformance** (Pillar B2) lives under `bench/conformance/`. It records divergences with `t.Logf`, not `t.Errorf`; the test always passes, but reviewers read the artefact.
+- **Cross-impl conformance** lives under `bench/conformance/` (a separate Go module — run with `go test -C bench ./conformance/...`). It records divergences with `t.Logf`, not `t.Errorf`; the test always passes, but reviewers read the artefact.
 
 When adding a new operation, add tests of all three forms: a unit test for the textbook case, a property test for an algebraic invariant (idempotence, symmetry, etc.), and a corpus entry under `internal/jtstest/` if a JTS counterpart exists.
 

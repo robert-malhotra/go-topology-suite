@@ -12,7 +12,7 @@ The module path is `github.com/exergy-dev/go-topology-suite`. The top-level pack
 
 JTS is the de-facto reference implementation for 2D vector geometry on the JVM. go-topology-suite ports it to idiomatic Go: explicit CRS attachment on every geometry, no globals on the hot path, value-typed coordinates, sealed `Geometry` interface, and a robust planar kernel built on Shewchuk-style adaptive predicates with a `math/big` exact fallback.
 
-Conformance against JTS's own `testxml` corpus (8 951 cases) is **99.88 %**; the 11 residual failures are tracked in [`KNOWN-DIVERGENCES.md`](./KNOWN-DIVERGENCES.md) and are either external-tracker known (GEOS upstream), JTS-`failure/` flagged, or fixture version drift.
+Conformance against JTS's own `testxml` corpus (8 951 cases) is **99.88 %**. The 11 residual failures are all external-tracker known (GEOS upstream), JTS-`failure/` flagged, or fixture version drift; they are pinned as the `maxKnownDivergences` baseline in the conformance harness (`internal/jtstest`), which fails on any regression.
 
 ## Quick start
 
@@ -52,14 +52,14 @@ The module is organised in roughly the same package layout as JTS, lifted into G
 | `geom` | `Geometry` interface, value types (`XY`, `XYZ`, `XYM`, `XYZM`), the seven OGC Simple Features types, `Envelope`, `Layout`, `WithCRS` rebrand. |
 | `crs` | Coordinate Reference Systems: identity tags, ellipsoids, datums, projections, transform pipeline. EPSG registry under `crs/epsg/`. Five projection families implemented under `crs/proj/`. |
 | `predicate` | DE-9IM and named predicates: `Intersects`, `Disjoint`, `Equals`, `Contains`, `Within`, `Crosses`, `Touches`, `Overlaps`, `Covers`, `CoveredBy`, `Relate`, `RelateNG`. RelateNG is the default. |
-| `overlay`, `overlay/overlayng` | Boolean operations (Intersection, Union, Difference, SymmetricDifference) on the JTS DCEL + depth-labelling pipeline. |
+| `overlay` | Boolean operations (Intersection, Union, Difference, SymmetricDifference, UnaryUnion) via the overlay-NG DCEL pipeline. |
 | `buffer` | Distance buffer, with the OffsetSegmentGenerator port and the polygonizer pipeline. |
 | `simplify` | Douglas-Peucker, Visvalingam, polygon-hull. |
 | `validate` | Validity check, defect codes, GeometryFixer. |
 | `prepare` | Pre-computed acceleration structures for repeated predicates. |
 | `precision` | Precision reduction, snapping, MinimumClearance, CommonBits. |
 | `index` | R-tree, KdTree, Quadtree, IntervalRTree, HPRtree, MonotoneChain. |
-| `measure` | Distance, Hausdorff/Frechet similarity, MinimumBoundingCircle, MaximumInscribedCircle, etc. |
+| `measure`, `measure/match` | Distance, Area, Length, Centroid, MinimumBoundingCircle, MaximumInscribedCircle, etc.; similarity scores (Hausdorff, Fréchet, area overlap) in `measure/match`. |
 | `triangulate` | Delaunay (incl. conforming), Voronoi, polygon triangulation. |
 | `kernel`, `kernel/planar`, `kernel/spherical`, `kernel/geodesic` | Pluggable orientation/intersection kernels. Planar is Shewchuk-adaptive with `math/big` fallback. |
 | `wkt`, `wkb`, `geojson`, `gml`, `kml` | I/O. WKT/WKB/GeoJSON/GML are read+write; KML is write-only. EWKB and ISO-WKB Z/M flag conventions are both supported. |
@@ -94,8 +94,8 @@ Additional gated harnesses:
 # JTS testxml conformance (8 951 cases, 99.88 % pass).
 go test -tags=jts ./internal/jtstest/...
 
-# Cross-implementation conformance vs simplefeatures (Pillar B2).
-go test ./bench/conformance/...
+# Cross-implementation conformance vs simplefeatures (separate module).
+go test -C bench ./conformance/...
 
 # Native-fuzz targets (wkt, wkb, geojson, crs/wkt2).
 go test -fuzz=FuzzUnmarshal -fuzztime=1m ./wkt/
@@ -105,13 +105,19 @@ Property-based tests via `pgregory.net/rapid` cover predicates, overlay, buffer,
 
 ## Versioning and stability
 
-go-topology-suite follows [Semantic Versioning](https://semver.org/). The public API surface — every exported symbol outside `internal/` — is covered by the v1 stability promise. Packages explicitly marked **experimental** in their `doc.go` (notably parts of `crs/proj/` and `kernel/spherical/`) may evolve within a major version with a release-note entry.
+go-topology-suite follows [Semantic Versioning](https://semver.org/). The public API surface — every exported symbol outside `internal/` — is covered by the v1 stability promise. Packages explicitly marked **experimental** in their `doc.go` (currently `crs/proj` and `kernel/spherical`) may evolve within a major version with a release-note entry.
 
 Breaking changes require a major-version bump. Deprecations are announced one minor version ahead of removal.
 
+## Design notes
+
+All operations are synchronous and CPU-bound; nothing takes a `context.Context`. Callers needing cancellation should run the operation in a goroutine and abandon the result — and context-accepting variants can be added compatibly later if demand materialises. Operations that can fail (CRS mismatch, unsupported input combinations, numerical failure) return `error`; total operations (e.g. `simplify.Simplify`, `hull.ConvexHull`, `densify.Densify`) do not.
+
+Format support is deliberately asymmetric where the formats themselves are: GeoJSON drops M ordinates (RFC 7946 has no M), GML carries XY+Z only, and KML is write-only. CRS identity round-trips through EWKB (`wkb.WithSRID`) and EWKT (`wkt.MarshalEWKT`) only; GeoJSON output is CRS-less per RFC 7946 and GML emits only a free-text `srsName`.
+
 ## Acknowledgments
 
-go-topology-suite is a Go port of [JTS](https://github.com/locationtech/jts), authored by Martin Davis and contributors and maintained at LocationTech. Behavioral fidelity to JTS is a design goal; documented divergences live in [`KNOWN-DIVERGENCES.md`](./KNOWN-DIVERGENCES.md).
+go-topology-suite is a Go port of [JTS](https://github.com/locationtech/jts), authored by Martin Davis and contributors and maintained at LocationTech. Behavioral fidelity to JTS is a design goal; accepted divergences are pinned in the conformance harness baseline (`internal/jtstest`) and noted in the [CHANGELOG](./CHANGELOG.md).
 
 The `crs/proj/testdata/gie/` corpus is derived from the [PROJ project](https://github.com/OSGeo/PROJ) and retains its X/MIT license.
 

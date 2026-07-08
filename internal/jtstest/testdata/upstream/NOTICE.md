@@ -9,7 +9,7 @@ upstream JTS Topology Suite project:
 
 JTS is dual-licensed under the Eclipse Public License 2.0 (EPL-2.0) and
 the Eclipse Distribution License 1.0 (EDL-1.0). The EDL-1.0 (a BSD-3
-variant) permits redistribution of these test fixtures alongside terra,
+variant) permits redistribution of these test fixtures alongside go-topology-suite,
 which is itself MIT-licensed. The original copyright holders retain all
 rights to the test data. See the upstream LICENSE files for full terms:
 
@@ -49,6 +49,6 @@ To update to a newer JTS commit:
 | `misc/`      | 11    | Buffer, GEOS bug regressions, miscellaneous.     |
 | `failure/`   | 5     | Inputs JTS itself fails on (precision-reduction, |
 |              |       | adversarial buffers). Run for completeness;      |
-|              |       | terra's behaviour here is uncorrelated with JTS. |
+|              |       | go-topology-suite's behaviour here is uncorrelated with JTS. |
 
 Total: 78 XML files, ~2.9 MB.
