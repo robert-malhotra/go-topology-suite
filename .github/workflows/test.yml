@@ -39,7 +39,7 @@ jobs:
         run: go test -race ./...
 
   build:
-    name: Build + tidy
+    name: Build + tidy + gofmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,23 +47,53 @@ jobs:
         with:
           go-version: stable
       - run: go build ./...
-      - run: |
+      - name: bench module (separate go.mod)
+        run: |
+          go build -C bench ./...
+          go test -C bench ./...
+      - name: tidy check
+        run: |
           go mod tidy
-          git diff --exit-code go.mod go.sum
+          go mod tidy -C bench
+          git diff --exit-code go.mod go.sum bench/go.mod bench/go.sum
+      - name: gofmt check
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then
+            echo "gofmt drift in:"; echo "$out"; exit 1
+          fi
 
-  lint:
-    name: golangci-lint
+  conformance:
+    name: JTS conformance (8951-case corpus)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - uses: golangci/golangci-lint-action@v7
-        if: ${{ hashFiles('.golangci.yml') != '' }}
+          cache-dependency-path: "go.sum"
+      - name: go test -tags=jts
+        run: go test -tags=jts -v -run TestJTSConformance ./internal/jtstest/
+
+  apidiff:
+    name: API compatibility report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
         with:
-          version: v2.4.0
-          args: --timeout=5m
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: apidiff vs latest tag (report only)
+        run: |
+          go install golang.org/x/exp/cmd/apidiff@latest
+          tag=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          if [ -z "$tag" ]; then echo "no tag; skipping"; exit 0; fi
+          echo "comparing module API against $tag"
+          git worktree add /tmp/base "$tag"
+          apidiff -m -incompatible /tmp/base . || true
 
   asan:
     name: Address sanitizer (Linux)
