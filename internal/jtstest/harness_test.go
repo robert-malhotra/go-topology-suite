@@ -10,13 +10,15 @@ import (
 )
 
 // maxKnownDivergences is the tracked residual-failure baseline against
-// the vendored JTS testxml corpus (8951 cases): 11 failures, all either
-// external-tracker known (GEOS upstream), flagged failure/ in JTS's own
-// corpus, or fixture version drift. This constant is the single source
-// of truth for "we know about this gap": lowering it after a fix is
+// the vendored JTS testxml corpus (8951 cases): 9 failures, all rooted
+// in JTS's own failure/ folder (fixtures JTS itself does not pass —
+// four of the five TestReducePrecisionFailure expectations are explicit
+// placeholders for a JTS TopologyException) or in externally tracked
+// GEOS bugs (GEOS#737 sliver). This constant is the single source of
+// truth for "we know about this gap": lowering it after a fix is
 // mandatory in the same PR, and any regression above it fails the test.
 // Per-failure detail is in the DIVERGE log lines this harness emits.
-const maxKnownDivergences = 11
+const maxKnownDivergences = 9
 
 // TestJTSConformance walks the testdata corpus (including the vendored
 // upstream JTS testxml at testdata/upstream/) and runs every op against

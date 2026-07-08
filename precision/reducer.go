@@ -8,7 +8,9 @@
 package precision
 
 import (
+	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 )
 
 // PrecisionReducer reduces the precision of a geometry to a target
@@ -89,6 +91,11 @@ func (r *PrecisionReducer) Reduce(g geom.Geometry) geom.Geometry {
 // then dedupe immediate duplicates (so rings/lines that fold flat
 // expose their collapse), then drop sub-components that no longer have
 // enough distinct vertices to be valid.
+//
+// Polygonal inputs additionally run through a snap-rounded self-union
+// (mirroring JTS GeometryPrecisionReducer's overlay-based reduce): grid
+// snapping can fold a valid ring into a self-intersecting one, and the
+// union re-nodes those crossings and re-extracts valid faces.
 func (r *PrecisionReducer) reduce(g geom.Geometry) geom.Geometry {
 	switch v := g.(type) {
 	case *geom.Point:
@@ -103,17 +110,76 @@ func (r *PrecisionReducer) reduce(g geom.Geometry) geom.Geometry {
 		}
 		return ls
 	case *geom.Polygon:
+		if out, ok := r.reduceArealViaOverlay(v.CRS(), []*geom.Polygon{v}); ok {
+			return out
+		}
 		return r.reducePolygon(v)
 	case *geom.MultiPoint:
 		return r.reduceMultiPoint(v)
 	case *geom.MultiLineString:
 		return r.reduceMultiLineString(v)
 	case *geom.MultiPolygon:
+		polys := make([]*geom.Polygon, 0, v.NumGeometries())
+		for i := 0; i < v.NumGeometries(); i++ {
+			polys = append(polys, v.PolygonAt(i))
+		}
+		if out, ok := r.reduceArealViaOverlay(v.CRS(), polys); ok {
+			return out
+		}
 		return r.reduceMultiPolygon(v)
 	case *geom.GeometryCollection:
 		return r.reduceCollection(v)
 	}
 	return g
+}
+
+// reduceArealViaOverlay reduces polygonal geometry through a
+// snap-rounded self-union at the precision model's grid size, matching
+// JTS GeometryPrecisionReducer's overlay-based path. Returns ok=false
+// when the model has no positive grid size or the overlay fails, in
+// which case the caller falls back to structural pointwise snapping.
+func (r *PrecisionReducer) reduceArealViaOverlay(c *crs.CRS, polys []*geom.Polygon) (geom.Geometry, bool) {
+	gridSize := r.pm.GridSize()
+	if !(gridSize > 0) {
+		return nil, false
+	}
+	nonEmpty := polys[:0]
+	for _, p := range polys {
+		if p != nil && !p.IsEmpty() {
+			nonEmpty = append(nonEmpty, p)
+		}
+	}
+	if len(nonEmpty) == 0 {
+		return nil, false
+	}
+	first, rest, err := overlayng.OverlayPolygonalWithTolerance(
+		nonEmpty, nonEmpty, overlayng.OpUnion, gridSize)
+	if err != nil {
+		return nil, false
+	}
+	return assemblePolygons(c, first, rest), true
+}
+
+// assemblePolygons boxes a (first, rest) overlay result: empty input
+// yields an empty Polygon, a single polygon is returned as-is, several
+// become a MultiPolygon.
+func assemblePolygons(c *crs.CRS, first *geom.Polygon, rest []*geom.Polygon) geom.Geometry {
+	all := make([]*geom.Polygon, 0, 1+len(rest))
+	if first != nil && !first.IsEmpty() {
+		all = append(all, first)
+	}
+	for _, p := range rest {
+		if p != nil && !p.IsEmpty() {
+			all = append(all, p)
+		}
+	}
+	switch len(all) {
+	case 0:
+		return geom.NewEmptyPolygon(c, geom.LayoutXY)
+	case 1:
+		return all[0]
+	}
+	return geom.NewMultiPolygon(c, all...)
 }
 
 func (r *PrecisionReducer) reducePoint(p *geom.Point) *geom.Point {

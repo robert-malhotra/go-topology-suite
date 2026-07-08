@@ -12,7 +12,7 @@ The module path is `github.com/exergy-dev/go-topology-suite`. The top-level pack
 
 JTS is the de-facto reference implementation for 2D vector geometry on the JVM. go-topology-suite ports it to idiomatic Go: explicit CRS attachment on every geometry, no globals on the hot path, value-typed coordinates, sealed `Geometry` interface, and a robust planar kernel built on Shewchuk-style adaptive predicates with a `math/big` exact fallback.
 
-Conformance against JTS's own `testxml` corpus (8 951 cases) is **99.88 %**. The 11 residual failures are all external-tracker known (GEOS upstream), JTS-`failure/` flagged, or fixture version drift; they are pinned as the `maxKnownDivergences` baseline in the conformance harness (`internal/jtstest`), which fails on any regression.
+Conformance against JTS's own `testxml` corpus (8 951 cases) is **99.90 %**. The 9 residual failures are all rooted in JTS's own `failure/` corpus (fixtures JTS itself does not pass) or externally tracked GEOS bugs; they are pinned as the `maxKnownDivergences` baseline in the conformance harness (`internal/jtstest`), which fails on any regression.
 
 ## Quick start
 
@@ -91,7 +91,7 @@ go test -race ./...
 Additional gated harnesses:
 
 ```sh
-# JTS testxml conformance (8 951 cases, 99.88 % pass).
+# JTS testxml conformance (8 951 cases, 99.90 % pass).
 go test -tags=jts ./internal/jtstest/...
 
 # Cross-implementation conformance vs simplefeatures (separate module).

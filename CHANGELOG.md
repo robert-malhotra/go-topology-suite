@@ -26,11 +26,13 @@ First stable release. Every exported symbol outside `internal/` is now covered b
 ### Added
 
 - `geom.NewEmptyMultiPoint`, `NewEmptyMultiLineString`, `NewEmptyMultiPolygon`, `NewEmptyGeometryCollection` — layout-carrying empty constructors matching `NewEmptyPoint/LineString/Polygon`.
-- The JTS conformance harness now enforces its baseline: `maxKnownDivergences` in `internal/jtstest/harness_test.go` (currently 11 of 8951) fails the suite on any regression, and CI runs it.
+- The JTS conformance harness now enforces its baseline: `maxKnownDivergences` in `internal/jtstest/harness_test.go` (currently 9 of 8951) fails the suite on any regression, and CI runs it.
 - `bench/` is its own Go module, keeping `simplefeatures` (and the rest of the harness graph) out of the library's dependency graph. The published module compiles zero third-party code into consumers.
 
 ### Fixed
 
+- **`simplify.TopologyPreserving` now matches current JTS (PR #1024 port).** The section simplifier is a faithful port of `TaggedLineStringSimplifier`: the depth-based ring-minimum guard, segment (not infinite-line) distances, shared input/output segment sets, and the `simplifyRingEndpoint` pass. Closes JTS corpus cases TestSimplify #15/#16, which were previously misclassified as fixture drift.
+- **`precision.Reduce` runs polygonal input through a snap-rounded self-union** (mirroring JTS `GeometryPrecisionReducer`'s overlay path) instead of pointwise ring snapping, so grid snapping that folds a ring into self-intersection is re-noded into valid faces. The conformance harness now exercises the real `precision.Reduce` (its private helper mishandled the JTS negative-scale-means-grid-size convention).
 - `geom.Envelope` doc no longer claims the zero value is empty (it is a degenerate box at the origin; use `EmptyEnvelope()`).
 - Stale package docs rewritten: `overlay/doc.go` (claimed only convex clipping worked; the full overlay-NG pipeline has shipped since Wave 20), `index/doc.go` (described one R-tree; eight index types ship, now with a per-type concurrency table), `kernel/doc.go` scaffolding language, `buffer.Buffer` doc ("polygon inputs are rejected" — they are supported).
 - Import-order `gofmt` drift from the terra → go-topology-suite rename swept across 117 files.
@@ -60,6 +62,6 @@ go-topology-suite was developed over a series of waves driven by the JTS conform
 - **Waves 17–19 (residual algorithmic gaps).** Closed `TestBufferExternal2 case#97` by reverting `OFFSET_SEGMENT_SEPARATION_FACTOR` to JTS pre-2023 (1e-3); diagnosed `GEOSBuffer#2`.
 - **Wave 20 (LineString buffer rewrite).** Routed `bufferLineString` through the polygonizer pipeline (offset segments → snap-round → DCEL → per-subgraph depth labelling → kept-ring extraction → reduced-precision retry); zero algorithmic gaps remain.
 
-The conformance baseline at v1.0.0 is **8 940 / 8 951 (99.88 %)**; the 11 residual failures are all external-tracker known or fixture version drift, pinned as the harness baseline (see `internal/jtstest`).
+The conformance baseline at v1.0.0 is **8 942 / 8 951 (99.90 %)**; the 9 residual failures are all rooted in JTS's own `failure/` corpus or externally tracked GEOS bugs, pinned as the harness baseline (see `internal/jtstest`).
 
 [1.0.0]: https://github.com/exergy-dev/go-topology-suite/compare/v0.1.0...v1.0.0

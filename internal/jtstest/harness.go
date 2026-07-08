@@ -493,7 +493,11 @@ func runReducePrecision(c *xmlCase, op xmlOp) dispatchResult {
 	if !ok {
 		return res
 	}
-	got := reducePrecision(a, scale)
+	// Use the real library port: precision.Reduce handles the JTS
+	// negative-scale-means-grid-size convention and collapse removal,
+	// unlike the pointwise reducePrecision helper used for pre/post-op
+	// grid snapping elsewhere in this harness.
+	got := precision.Reduce(a, geom.NewFixedPrecision(scale))
 	expected, err := parseWKT(op.Expected)
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
