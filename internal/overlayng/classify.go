@@ -24,11 +24,11 @@ import (
 // When no single-source edge of the desired tag exists, we fall back
 // to the standard interiorPoint which picks the longest non-spur
 // edge regardless of tag.
-func classifyFacesByPolygons(d *dcel,
+func classifyFacesByPolygons(d *DCEL,
 	subjRings [][]geom.XY, subjPerPoly []int,
 	clipRings [][]geom.XY, clipPerPoly []int,
 ) {
-	for _, f := range d.faces {
+	for _, f := range d.Faces {
 		// Sample for inSubj: prefer an edge contributed by clip only.
 		ipSubj := interiorPointPreferringTag(f, 2, 1)
 		f.inSubj = pointInAnyPolygon(ipSubj, subjRings, subjPerPoly)
@@ -92,14 +92,14 @@ func classifyFacesByPolygons(d *dcel,
 // boundary is shared between subj's hole and clip's outer ring
 // (tags == both bits) — in those cases the original-ring test is
 // already reliable, so we should not override it.
-func faceBoundaryAllOfTag(f *face, tagBit uint8) bool {
-	if f.isOuter || len(f.edges) == 0 {
+func faceBoundaryAllOfTag(f *Face, tagBit uint8) bool {
+	if f.isOuter || len(f.Edges) == 0 {
 		return false
 	}
 	otherBit := uint8(0b11) ^ tagBit
 	any := false
-	for _, e := range f.edges {
-		if e.twin != nil && e.twin.face == f {
+	for _, e := range f.Edges {
+		if e.Twin != nil && e.Twin.Face == f {
 			continue
 		}
 		if e.tags&tagBit == 0 {
@@ -116,15 +116,15 @@ func faceBoundaryAllOfTag(f *face, tagBit uint8) bool {
 // faceCentroid returns the average of the face's distinct boundary
 // vertices. For convex faces this is strictly interior. For concave
 // faces it may fall outside; callers must validate via pointInFace.
-func faceCentroid(f *face) geom.XY {
+func faceCentroid(f *Face) geom.XY {
 	var cx, cy float64
 	var n int
 	seen := map[geom.XY]bool{}
-	for _, e := range f.edges {
-		if !seen[e.origin.p] {
-			cx += e.origin.p.X
-			cy += e.origin.p.Y
-			seen[e.origin.p] = true
+	for _, e := range f.Edges {
+		if !seen[e.Origin.P] {
+			cx += e.Origin.P.X
+			cy += e.Origin.P.Y
+			seen[e.Origin.P] = true
 			n++
 		}
 	}
@@ -139,13 +139,13 @@ func faceCentroid(f *face) geom.XY {
 // containing spurs) the test still works in the parity sense — a spur
 // edge is traversed twice in opposite directions, contributing zero
 // net crossings to a horizontal ray.
-func pointInFace(p geom.XY, f *face) bool {
-	if len(f.edges) == 0 {
+func pointInFace(p geom.XY, f *Face) bool {
+	if len(f.Edges) == 0 {
 		return false
 	}
 	inside := false
-	for _, e := range f.edges {
-		a, b := e.origin.p, e.target.p
+	for _, e := range f.Edges {
+		a, b := e.Origin.P, e.Target.P
 		if (a.Y > p.Y) != (b.Y > p.Y) {
 			xCross := a.X + (p.Y-a.Y)*(b.X-a.X)/(b.Y-a.Y)
 			if p.X < xCross {
@@ -160,22 +160,22 @@ func pointInFace(p geom.XY, f *face) bool {
 // from the longest non-spur edge whose tag has the `prefer` bit set
 // AND not the `avoid` bit. If no such edge exists, falls back to
 // any longest non-spur edge.
-func interiorPointPreferringTag(f *face, prefer, avoid uint8) geom.XY {
-	if len(f.edges) == 0 {
+func interiorPointPreferringTag(f *Face, prefer, avoid uint8) geom.XY {
+	if len(f.Edges) == 0 {
 		return geom.XY{}
 	}
 	bestIdx := -1
 	var bestLen2 float64
 	// First pass: prefer edges with `prefer` tag set and `avoid` tag NOT set.
-	for i, e := range f.edges {
-		if e.twin != nil && e.twin.face == f {
+	for i, e := range f.Edges {
+		if e.Twin != nil && e.Twin.Face == f {
 			continue
 		}
 		if e.tags&prefer == 0 || e.tags&avoid != 0 {
 			continue
 		}
-		dx := e.target.p.X - e.origin.p.X
-		dy := e.target.p.Y - e.origin.p.Y
+		dx := e.Target.P.X - e.Origin.P.X
+		dy := e.Target.P.Y - e.Origin.P.Y
 		l2 := dx*dx + dy*dy
 		if bestIdx < 0 || l2 > bestLen2 {
 			bestIdx = i
@@ -183,7 +183,7 @@ func interiorPointPreferringTag(f *face, prefer, avoid uint8) geom.XY {
 		}
 	}
 	if bestIdx >= 0 {
-		return edgeNudgePoint(f.edges[bestIdx])
+		return edgeNudgePoint(f.Edges[bestIdx])
 	}
 	// Fallback: longest non-spur edge regardless of tag.
 	return interiorPoint(f)
@@ -191,9 +191,9 @@ func interiorPointPreferringTag(f *face, prefer, avoid uint8) geom.XY {
 
 // edgeNudgePoint returns the midpoint of edge e nudged perpendicular
 // into the face on the LEFT (the face's interior by DCEL convention).
-func edgeNudgePoint(e *halfEdge) geom.XY {
-	x0, y0 := e.origin.p.X, e.origin.p.Y
-	x1, y1 := e.target.p.X, e.target.p.Y
+func edgeNudgePoint(e *HalfEdge) geom.XY {
+	x0, y0 := e.Origin.P.X, e.Origin.P.Y
+	x1, y1 := e.Target.P.X, e.Target.P.Y
 	mx, my := (x0+x1)/2, (y0+y1)/2
 	dx, dy := x1-x0, y1-y0
 	const eps = 1e-9
@@ -226,18 +226,18 @@ func pointInAnyPolygon(p geom.XY, rings [][]geom.XY, perPoly []int) bool {
 // Spur edges (e.face == e.twin.face) are skipped because they're
 // internal "spikes" within the face; perpendicular nudges from them
 // can fall on either side and behave unpredictably.
-func interiorPoint(f *face) geom.XY {
-	if len(f.edges) == 0 {
+func interiorPoint(f *Face) geom.XY {
+	if len(f.Edges) == 0 {
 		return geom.XY{}
 	}
 	bestIdx := -1
 	var bestLen2 float64
-	for i, e := range f.edges {
-		if e.twin != nil && e.twin.face == f {
+	for i, e := range f.Edges {
+		if e.Twin != nil && e.Twin.Face == f {
 			continue
 		}
-		dx := e.target.p.X - e.origin.p.X
-		dy := e.target.p.Y - e.origin.p.Y
+		dx := e.Target.P.X - e.Origin.P.X
+		dy := e.Target.P.Y - e.Origin.P.Y
 		l2 := dx*dx + dy*dy
 		if bestIdx < 0 || l2 > bestLen2 {
 			bestIdx = i
@@ -247,5 +247,5 @@ func interiorPoint(f *face) geom.XY {
 	if bestIdx < 0 {
 		bestIdx = 0
 	}
-	return edgeNudgePoint(f.edges[bestIdx])
+	return edgeNudgePoint(f.Edges[bestIdx])
 }

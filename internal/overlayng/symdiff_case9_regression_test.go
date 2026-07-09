@@ -34,8 +34,8 @@ func TestCase9SymDiffTraceClassify(t *testing.T) {
 	d.traceFaces()
 	classifyFacesByPolygons(d, subjRings, subjPerPoly, clipRings, clipPerPoly)
 	applyOp(d, OpSymDiff)
-	for i, f := range d.faces {
-		t.Logf("post-op face[%d] keep=%v inSubj=%v inClip=%v isOuter=%v", i, f.keep, f.inSubj, f.inClip, f.isOuter)
+	for i, f := range d.Faces {
+		t.Logf("post-op face[%d] keep=%v inSubj=%v inClip=%v isOuter=%v", i, f.Keep, f.inSubj, f.inClip, f.isOuter)
 	}
 	rings := extractResultRings(d)
 	for i, r := range rings {
@@ -50,7 +50,7 @@ func TestCase9SymDiffTraceClassify(t *testing.T) {
 			}
 		}
 	}
-	for i, f := range d.faces {
+	for i, f := range d.Faces {
 		if f.isOuter {
 			t.Logf("face[%d] OUTER", i)
 			continue
@@ -60,8 +60,8 @@ func TestCase9SymDiffTraceClassify(t *testing.T) {
 		ipC := interiorPointPreferringTag(f, 1, 2)
 		c := faceCentroid(f)
 		bits := uint8(0)
-		for _, e := range f.edges {
-			if e.twin != nil && e.twin.face == f {
+		for _, e := range f.Edges {
+			if e.Twin != nil && e.Twin.Face == f {
 				continue
 			}
 			bits |= e.tags

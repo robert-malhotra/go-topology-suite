@@ -420,7 +420,7 @@ func overlayCorePolygonal(
 // classification is correct as long as the DCEL is built without
 // vertex aliasing. The disjoint helper remains as a defensive
 // fallback for true outliers.
-func mayHandleMultiComponent(d *dcel,
+func mayHandleMultiComponent(d *DCEL,
 	subjRings [][]geom.XY, subjPerPoly []int,
 	clipRings [][]geom.XY, clipPerPoly []int,
 ) bool {

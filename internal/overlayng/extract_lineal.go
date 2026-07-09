@@ -13,15 +13,15 @@ import "github.com/exergy-dev/go-topology-suite/geom"
 // intersection, lineal-dimension.
 //
 // Each chain is returned as a list of vertices [p0, p1, ..., pn].
-func extractResultLines(d *dcel, op Op) [][]geom.XY {
+func extractResultLines(d *DCEL, op Op) [][]geom.XY {
 	if d == nil {
 		return nil
 	}
 	inResult := lineEdgePredicate(op)
-	visited := map[*halfEdge]bool{}
+	visited := map[*HalfEdge]bool{}
 	var lines [][]geom.XY
-	for _, e := range d.edges {
-		if visited[e] || visited[e.twin] {
+	for _, e := range d.Edges {
+		if visited[e] || visited[e.Twin] {
 			continue
 		}
 		if !inResult(e) {
@@ -66,17 +66,17 @@ func extractResultLines(d *dcel, op Op) [][]geom.XY {
 // result region) are excluded — those points are already covered
 // by the polygon. Non-spur edges are emitted as lines only for
 // Intersection; other ops route those through extractResultRings.
-func lineEdgePredicate(op Op) func(*halfEdge) bool {
-	return func(e *halfEdge) bool {
-		if e.face == nil || e.twin == nil || e.twin.face == nil {
+func lineEdgePredicate(op Op) func(*HalfEdge) bool {
+	return func(e *HalfEdge) bool {
+		if e.Face == nil || e.Twin == nil || e.Twin.Face == nil {
 			return false
 		}
 		// Spur edge: e.face == e.twin.face. The edge is interior to
 		// a single face. Compute closed-set membership from that
 		// face plus the edge's tag, then apply the per-op rule.
-		if e.face == e.twin.face {
-			f := e.face
-			if f.keep {
+		if e.Face == e.Twin.Face {
+			f := e.Face
+			if f.Keep {
 				return false
 			}
 			inSubj := f.inSubj || (e.tags&0b01 != 0)
@@ -102,7 +102,7 @@ func lineEdgePredicate(op Op) func(*halfEdge) bool {
 			return false
 		}
 		// Skip edges that are part of a kept polygon's boundary.
-		if e.face.keep || e.twin.face.keep {
+		if e.Face.Keep || e.Twin.Face.Keep {
 			return false
 		}
 		// Both inputs contributed: shared boundary segment between
@@ -114,12 +114,12 @@ func lineEdgePredicate(op Op) func(*halfEdge) bool {
 		// both adjacent faces are inClip (the segment lies inside the
 		// clip polygon's interior); the segment is therefore in
 		// subj∩clip even though no face has area in both inputs.
-		if e.tags&0b01 != 0 && e.face.inClip && e.twin.face.inClip {
+		if e.tags&0b01 != 0 && e.Face.inClip && e.Twin.Face.inClip {
 			return true
 		}
 		// Symmetric: clip-only edge sandwiched between two inSubj
 		// faces.
-		if e.tags&0b10 != 0 && e.face.inSubj && e.twin.face.inSubj {
+		if e.tags&0b10 != 0 && e.Face.inSubj && e.Twin.Face.inSubj {
 			return true
 		}
 		return false
@@ -130,34 +130,34 @@ func lineEdgePredicate(op Op) func(*halfEdge) bool {
 // At each end, the chain extends iff there's exactly one in-result
 // out-edge that continues the line (degree-2 internal node). At
 // endpoints (degree-1 in-result, or degree>=3) the chain stops.
-func traceChain(start *halfEdge, inResult func(*halfEdge) bool, visited map[*halfEdge]bool) []geom.XY {
+func traceChain(start *HalfEdge, inResult func(*HalfEdge) bool, visited map[*HalfEdge]bool) []geom.XY {
 	visited[start] = true
-	visited[start.twin] = true
+	visited[start.Twin] = true
 
 	// Walk forward from start.target.
-	forward := []geom.XY{start.origin.p, start.target.p}
+	forward := []geom.XY{start.Origin.P, start.Target.P}
 	cur := start
 	for {
-		nxt := nextInResultAt(cur.target, cur.twin, inResult, visited)
+		nxt := nextInResultAt(cur.Target, cur.Twin, inResult, visited)
 		if nxt == nil {
 			break
 		}
 		visited[nxt] = true
-		visited[nxt.twin] = true
-		forward = append(forward, nxt.target.p)
+		visited[nxt.Twin] = true
+		forward = append(forward, nxt.Target.P)
 		cur = nxt
 	}
 	// Walk backward from start.origin.
-	curB := start.twin
+	curB := start.Twin
 	var backward []geom.XY
 	for {
-		nxt := nextInResultAt(curB.target, curB.twin, inResult, visited)
+		nxt := nextInResultAt(curB.Target, curB.Twin, inResult, visited)
 		if nxt == nil {
 			break
 		}
 		visited[nxt] = true
-		visited[nxt.twin] = true
-		backward = append(backward, nxt.target.p)
+		visited[nxt.Twin] = true
+		backward = append(backward, nxt.Target.P)
 		curB = nxt
 	}
 	if len(backward) == 0 {
@@ -176,9 +176,9 @@ func traceChain(start *halfEdge, inResult func(*halfEdge) bool, visited map[*hal
 // nextInResultAt returns the unique unvisited in-result outgoing edge
 // at vertex v, excluding the edge whose twin is `incoming` (we just
 // arrived from it). If 0 or >1 candidates exist, returns nil.
-func nextInResultAt(v *vertex, incoming *halfEdge, inResult func(*halfEdge) bool, visited map[*halfEdge]bool) *halfEdge {
-	var found *halfEdge
-	for _, oe := range v.out {
+func nextInResultAt(v *Vertex, incoming *HalfEdge, inResult func(*HalfEdge) bool, visited map[*HalfEdge]bool) *HalfEdge {
+	var found *HalfEdge
+	for _, oe := range v.Out {
 		if oe == incoming {
 			continue
 		}
@@ -201,7 +201,7 @@ func nextInResultAt(v *vertex, incoming *halfEdge, inResult func(*halfEdge) bool
 // but aren't covered by any extracted line or polygon ring. For
 // intersection, a vertex qualifies iff it's adjacent to at least one
 // subj-tagged edge AND at least one clip-tagged edge.
-func extractResultPoints(d *dcel, op Op, lineCoords [][]geom.XY, polygonCoords [][]geom.XY) []geom.XY {
+func extractResultPoints(d *DCEL, op Op, lineCoords [][]geom.XY, polygonCoords [][]geom.XY) []geom.XY {
 	if d == nil || op != OpIntersection {
 		return nil
 	}
@@ -217,12 +217,12 @@ func extractResultPoints(d *dcel, op Op, lineCoords [][]geom.XY, polygonCoords [
 		}
 	}
 	var points []geom.XY
-	for _, v := range d.vertices {
-		if used[v.p] {
+	for _, v := range d.Vertices {
+		if used[v.P] {
 			continue
 		}
 		hasSubj, hasClip := false, false
-		for _, e := range v.out {
+		for _, e := range v.Out {
 			if e.tags&0b01 != 0 {
 				hasSubj = true
 			}
@@ -231,7 +231,7 @@ func extractResultPoints(d *dcel, op Op, lineCoords [][]geom.XY, polygonCoords [
 			}
 		}
 		if hasSubj && hasClip {
-			points = append(points, v.p)
+			points = append(points, v.P)
 		}
 	}
 	return points

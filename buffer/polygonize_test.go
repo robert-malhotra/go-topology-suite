@@ -6,6 +6,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/geomath"
+	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 	"github.com/exergy-dev/go-topology-suite/measure"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -236,19 +237,19 @@ func TestFindSubgraphs_TwoDisjointSquares(t *testing.T) {
 // TestTopmostRightmostVertex picks the (max-Y, max-X) vertex.
 func TestTopmostRightmostVertex(t *testing.T) {
 	// Build a tiny graph by hand: square with corners (0,0),(2,0),(2,2),(0,2).
-	v00 := &pgVertex{p: geom.XY{X: 0, Y: 0}}
-	v20 := &pgVertex{p: geom.XY{X: 2, Y: 0}}
-	v22 := &pgVertex{p: geom.XY{X: 2, Y: 2}}
-	v02 := &pgVertex{p: geom.XY{X: 0, Y: 2}}
-	edges := []*pgHalfEdge{
-		{origin: v00, target: v20},
-		{origin: v20, target: v22},
-		{origin: v22, target: v02},
-		{origin: v02, target: v00},
+	v00 := &overlayng.Vertex{P: geom.XY{X: 0, Y: 0}}
+	v20 := &overlayng.Vertex{P: geom.XY{X: 2, Y: 0}}
+	v22 := &overlayng.Vertex{P: geom.XY{X: 2, Y: 2}}
+	v02 := &overlayng.Vertex{P: geom.XY{X: 0, Y: 2}}
+	edges := []*overlayng.HalfEdge{
+		{Origin: v00, Target: v20},
+		{Origin: v20, Target: v22},
+		{Origin: v22, Target: v02},
+		{Origin: v02, Target: v00},
 	}
 	got := topmostRightmostVertex(edges)
 	require.NotNil(t, got)
-	assert.Equal(t, geom.XY{X: 2, Y: 2}, got.p, "max-Y, ties broken by max-X")
+	assert.Equal(t, geom.XY{X: 2, Y: 2}, got.P, "max-Y, ties broken by max-X")
 }
 
 // TestPolygonize_SelfIntersectingOffset: a deliberately self-intersecting

@@ -1,9 +1,7 @@
 package buffer
 
 import (
-	"cmp"
 	"math"
-	"slices"
 
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -354,7 +352,7 @@ func polygonizeBufferRings(segs []offsetSegment, tolerance float64) ([][]geom.XY
 		return nil, nil
 	}
 	g := buildPolygonizeDCEL(noded)
-	if g == nil || len(g.faces) == 0 {
+	if g == nil || len(g.Faces) == 0 {
 		return nil, nil
 	}
 	// Per-subgraph depth labeling: partition the noded edge graph into
@@ -706,14 +704,14 @@ func flattenChains(strings []*noding.SegmentString) []offsetSegment {
 		ax, ay, bx, by uint64
 	}
 	canon := func(p0, p1 geom.XY) (canonKey, int8) {
-		ka := pgMakeKey(p0)
-		kb := pgMakeKey(p1)
+		ax, ay := math.Float64bits(p0.X), math.Float64bits(p0.Y)
+		bx, by := math.Float64bits(p1.X), math.Float64bits(p1.Y)
 		// Order endpoints so {a, b} canonical key is direction-
 		// independent, but track sign for reverse vs forward.
-		if ka.x < kb.x || (ka.x == kb.x && ka.y < kb.y) {
-			return canonKey{ka.x, ka.y, kb.x, kb.y}, +1
+		if ax < bx || (ax == bx && ay < by) {
+			return canonKey{ax, ay, bx, by}, +1
 		}
-		return canonKey{kb.x, kb.y, ka.x, ka.y}, -1
+		return canonKey{bx, by, ax, ay}, -1
 	}
 	type accum struct {
 		p0, p1 geom.XY
@@ -758,150 +756,21 @@ func flattenChains(strings []*noding.SegmentString) []offsetSegment {
 	return out
 }
 
-// pgVertex / pgHalfEdge / pgFace — planar-subdivision primitives for
-// the polygonizer. Distinct from overlay/overlayng's DCEL because face
-// classification is by signed depth (computed below), not tag-based.
-type pgVertex struct {
-	p   geom.XY
-	out []*pgHalfEdge
-}
-
-type pgHalfEdge struct {
-	origin, target *pgVertex
-	twin           *pgHalfEdge
-	next           *pgHalfEdge
-	face           *pgFace
-	angle          float64
-	depthDelta     int8 // +1 if walking from origin→target crosses INTO buffer interior
-}
-
-type pgFace struct {
-	edges []*pgHalfEdge
-	depth int
-	keep  bool
-}
-
-type pgGraph struct {
-	vertices []*pgVertex
-	edges    []*pgHalfEdge
-	faces    []*pgFace
-}
-
-type pgVertexKey struct{ x, y uint64 }
-
-func pgMakeKey(p geom.XY) pgVertexKey {
-	return pgVertexKey{x: math.Float64bits(p.X), y: math.Float64bits(p.Y)}
-}
-
 // buildPolygonizeDCEL constructs a planar subdivision from the noded
-// offset segments. Coincident edges (same endpoints, either direction)
-// merge into a single half-edge pair whose depthDelta is the sum of
-// contributions — so two oppositely-oriented offsets on the same edge
+// offset segments on the shared overlayng DCEL substrate, using the
+// depth-mode build: coincident edges (same endpoints, either direction)
+// merge into a single half-edge pair whose DepthDelta is the sum of
+// contributions -- so two oppositely-oriented offsets on the same edge
 // cancel out (they share boundary; the boundary is "interior-to-both"
-// and contributes nothing to either side's depth).
-func buildPolygonizeDCEL(segs []offsetSegment) *pgGraph {
-	g := &pgGraph{}
-	vmap := map[pgVertexKey]*pgVertex{}
-	getVertex := func(p geom.XY) *pgVertex {
-		k := pgMakeKey(p)
-		if v, ok := vmap[k]; ok {
-			return v
-		}
-		v := &pgVertex{p: p}
-		vmap[k] = v
-		g.vertices = append(g.vertices, v)
-		return v
+// and contributes nothing to either side's depth). Face cycles are
+// traced by the build; face classification is by signed depth
+// (computed below by labelSubgraphDepths), not overlay tags.
+func buildPolygonizeDCEL(segs []offsetSegment) *overlayng.DCEL {
+	ds := make([]overlayng.DepthSegment, len(segs))
+	for i, s := range segs {
+		ds[i] = overlayng.DepthSegment{P0: s.p0, P1: s.p1, DepthDelta: s.depthDelta}
 	}
-
-	type edgeKey struct{ a, b pgVertexKey }
-	edgeMap := map[edgeKey]*pgHalfEdge{}
-
-	for _, s := range segs {
-		if s.p0 == s.p1 {
-			continue
-		}
-		va := getVertex(s.p0)
-		vb := getVertex(s.p1)
-		ka := pgMakeKey(va.p)
-		kb := pgMakeKey(vb.p)
-		fk := edgeKey{ka, kb}
-		bk := edgeKey{kb, ka}
-		if e, exists := edgeMap[fk]; exists {
-			// Same direction reappeared: depths add (the segment is
-			// shared between two source curves on the same side).
-			e.depthDelta += s.depthDelta
-			continue
-		}
-		if e, exists := edgeMap[bk]; exists {
-			// Opposite direction reappeared: walking origin→target on the
-			// reverse swaps left and right. depthDelta on the existing
-			// (reverse-direction) edge is decremented, twin incremented.
-			e.depthDelta -= s.depthDelta
-			e.twin.depthDelta += s.depthDelta
-			continue
-		}
-		eFwd := &pgHalfEdge{origin: va, target: vb, depthDelta: s.depthDelta}
-		eBack := &pgHalfEdge{origin: vb, target: va, depthDelta: -s.depthDelta}
-		eFwd.twin = eBack
-		eBack.twin = eFwd
-		eFwd.angle = math.Atan2(vb.p.Y-va.p.Y, vb.p.X-va.p.X)
-		eBack.angle = math.Atan2(va.p.Y-vb.p.Y, va.p.X-vb.p.X)
-		va.out = append(va.out, eFwd)
-		vb.out = append(vb.out, eBack)
-		g.edges = append(g.edges, eFwd, eBack)
-		edgeMap[fk] = eFwd
-		edgeMap[bk] = eBack
-	}
-
-	for _, v := range g.vertices {
-		slices.SortFunc(v.out, func(a, b *pgHalfEdge) int {
-			return cmp.Compare(a.angle, b.angle)
-		})
-	}
-
-	// Set next pointers (predecessor-of-twin rule, same as overlayng).
-	for _, e := range g.edges {
-		t := e.target
-		twin := e.twin
-		idx := -1
-		for i, oe := range t.out {
-			if oe == twin {
-				idx = i
-				break
-			}
-		}
-		if idx < 0 {
-			continue
-		}
-		nextIdx := (idx - 1 + len(t.out)) % len(t.out)
-		e.next = t.out[nextIdx]
-	}
-
-	// Trace faces.
-	for _, e := range g.edges {
-		if e.face != nil {
-			continue
-		}
-		f := &pgFace{}
-		cur := e
-		const maxSteps = 1 << 20
-		for steps := 0; steps < maxSteps; steps++ {
-			if cur == nil || cur.face != nil {
-				break
-			}
-			cur.face = f
-			f.edges = append(f.edges, cur)
-			cur = cur.next
-			if cur == e {
-				break
-			}
-		}
-		if len(f.edges) > 0 {
-			g.faces = append(g.faces, f)
-		}
-	}
-
-	return g
+	return overlayng.BuildDepthDCEL(ds)
 }
 
 // labelSubgraphDepths is the JTS-style depth labeller that scopes BFS
@@ -923,23 +792,23 @@ func buildPolygonizeDCEL(segs []offsetSegment) *pgGraph {
 //     For a closed boundary subgraph, this vertex is on the geometric
 //     "outside" of the subgraph.
 //  2. Pick its CCW-first outgoing half-edge. The face on the LEFT of
-//     that edge (i.e., e.face) is the subgraph's outermost face.
+//     that edge (i.e., e.Face) is the subgraph's outermost face.
 //  3. Compute that face's absolute depth by ray-casting against ALL
 //     offset segments (the global winding number).
 //  4. If the anchor face's depth < 1, the entire subgraph is an
 //     overshoot lobe with no kept interior — mark every face in the
 //     subgraph as keep=false.
 //  5. Otherwise BFS from the anchor face within the subgraph,
-//     propagating depth via twin-edge crossings: depth(twin.face) =
-//     depth(e.face) - e.depthDelta. Mark face.keep = (depth >= 1).
+//     propagating depth via twin-edge crossings: depth(twin.Face) =
+//     depth(e.Face) - e.DepthDelta. Mark face.Keep = (depth >= 1).
 //
 // Subgraph identification uses Union-Find on edges by shared-vertex
 // adjacency, which is sufficient because the planar subdivision's DCEL
 // only links edges within the same connected component via twin/next
 // pointers. Edges sharing only the unbounded "outer face" geometrically
 // (but not a vertex) are correctly placed in different subgraphs.
-func labelSubgraphDepths(g *pgGraph, segs []offsetSegment) {
-	if len(g.faces) == 0 {
+func labelSubgraphDepths(g *overlayng.DCEL, segs []offsetSegment) {
+	if len(g.Faces) == 0 {
 		return
 	}
 	subgraphs := findSubgraphs(g)
@@ -953,20 +822,20 @@ func labelSubgraphDepths(g *pgGraph, segs []offsetSegment) {
 	// their zero-init depth and keep=false.
 }
 
-// findSubgraphs partitions g.edges into connected components by
+// findSubgraphs partitions g.Edges into connected components by
 // vertex-share adjacency. Two half-edges belong to the same subgraph
 // iff there is a path of edges (and twins) connecting them through
 // shared vertices. Returns each component as a slice of half-edges
 // (forward + twins both included).
-func findSubgraphs(g *pgGraph) [][]*pgHalfEdge {
-	if len(g.edges) == 0 {
+func findSubgraphs(g *overlayng.DCEL) [][]*overlayng.HalfEdge {
+	if len(g.Edges) == 0 {
 		return nil
 	}
 	// Union-Find over vertices: two vertices are merged when they are
 	// connected by an edge.
-	parent := map[*pgVertex]*pgVertex{}
-	var find func(v *pgVertex) *pgVertex
-	find = func(v *pgVertex) *pgVertex {
+	parent := map[*overlayng.Vertex]*overlayng.Vertex{}
+	var find func(v *overlayng.Vertex) *overlayng.Vertex
+	find = func(v *overlayng.Vertex) *overlayng.Vertex {
 		p, ok := parent[v]
 		if !ok {
 			parent[v] = v
@@ -979,28 +848,28 @@ func findSubgraphs(g *pgGraph) [][]*pgHalfEdge {
 		parent[v] = root
 		return root
 	}
-	union := func(a, b *pgVertex) {
+	union := func(a, b *overlayng.Vertex) {
 		ra, rb := find(a), find(b)
 		if ra != rb {
 			parent[ra] = rb
 		}
 	}
-	for _, e := range g.edges {
-		if e.origin == nil || e.target == nil {
+	for _, e := range g.Edges {
+		if e.Origin == nil || e.Target == nil {
 			continue
 		}
-		union(e.origin, e.target)
+		union(e.Origin, e.Target)
 	}
 	// Group edges by their root vertex.
-	groups := map[*pgVertex][]*pgHalfEdge{}
-	for _, e := range g.edges {
-		if e.origin == nil {
+	groups := map[*overlayng.Vertex][]*overlayng.HalfEdge{}
+	for _, e := range g.Edges {
+		if e.Origin == nil {
 			continue
 		}
-		root := find(e.origin)
+		root := find(e.Origin)
 		groups[root] = append(groups[root], e)
 	}
-	out := make([][]*pgHalfEdge, 0, len(groups))
+	out := make([][]*overlayng.HalfEdge, 0, len(groups))
 	for _, edges := range groups {
 		out = append(out, edges)
 	}
@@ -1012,16 +881,16 @@ func findSubgraphs(g *pgGraph) [][]*pgHalfEdge {
 // X. For a closed planar subgraph this vertex lies on the geometric
 // "outside" — its incident-face on the LEFT of the CCW-first outgoing
 // edge is the subgraph's exterior anchor face.
-func topmostRightmostVertex(edges []*pgHalfEdge) *pgVertex {
-	var best *pgVertex
+func topmostRightmostVertex(edges []*overlayng.HalfEdge) *overlayng.Vertex {
+	var best *overlayng.Vertex
 	for _, e := range edges {
-		for _, v := range []*pgVertex{e.origin, e.target} {
+		for _, v := range []*overlayng.Vertex{e.Origin, e.Target} {
 			if v == nil {
 				continue
 			}
 			if best == nil ||
-				v.p.Y > best.p.Y ||
-				(v.p.Y == best.p.Y && v.p.X > best.p.X) {
+				v.P.Y > best.P.Y ||
+				(v.P.Y == best.P.Y && v.P.X > best.P.X) {
 				best = v
 			}
 		}
@@ -1085,15 +954,15 @@ func topmostRightmostVertex(edges []*pgHalfEdge) *pgVertex {
 // the cases we care about, and the JTS ports' larger DCEL/Position
 // surface (DirectedEdgeStar.computeDepths, Label.getLocation, etc.)
 // would expand scope without changing observable conformance.
-func labelOneSubgraph(edges []*pgHalfEdge, segs []offsetSegment) {
+func labelOneSubgraph(edges []*overlayng.HalfEdge, segs []offsetSegment) {
 	if len(edges) == 0 {
 		return
 	}
 	// Collect the subgraph's faces.
-	subFaces := map[*pgFace]bool{}
+	subFaces := map[*overlayng.Face]bool{}
 	for _, e := range edges {
-		if e.face != nil {
-			subFaces[e.face] = true
+		if e.Face != nil {
+			subFaces[e.Face] = true
 		}
 	}
 	if len(subFaces) == 0 {
@@ -1101,9 +970,9 @@ func labelOneSubgraph(edges []*pgHalfEdge, segs []offsetSegment) {
 	}
 	// Find anchor: topmost-rightmost vertex's CCW-first outgoing edge.
 	anchorVertex := topmostRightmostVertex(edges)
-	if anchorVertex == nil || len(anchorVertex.out) == 0 {
+	if anchorVertex == nil || len(anchorVertex.Out) == 0 {
 		// Defensive fallback: pick any face and ray-cast.
-		var any *pgFace
+		var any *overlayng.Face
 		for f := range subFaces {
 			any = f
 			break
@@ -1111,7 +980,7 @@ func labelOneSubgraph(edges []*pgHalfEdge, segs []offsetSegment) {
 		fallbackLabelSubgraph(subFaces, any, segs)
 		return
 	}
-	// CCW-first outgoing edge from the anchor vertex. v.out is sorted
+	// CCW-first outgoing edge from the anchor vertex. v.Out is sorted
 	// by edge angle (atan2) ascending. After ordering by atan2, the
 	// "first" CCW edge from a topmost vertex is the one with the
 	// smallest angle (most negative / pointing rightward-or-down).
@@ -1120,15 +989,15 @@ func labelOneSubgraph(edges []*pgHalfEdge, segs []offsetSegment) {
 	// the LEFT side of its CCW-first outgoing edge points INTO the
 	// subgraph's outermost face (the geometric exterior of that
 	// component). We use that face as the anchor.
-	var anchor *pgHalfEdge
-	for _, oe := range anchorVertex.out {
-		if oe.face != nil && subFaces[oe.face] {
+	var anchor *overlayng.HalfEdge
+	for _, oe := range anchorVertex.Out {
+		if oe.Face != nil && subFaces[oe.Face] {
 			anchor = oe
 			break
 		}
 	}
 	if anchor == nil {
-		var any *pgFace
+		var any *overlayng.Face
 		for f := range subFaces {
 			any = f
 			break
@@ -1136,7 +1005,7 @@ func labelOneSubgraph(edges []*pgHalfEdge, segs []offsetSegment) {
 		fallbackLabelSubgraph(subFaces, any, segs)
 		return
 	}
-	anchorFace := anchor.face
+	anchorFace := anchor.Face
 	// Ray-cast anchor face's depth against all offset segments.
 	ip, ok := faceRepresentativePoint(anchorFace)
 	if !ok {
@@ -1144,8 +1013,8 @@ func labelOneSubgraph(edges []*pgHalfEdge, segs []offsetSegment) {
 		return
 	}
 	anchorDepth := rayCastDepth(ip, segs)
-	anchorFace.depth = anchorDepth
-	anchorFace.keep = anchorDepth >= 1
+	anchorFace.Depth = anchorDepth
+	anchorFace.Keep = anchorDepth >= 1
 	// If the anchor face (the outermost / exterior face of this
 	// subgraph) has depth >= 1, the subgraph IS an interior of a
 	// larger buffer region — accept and propagate. If it has depth < 1,
@@ -1154,23 +1023,23 @@ func labelOneSubgraph(edges []*pgHalfEdge, segs []offsetSegment) {
 	// Either way, BFS within the subgraph propagates depth differentials
 	// edge-by-edge so each interior face gets its correct absolute
 	// depth.
-	queue := []*pgFace{anchorFace}
-	visited := map[*pgFace]bool{anchorFace: true}
+	queue := []*overlayng.Face{anchorFace}
+	visited := map[*overlayng.Face]bool{anchorFace: true}
 	for len(queue) > 0 {
 		f := queue[0]
 		queue = queue[1:]
-		for _, e := range f.edges {
-			twin := e.twin
-			if twin == nil || twin.face == nil {
+		for _, e := range f.Edges {
+			twin := e.Twin
+			if twin == nil || twin.Face == nil {
 				continue
 			}
-			if !subFaces[twin.face] || visited[twin.face] {
+			if !subFaces[twin.Face] || visited[twin.Face] {
 				continue
 			}
-			twin.face.depth = f.depth - int(e.depthDelta)
-			twin.face.keep = twin.face.depth >= 1
-			visited[twin.face] = true
-			queue = append(queue, twin.face)
+			twin.Face.Depth = f.Depth - int(e.DepthDelta)
+			twin.Face.Keep = twin.Face.Depth >= 1
+			visited[twin.Face] = true
+			queue = append(queue, twin.Face)
 		}
 	}
 	// Any subgraph face not reached (disconnected via twin/face links
@@ -1183,21 +1052,21 @@ func labelOneSubgraph(edges []*pgHalfEdge, segs []offsetSegment) {
 		if !ok {
 			continue
 		}
-		f.depth = rayCastDepth(ip, segs)
-		f.keep = f.depth >= 1
+		f.Depth = rayCastDepth(ip, segs)
+		f.Keep = f.Depth >= 1
 	}
 }
 
 // fallbackLabelSubgraph ray-casts every face's depth independently.
 // Used when anchor selection fails (degenerate subgraph topology).
-func fallbackLabelSubgraph(subFaces map[*pgFace]bool, _ *pgFace, segs []offsetSegment) {
+func fallbackLabelSubgraph(subFaces map[*overlayng.Face]bool, _ *overlayng.Face, segs []offsetSegment) {
 	for f := range subFaces {
 		ip, ok := faceRepresentativePoint(f)
 		if !ok {
 			continue
 		}
-		f.depth = rayCastDepth(ip, segs)
-		f.keep = f.depth >= 1
+		f.Depth = rayCastDepth(ip, segs)
+		f.Keep = f.Depth >= 1
 	}
 }
 
@@ -1205,15 +1074,15 @@ func fallbackLabelSubgraph(subFaces map[*pgFace]bool, _ *pgFace, segs []offsetSe
 // edge of f, nudged perpendicular into f's interior (LEFT of edge
 // direction by DCEL convention). Returns ok=false if f has no usable
 // edge (degenerate).
-func faceRepresentativePoint(f *pgFace) (geom.XY, bool) {
+func faceRepresentativePoint(f *overlayng.Face) (geom.XY, bool) {
 	bestIdx := -1
 	var bestLen2 float64
-	for i, e := range f.edges {
-		if e.twin != nil && e.twin.face == f {
+	for i, e := range f.Edges {
+		if e.Twin != nil && e.Twin.Face == f {
 			continue
 		}
-		dx := e.target.p.X - e.origin.p.X
-		dy := e.target.p.Y - e.origin.p.Y
+		dx := e.Target.P.X - e.Origin.P.X
+		dy := e.Target.P.Y - e.Origin.P.Y
 		l2 := dx*dx + dy*dy
 		if bestIdx < 0 || l2 > bestLen2 {
 			bestIdx = i
@@ -1222,20 +1091,20 @@ func faceRepresentativePoint(f *pgFace) (geom.XY, bool) {
 	}
 	if bestIdx < 0 {
 		// All edges are spurs; pick the first edge regardless.
-		if len(f.edges) == 0 {
+		if len(f.Edges) == 0 {
 			return geom.XY{}, false
 		}
 		bestIdx = 0
-		dx := f.edges[0].target.p.X - f.edges[0].origin.p.X
-		dy := f.edges[0].target.p.Y - f.edges[0].origin.p.Y
+		dx := f.Edges[0].Target.P.X - f.Edges[0].Origin.P.X
+		dy := f.Edges[0].Target.P.Y - f.Edges[0].Origin.P.Y
 		bestLen2 = dx*dx + dy*dy
 		if bestLen2 == 0 {
 			return geom.XY{}, false
 		}
 	}
-	e := f.edges[bestIdx]
-	mx, my := (e.origin.p.X+e.target.p.X)/2, (e.origin.p.Y+e.target.p.Y)/2
-	dx, dy := e.target.p.X-e.origin.p.X, e.target.p.Y-e.origin.p.Y
+	e := f.Edges[bestIdx]
+	mx, my := (e.Origin.P.X+e.Target.P.X)/2, (e.Origin.P.Y+e.Target.P.Y)/2
+	dx, dy := e.Target.P.X-e.Origin.P.X, e.Target.P.Y-e.Origin.P.Y
 	l := math.Sqrt(dx*dx + dy*dy)
 	if l == 0 {
 		return geom.XY{}, false
@@ -1279,16 +1148,16 @@ func rayCastDepth(p geom.XY, segs []offsetSegment) int {
 
 // extractKeptRings walks every boundary half-edge (kept face on one
 // side, non-kept on the other) into a closed ring.
-func extractKeptRings(g *pgGraph) [][]geom.XY {
-	isBoundary := func(e *pgHalfEdge) bool {
-		if e.face == nil || e.twin == nil || e.twin.face == nil {
+func extractKeptRings(g *overlayng.DCEL) [][]geom.XY {
+	isBoundary := func(e *overlayng.HalfEdge) bool {
+		if e.Face == nil || e.Twin == nil || e.Twin.Face == nil {
 			return false
 		}
-		return e.face.keep && !e.twin.face.keep
+		return e.Face.Keep && !e.Twin.Face.Keep
 	}
 	var rings [][]geom.XY
-	visited := map[*pgHalfEdge]bool{}
-	for _, start := range g.edges {
+	visited := map[*overlayng.HalfEdge]bool{}
+	for _, start := range g.Edges {
 		if !isBoundary(start) || visited[start] {
 			continue
 		}
@@ -1300,7 +1169,7 @@ func extractKeptRings(g *pgGraph) [][]geom.XY {
 				break
 			}
 			visited[cur] = true
-			ring = append(ring, cur.origin.p)
+			ring = append(ring, cur.Origin.P)
 			next := nextBoundaryAtPGVertex(cur, isBoundary)
 			if next == nil || next == start {
 				break
@@ -1316,12 +1185,12 @@ func extractKeptRings(g *pgGraph) [][]geom.XY {
 }
 
 // nextBoundaryAtPGVertex returns the next outgoing boundary edge in CCW
-// order around e.target, starting after twin(e). Returns nil if none.
-func nextBoundaryAtPGVertex(e *pgHalfEdge, isBoundary func(*pgHalfEdge) bool) *pgHalfEdge {
-	v := e.target
-	twin := e.twin
+// order around e.Target, starting after twin(e). Returns nil if none.
+func nextBoundaryAtPGVertex(e *overlayng.HalfEdge, isBoundary func(*overlayng.HalfEdge) bool) *overlayng.HalfEdge {
+	v := e.Target
+	twin := e.Twin
 	idx := -1
-	for i, oe := range v.out {
+	for i, oe := range v.Out {
 		if oe == twin {
 			idx = i
 			break
@@ -1330,10 +1199,10 @@ func nextBoundaryAtPGVertex(e *pgHalfEdge, isBoundary func(*pgHalfEdge) bool) *p
 	if idx < 0 {
 		return nil
 	}
-	n := len(v.out)
+	n := len(v.Out)
 	for step := 1; step < n; step++ {
 		j := (idx + step) % n
-		candidate := v.out[j]
+		candidate := v.Out[j]
 		if isBoundary(candidate) {
 			return candidate
 		}

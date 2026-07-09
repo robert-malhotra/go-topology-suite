@@ -232,6 +232,7 @@ func parseExpectedBool(op xmlOp) (bool, dispatchResult, bool) {
 }
 
 func compareApproxGeometry(opName string, got geom.Geometry, op xmlOp) dispatchResult {
+	goldenDump(opName, got)
 	expected, res, ok := parseExpectedGeometry(op)
 	if !ok {
 		return res
@@ -365,6 +366,7 @@ func runBuffer(c *xmlCase, op xmlOp, join buffer.JoinStyle) dispatchResult {
 	// First try the relaxed buffer matcher (area + Hausdorff); fall
 	// back to the standard topological-approx test for empties and
 	// degenerate cases.
+	goldenDump("buffer", got)
 	if bufferResultMatchesApprox(got, expected) {
 		return dispatchResult{Pass: true}
 	}
@@ -475,6 +477,7 @@ func runDensify(c *xmlCase, op xmlOp) dispatchResult {
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
 	}
+	goldenDump("exact", got)
 	eq, eerr := predicate.Equals(got, expected)
 	if eerr != nil {
 		return dispatchResult{Detail: "equals: " + eerr.Error()}
@@ -503,6 +506,7 @@ func runReducePrecision(c *xmlCase, op xmlOp) dispatchResult {
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
 	}
+	goldenDump("exact", got)
 	eq, eerr := predicate.Equals(got, expected)
 	if eerr != nil {
 		return dispatchResult{Detail: "equals: " + eerr.Error()}
@@ -539,6 +543,7 @@ func runGetBoundary(c *xmlCase, op xmlOp) dispatchResult {
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
 	}
+	goldenDump("exact", got)
 	eq, eerr := predicate.Equals(got, expected)
 	if eerr != nil {
 		return dispatchResult{Detail: "equals: " + eerr.Error()}
@@ -564,6 +569,7 @@ func runGetInteriorPoint(c *xmlCase, op xmlOp) dispatchResult {
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
 	}
+	goldenDump("exact", got)
 	eq, eerr := predicate.Equals(got, expected)
 	if eerr != nil {
 		return dispatchResult{Detail: "equals: " + eerr.Error()}
@@ -588,6 +594,7 @@ func runSimplify(c *xmlCase, op xmlOp, fn func(geom.Geometry, float64) geom.Geom
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
 	}
+	goldenDump("exact", got)
 	eq, eerr := predicate.Equals(got, expected)
 	if eerr != nil {
 		return dispatchResult{Detail: "equals: " + eerr.Error()}
@@ -997,6 +1004,7 @@ func runConvexHull(c *xmlCase, op xmlOp) dispatchResult {
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
 	}
+	goldenDump("exact", got)
 	eq, eerr := predicate.Equals(got, expected)
 	if eerr != nil {
 		return dispatchResult{Detail: "equals: " + eerr.Error()}
@@ -1110,6 +1118,7 @@ func runMinClearanceLine(c *xmlCase, op xmlOp) dispatchResult {
 		}
 	}
 	gotLS := geom.NewLineString(a.CRS(), []geom.XY{seg[0], seg[1]})
+	goldenDump("lineal", gotLS)
 	if equalsTopologicalApprox(gotLS, expectedLS) {
 		return dispatchResult{Pass: true}
 	}
@@ -1135,6 +1144,7 @@ func runPolygonize(c *xmlCase, op xmlOp) dispatchResult {
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
 	}
+	goldenDump("topo", got)
 	if equalsTopologicalApprox(got, expected) {
 		return dispatchResult{Pass: true}
 	}
@@ -1154,4 +1164,21 @@ func geomString(g geom.Geometry) string {
 		return strings.ToUpper(g.Type().String()) + " EMPTY"
 	}
 	return fmt.Sprintf("%s(env=%v)", strings.ToUpper(g.Type().String()), g.Envelope())
+}
+
+// goldenDump appends "op<TAB>WKT(got)" to the file named by
+// GTS_GOLDEN_DUMP when set. Temporary instrumentation for refactor
+// gating: corpus walk order is deterministic, so two dump files from
+// the same corpus are line-comparable.
+func goldenDump(opName string, got geom.Geometry) {
+	path := os.Getenv("GTS_GOLDEN_DUMP")
+	if path == "" {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "%s\t%s\n", opName, geomString(got))
 }

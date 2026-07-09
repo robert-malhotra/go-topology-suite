@@ -27,20 +27,20 @@ import "github.com/exergy-dev/go-topology-suite/geom"
 // two kept faces are in the same component iff they share at least
 // one half-edge whose twin is also kept (i.e., a non-boundary
 // interior edge of the union).
-func extractResultRings(d *dcel) [][]geom.XY {
-	isBoundary := func(e *halfEdge) bool {
-		if e.face == nil || e.twin == nil || e.twin.face == nil {
+func extractResultRings(d *DCEL) [][]geom.XY {
+	isBoundary := func(e *HalfEdge) bool {
+		if e.Face == nil || e.Twin == nil || e.Twin.Face == nil {
 			return false
 		}
-		return e.face.keep && !e.twin.face.keep
+		return e.Face.Keep && !e.Twin.Face.Keep
 	}
 
 	// Union-find over kept faces. Faces are joined when they share an
 	// interior edge (both halves kept). Pinch-point-only contact does
 	// NOT join (no shared edge — only a shared vertex).
-	parent := map[*face]*face{}
-	var find func(f *face) *face
-	find = func(f *face) *face {
+	parent := map[*Face]*Face{}
+	var find func(f *Face) *Face
+	find = func(f *Face) *Face {
 		if parent[f] == nil {
 			parent[f] = f
 		}
@@ -51,28 +51,28 @@ func extractResultRings(d *dcel) [][]geom.XY {
 		parent[f] = root
 		return root
 	}
-	union := func(a, b *face) {
+	union := func(a, b *Face) {
 		ra, rb := find(a), find(b)
 		if ra != rb {
 			parent[ra] = rb
 		}
 	}
-	for _, f := range d.faces {
-		if f.keep {
+	for _, f := range d.Faces {
+		if f.Keep {
 			find(f)
 		}
 	}
-	for _, e := range d.edges {
-		if e.face == nil || e.twin == nil || e.twin.face == nil {
+	for _, e := range d.Edges {
+		if e.Face == nil || e.Twin == nil || e.Twin.Face == nil {
 			continue
 		}
-		if e.face.keep && e.twin.face.keep {
-			union(e.face, e.twin.face)
+		if e.Face.Keep && e.Twin.Face.Keep {
+			union(e.Face, e.Twin.Face)
 		}
 	}
 
-	var allBoundary []*halfEdge
-	for _, e := range d.edges {
+	var allBoundary []*HalfEdge
+	for _, e := range d.Edges {
 		if isBoundary(e) {
 			allBoundary = append(allBoundary, e)
 		}
@@ -81,7 +81,7 @@ func extractResultRings(d *dcel) [][]geom.XY {
 		return nil
 	}
 
-	visited := map[*halfEdge]bool{}
+	visited := map[*HalfEdge]bool{}
 	var rings [][]geom.XY
 	for _, start := range allBoundary {
 		if visited[start] {
@@ -95,7 +95,7 @@ func extractResultRings(d *dcel) [][]geom.XY {
 				break
 			}
 			visited[cur] = true
-			ring = append(ring, cur.origin.p)
+			ring = append(ring, cur.Origin.P)
 			next := nextBoundaryAtVertex(cur, isBoundary, find)
 			if next == nil || next == start {
 				break
@@ -120,11 +120,11 @@ func extractResultRings(d *dcel) [][]geom.XY {
 // If find is nil, falls back to plain "first CCW boundary after twin"
 // — preserves the original behaviour for callers that don't require
 // component-aware tracing.
-func nextBoundaryAtVertex(e *halfEdge, isBoundary func(*halfEdge) bool, find func(*face) *face) *halfEdge {
-	v := e.target
-	twin := e.twin
+func nextBoundaryAtVertex(e *HalfEdge, isBoundary func(*HalfEdge) bool, find func(*Face) *Face) *HalfEdge {
+	v := e.Target
+	twin := e.Twin
 	idx := -1
-	for i, oe := range v.out {
+	for i, oe := range v.Out {
 		if oe == twin {
 			idx = i
 			break
@@ -133,18 +133,18 @@ func nextBoundaryAtVertex(e *halfEdge, isBoundary func(*halfEdge) bool, find fun
 	if idx < 0 {
 		return nil
 	}
-	var component *face
-	if find != nil && e.face != nil {
-		component = find(e.face)
+	var component *Face
+	if find != nil && e.Face != nil {
+		component = find(e.Face)
 	}
-	n := len(v.out)
+	n := len(v.Out)
 	for step := 1; step < n; step++ {
 		j := (idx + step) % n
-		candidate := v.out[j]
+		candidate := v.Out[j]
 		if !isBoundary(candidate) {
 			continue
 		}
-		if component != nil && find(candidate.face) != component {
+		if component != nil && find(candidate.Face) != component {
 			continue
 		}
 		return candidate
@@ -155,7 +155,7 @@ func nextBoundaryAtVertex(e *halfEdge, isBoundary func(*halfEdge) bool, find fun
 	if component != nil {
 		for step := 1; step < n; step++ {
 			j := (idx + step) % n
-			candidate := v.out[j]
+			candidate := v.Out[j]
 			if isBoundary(candidate) {
 				return candidate
 			}
@@ -171,17 +171,17 @@ func nextBoundaryAtVertex(e *halfEdge, isBoundary func(*halfEdge) bool, find fun
 // the surrounding outer face. The single TRUE outer face (covering the
 // unbounded universe) is naturally not kept because its interior point
 // lies outside both inputs.
-func applyOp(d *dcel, op Op) {
-	for _, f := range d.faces {
+func applyOp(d *DCEL, op Op) {
+	for _, f := range d.Faces {
 		switch op {
 		case OpIntersection:
-			f.keep = f.inSubj && f.inClip
+			f.Keep = f.inSubj && f.inClip
 		case OpUnion:
-			f.keep = f.inSubj || f.inClip
+			f.Keep = f.inSubj || f.inClip
 		case OpDifference:
-			f.keep = f.inSubj && !f.inClip
+			f.Keep = f.inSubj && !f.inClip
 		case OpSymDiff:
-			f.keep = f.inSubj != f.inClip
+			f.Keep = f.inSubj != f.inClip
 		}
 	}
 }
