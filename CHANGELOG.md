@@ -32,11 +32,17 @@ First stable release. Every exported symbol outside `internal/` is now covered b
 
 ### Fixed
 
+- **WKB `POLYGON Z` corruption.** The encoder wrote XY-only ring vertices under a Z/M-flagged type code (corrupt stream); the decoder silently dropped Z/M from valid external polygons. Rings now encode/decode at full stride in both EWKB and ISO flavours.
+- **`coverage.Simplify` was inert on shared boundaries and could corrupt rings.** A miscounted node rule marked every shared-chain interior vertex as a node, and chain-cache hits from the adjacent polygon were spliced without re-orienting. Shared boundaries now simplify in lockstep; the cache key encodes the full canonical vertex sequence.
 - **`simplify.TopologyPreserving` now matches current JTS (PR #1024 port).** The section simplifier is a faithful port of `TaggedLineStringSimplifier`: the depth-based ring-minimum guard, segment (not infinite-line) distances, shared input/output segment sets, and the `simplifyRingEndpoint` pass. Closes JTS corpus cases TestSimplify #15/#16, which were previously misclassified as fixture drift.
 - **`precision.Reduce` runs polygonal input through a snap-rounded self-union** (mirroring JTS `GeometryPrecisionReducer`'s overlay path) instead of pointwise ring snapping, so grid snapping that folds a ring into self-intersection is re-noded into valid faces. The conformance harness now exercises the real `precision.Reduce` (its private helper mishandled the JTS negative-scale-means-grid-size convention).
 - `geom.Envelope` doc no longer claims the zero value is empty (it is a degenerate box at the origin; use `EmptyEnvelope()`).
 - Stale package docs rewritten: `overlay/doc.go` (claimed only convex clipping worked; the full overlay-NG pipeline has shipped since Wave 20), `index/doc.go` (described one R-tree; eight index types ship, now with a per-type concurrency table), `kernel/doc.go` scaffolding language, `buffer.Buffer` doc ("polygon inputs are rejected" — they are supported).
 - Import-order `gofmt` drift from the terra → go-topology-suite rename swept across 117 files.
+
+### Internal consolidation (SLOC reduction, no API change)
+
+A per-package review reduced production source by ~2,600 lines (−6.3%) with `apidiff` verifying zero incompatible changes: duplicated geometry primitives consolidated into `internal/geomath`/`internal/xybuf`; the unreachable legacy Greiner-Hormann overlay engine removed (gated on corpus instrumentation); the boolean predicates collapsed onto the RelateNG engine (benchmarks within 3.2% of baseline; the hand-ported dispatch removed); snap-rounding hot-pixel corner tests upgraded to the robust planar kernel (matching JTS's DD arithmetic); encoder-internal dedupe verified byte-identical across a 665-output golden matrix. Conformance held at 8942/8951 throughout.
 
 ### Pre-release consolidation (since v0.1.0)
 
