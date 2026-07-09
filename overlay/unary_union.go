@@ -147,6 +147,10 @@ func unionGeometryCollection(gc *geom.GeometryCollection) (geom.Geometry, error)
 			}
 		case *geom.LineString:
 			lines = append(lines, v)
+		case *geom.LinearRing:
+			// Overlay treats a closed ring as a 1-D curve (see
+			// unwrapLinearRing); a ring member must not be dropped.
+			lines = append(lines, v.AsLineString())
 		case *geom.MultiLineString:
 			for j := 0; j < v.NumGeometries(); j++ {
 				if !v.LineStringAt(j).IsEmpty() {
