@@ -30,10 +30,9 @@ func TestSpurLineUnionCollapsedSpike(t *testing.T) {
 	assert.Containsf(t, w, "GEOMETRYCOLLECTION", "expected GeometryCollection (polygon + line); got %s", w)
 	assert.Containsf(t, w, "LINESTRING", "expected residual LINESTRING; got %s", w)
 	// The residual spike must be the (1 1)-(1 0) segment.
-	if !strings.Contains(w, "LINESTRING (1 1, 1 0)") &&
-		!strings.Contains(w, "LINESTRING (1 0, 1 1)") {
-		t.Errorf("expected LINESTRING (1 1, 1 0); got %s", w)
-	}
+	assert.True(t, strings.Contains(w, "LINESTRING (1 1, 1 0)") ||
+		strings.Contains(w, "LINESTRING (1 0, 1 1)"),
+		"expected LINESTRING (1 1, 1 0); got %s", w)
 }
 
 // TestSpurLineDifferenceNoLine verifies that Difference does NOT emit
@@ -50,9 +49,9 @@ func TestSpurLineDifferenceNoLine(t *testing.T) {
 	})
 	got, err := OverlayPolygonalMixedDim([]*geom.Polygon{a}, []*geom.Polygon{b}, OpDifference, 1.0)
 	require.NoError(t, err, "Overlay")
-	if !got.IsEmpty() {
+	if !assert.True(t, got.IsEmpty(), "expected POLYGON EMPTY") {
 		w, _ := wkt.Marshal(got)
-		t.Errorf("expected POLYGON EMPTY; got %s", w)
+		t.Logf("got %s", w)
 	}
 }
 
@@ -72,7 +71,6 @@ func TestSpurLineIntersectionEmitsLine(t *testing.T) {
 	require.NoError(t, err, "Overlay")
 	w, _ := wkt.Marshal(got)
 	// Intersection of a snapped-collapsed pair is purely lineal here.
-	if !strings.Contains(w, "LINESTRING") && !strings.Contains(w, "MULTILINESTRING") {
-		t.Errorf("expected LINESTRING or MULTILINESTRING; got %s", w)
-	}
+	assert.True(t, strings.Contains(w, "LINESTRING") || strings.Contains(w, "MULTILINESTRING"),
+		"expected LINESTRING or MULTILINESTRING; got %s", w)
 }

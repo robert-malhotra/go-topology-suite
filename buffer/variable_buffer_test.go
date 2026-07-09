@@ -80,7 +80,8 @@ func TestVariableBuffer_IncreasingWedge(t *testing.T) {
 	// Lower bound: triangle of base 8, height 10 → area 40 (ignores end cap);
 	// upper bound: trapezoid + cap ≈ 40 + π*16/2 ≈ 65.
 	a := geomArea(got)
-	require.True(t, a >= 30 && a <= 80, "wedge area=%v outside [30,80]", a)
+	require.GreaterOrEqual(t, a, 30.0, "wedge area below expected band")
+	require.LessOrEqual(t, a, 80.0, "wedge area above expected band")
 }
 
 func TestVariableBuffer_DecreasingTaperedCap(t *testing.T) {
@@ -91,7 +92,8 @@ func TestVariableBuffer_DecreasingTaperedCap(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, got.IsEmpty(), "got empty")
 	a := geomArea(got)
-	require.True(t, a >= 30 && a <= 80, "tapered area=%v outside [30,80]", a)
+	require.GreaterOrEqual(t, a, 30.0, "tapered area below expected band")
+	require.LessOrEqual(t, a, 80.0, "tapered area above expected band")
 }
 
 func TestVariableBuffer_AllZeroDistance_Empty(t *testing.T) {

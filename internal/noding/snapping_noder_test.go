@@ -29,8 +29,8 @@ func TestSnappingNoder_NearCoincidentVertices(t *testing.T) {
 			sharedB = s.Coords[0]
 		}
 	}
-	assert.True(t, sharedA == sharedB,
-		"end of A (%v) must equal start of B (%v) after snap", sharedA, sharedB)
+	assert.Equal(t, sharedA, sharedB,
+		"end of A must equal start of B after snap")
 }
 
 // Diagonal segments whose interior points fall within snap distance:

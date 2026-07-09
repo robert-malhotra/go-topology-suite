@@ -70,14 +70,12 @@ func TestMinimumClearance_Witness(t *testing.T) {
 	// One endpoint should be the apex (5, 0.001); the other should lie on
 	// the base segment somewhere.
 	apex := geom.XY{X: 5, Y: 0.001}
-	if seg[0] != apex && seg[1] != apex {
-		t.Errorf("witness must include apex %v; got %v", apex, seg)
-	}
+	assert.True(t, seg[0] == apex || seg[1] == apex,
+		"witness must include apex %v; got %v", apex, seg)
 	// Both witness coordinates lie within the polygon envelope.
 	for _, p := range seg {
-		if p.X < 0 || p.X > 10 || p.Y < 0 || p.Y > 0.001 {
-			t.Errorf("witness point %v outside expected envelope", p)
-		}
+		assert.True(t, p.X >= 0 && p.X <= 10 && p.Y >= 0 && p.Y <= 0.001,
+			"witness point %v outside expected envelope", p)
 	}
 }
 

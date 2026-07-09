@@ -33,11 +33,7 @@ func TestSierpinskiCarpetEnvelope(t *testing.T) {
 	env := geom.Envelope{MinX: 0, MinY: 0, MaxX: 9, MaxY: 9}
 	mp := SierpinskiCarpet(2, env)
 	got := mp.Envelope()
-	const eps = 1e-9
-	if got.MinX < env.MinX-eps || got.MaxX > env.MaxX+eps ||
-		got.MinY < env.MinY-eps || got.MaxY > env.MaxY+eps {
-		t.Fatalf("carpet env %v escapes target %v", got, env)
-	}
+	requireWithinEnv(t, got, env, 1e-9)
 }
 
 func TestSierpinskiCarpetEmpty(t *testing.T) {

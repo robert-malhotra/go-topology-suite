@@ -27,8 +27,7 @@ func TestKdTree_InsertAndQueryPoint(t *testing.T) {
 	require.Equal(t, len(pts), tree.Len())
 	for _, p := range pts {
 		n := tree.QueryPoint(p)
-		if n == nil {
-			t.Errorf("QueryPoint(%v) = nil, want hit", p)
+		if !assert.NotNilf(t, n, "QueryPoint(%v) = nil, want hit", p) {
 			continue
 		}
 		assert.Truef(t, n.Coordinate.EqualBitwise(p), "QueryPoint(%v).Coordinate = %v", p, n.Coordinate)
@@ -44,7 +43,8 @@ func TestKdTree_ToleranceDedup(t *testing.T) {
 	require.Equal(t, a, b, "dedup did not return same node")
 	assert.Equal(t, 2, a.Count)
 	c, isNewC := tree.Insert(geom.XY{X: 5, Y: 5}, "c")
-	require.True(t, isNewC && c != a, "far insert should create a new node")
+	require.True(t, isNewC, "far insert should report a new node")
+	require.NotSame(t, a, c, "far insert should not reuse the snapped node")
 	assert.Equal(t, 2, tree.Len())
 }
 

@@ -21,11 +21,7 @@ func TestHilbertCurveContainment(t *testing.T) {
 	ls := HilbertCurve(4, env)
 	got := ls.Envelope()
 	// All vertices must be inside env (within FP slop).
-	const eps = 1e-9
-	if got.MinX < env.MinX-eps || got.MaxX > env.MaxX+eps ||
-		got.MinY < env.MinY-eps || got.MaxY > env.MaxY+eps {
-		t.Fatalf("curve env %v escapes target %v", got, env)
-	}
+	requireWithinEnv(t, got, env, 1e-9)
 }
 
 func TestHilbertCurveAdjacentDistance(t *testing.T) {

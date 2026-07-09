@@ -20,16 +20,14 @@ func TestMortonCurveContainment(t *testing.T) {
 	env := geom.Envelope{MinX: -2, MinY: 3, MaxX: 8, MaxY: 13}
 	ls := MortonCurve(4, env)
 	got := ls.Envelope()
-	const eps = 1e-9
-	if got.MinX < env.MinX-eps || got.MaxX > env.MaxX+eps ||
-		got.MinY < env.MinY-eps || got.MaxY > env.MaxY+eps {
-		t.Fatalf("curve env %v escapes target %v", got, env)
-	}
+	requireWithinEnv(t, got, env, 1e-9)
 }
 
 func TestMortonEncodeDecodeRoundtrip(t *testing.T) {
 	// For all integer points in a 16x16 grid, encode then decode
-	// must round-trip.
+	// must round-trip. Plain check: this loop runs per grid cell, so
+	// avoid per-iteration testify/t.Helper overhead (same rationale as
+	// the triangulate circumcircle scan).
 	for x := 0; x < 16; x++ {
 		for y := 0; y < 16; y++ {
 			idx := MortonEncode(x, y)

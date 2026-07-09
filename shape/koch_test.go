@@ -38,11 +38,7 @@ func TestKochSnowflakeApproxCentred(t *testing.T) {
 	env := p.Envelope()
 	// The figure should contain c (within FP slop). The level>0 vertical
 	// shift puts c roughly inside the snowflake.
-	const eps = 1e-9
-	if c.X < env.MinX-eps || c.X > env.MaxX+eps ||
-		c.Y < env.MinY-eps || c.Y > env.MaxY+eps {
-		t.Fatalf("centre %v not contained in env %v", c, env)
-	}
+	requireWithinEnv(t, geom.Envelope{MinX: c.X, MinY: c.Y, MaxX: c.X, MaxY: c.Y}, env, 1e-9)
 }
 
 func TestKochSnowflakeDeterministic(t *testing.T) {

@@ -32,9 +32,8 @@ func TestSineStarBoundingBoxAndShape(t *testing.T) {
 	// envelope when the sine-wave hits its maximum, so |env| ≈ size.
 	maxR := math.Max(math.Max(math.Abs(env.MinX), math.Abs(env.MaxX)),
 		math.Max(math.Abs(env.MinY), math.Abs(env.MaxY)))
-	if maxR > size/2+1e-9 || maxR < size/2*0.99 {
-		t.Errorf("rough envelope radius %.4f outside [%.4f, %.4f]", maxR, size/2*0.99, size/2)
-	}
+	assert.LessOrEqual(t, maxR, size/2+1e-9, "rough envelope radius above outer bound")
+	assert.GreaterOrEqual(t, maxR, size/2*0.99, "rough envelope radius below inner bound")
 }
 
 func TestSineStarRadialSinusoid(t *testing.T) {
