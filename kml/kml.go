@@ -172,16 +172,14 @@ func pointZ(p *geom.Point, c *config) float64 {
 	if c.zOverride {
 		return c.zVal
 	}
-	z := p.Z()
-	return z
+	return p.Z()
 }
 
 func writeLineString(b *strings.Builder, ls *geom.LineString, level int, c *config) {
 	startLine(b, "<LineString>\n", level, c)
 	writeModifiers(b, level, c)
 	xys := ls.XYs()
-	zs := lineStringZ(ls, c, len(xys))
-	writeCoords(b, xys, zs, level+1, c)
+	writeCoords(b, xys, defaultZs(c, len(xys)), level+1, c)
 	startLine(b, "</LineString>\n", level, c)
 }
 
@@ -264,15 +262,9 @@ func writeCoords(b *strings.Builder, xys []geom.XY, zs []float64, level int, c *
 		writeNumber(b, p.X, c)
 		b.WriteByte(',')
 		writeNumber(b, p.Y, c)
-		var z float64
-		if i < len(zs) {
-			z = zs[i]
-		} else {
-			z = math.NaN()
-		}
-		if !math.IsNaN(z) {
+		if i < len(zs) && !math.IsNaN(zs[i]) {
 			b.WriteByte(',')
-			writeNumber(b, z, c)
+			writeNumber(b, zs[i], c)
 		}
 	}
 	b.WriteString("</coordinates>\n")
@@ -293,35 +285,15 @@ func (c *config) zValOrNaN() float64 {
 	return math.NaN()
 }
 
-// lineStringZ returns the per-vertex Z to emit for a LineString. We use the
-// override if set, else NaN (so writeCoords emits 2D tuples). Reading per-
-// vertex Z is layout-dependent and not exposed by the public LineString API
-// in a stable form; for now, "no override → 2D" matches JTS behaviour for
-// LineStrings whose coordinates lack an explicit Z.
-func lineStringZ(ls *geom.LineString, c *config, n int) []float64 {
-	zs := make([]float64, n)
-	if c.zOverride {
-		for i := range zs {
-			zs[i] = c.zVal
-		}
-		return zs
-	}
-	for i := range zs {
-		zs[i] = math.NaN()
-	}
-	return zs
-}
-
+// defaultZs returns the per-vertex Z values to emit for an n-vertex run:
+// the override value if WithZ was set, else NaN (so writeCoords emits 2D
+// tuples). "No override → 2D" matches JTS behaviour for coordinates that
+// lack an explicit Z.
 func defaultZs(c *config, n int) []float64 {
 	zs := make([]float64, n)
-	if c.zOverride {
-		for i := range zs {
-			zs[i] = c.zVal
-		}
-		return zs
-	}
+	z := c.zValOrNaN()
 	for i := range zs {
-		zs[i] = math.NaN()
+		zs[i] = z
 	}
 	return zs
 }

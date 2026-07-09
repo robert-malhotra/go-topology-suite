@@ -115,8 +115,6 @@ type hullTri struct {
 	// adj[i] = neighbour triangle across edge (v[i], v[i+1]); nil if border.
 	adj     [3]*hullTri
 	removed bool
-	// queue bookkeeping
-	heapIdx int
 	size    float64 // boundary-edge length used as priority
 }
 
@@ -363,22 +361,13 @@ func (h triHeap) Less(i, j int) bool {
 	// Larger sizes first: this is a max-heap.
 	return h[i].size > h[j].size
 }
-func (h triHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-	h[i].heapIdx = i
-	h[j].heapIdx = j
-}
-func (h *triHeap) Push(x interface{}) {
-	t := x.(*hullTri)
-	t.heapIdx = len(*h)
-	*h = append(*h, t)
-}
-func (h *triHeap) Pop() interface{} {
+func (h triHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h *triHeap) Push(x any)   { *h = append(*h, x.(*hullTri)) }
+func (h *triHeap) Pop() any {
 	old := *h
 	n := len(old)
 	t := old[n-1]
 	old[n-1] = nil
 	*h = old[:n-1]
-	t.heapIdx = -1
 	return t
 }

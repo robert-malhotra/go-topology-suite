@@ -13,19 +13,19 @@ func Length(g geom.Geometry, loc LinearLocation) float64 {
 		return 0
 	}
 	var total float64
-	it := newLinearIterator(g)
+	it := newLinearIteratorAt(g, 0, 0)
 	for it.hasNext() {
 		if !it.isEndOfLine() {
-			p0 := it.getSegmentStart()
-			p1 := it.getSegmentEnd()
+			p0 := it.segmentStart()
+			p1 := it.segmentEnd()
 			segLen := math.Hypot(p1.X-p0.X, p1.Y-p0.Y)
-			if loc.ComponentIndex == it.getComponentIndex() &&
-				loc.SegmentIndex == it.getVertexIndex() {
+			if loc.ComponentIndex == it.componentIdx &&
+				loc.SegmentIndex == it.vertexIdx {
 				return total + segLen*loc.SegmentFraction
 			}
 			total += segLen
 		} else {
-			if loc.ComponentIndex == it.getComponentIndex() {
+			if loc.ComponentIndex == it.componentIdx {
 				return total
 			}
 		}
@@ -68,7 +68,7 @@ func getLocationForward(g geom.Geometry, length float64) LinearLocation {
 		return LinearLocation{}
 	}
 	var total float64
-	it := newLinearIterator(g)
+	it := newLinearIteratorAt(g, 0, 0)
 	for it.hasNext() {
 		if it.isEndOfLine() {
 			// Ambiguous endpoint: return the endpoint of the current
@@ -76,14 +76,14 @@ func getLocationForward(g geom.Geometry, length float64) LinearLocation {
 			// matches project().
 			if total == length {
 				return LinearLocation{
-					ComponentIndex:  it.getComponentIndex(),
-					SegmentIndex:    it.getVertexIndex(),
+					ComponentIndex:  it.componentIdx,
+					SegmentIndex:    it.vertexIdx,
 					SegmentFraction: 0,
 				}
 			}
 		} else {
-			p0 := it.getSegmentStart()
-			p1 := it.getSegmentEnd()
+			p0 := it.segmentStart()
+			p1 := it.segmentEnd()
 			segLen := math.Hypot(p1.X-p0.X, p1.Y-p0.Y)
 			if total+segLen > length {
 				frac := 0.0
@@ -91,8 +91,8 @@ func getLocationForward(g geom.Geometry, length float64) LinearLocation {
 					frac = (length - total) / segLen
 				}
 				return LinearLocation{
-					ComponentIndex:  it.getComponentIndex(),
-					SegmentIndex:    it.getVertexIndex(),
+					ComponentIndex:  it.componentIdx,
+					SegmentIndex:    it.vertexIdx,
 					SegmentFraction: frac,
 				}
 			}

@@ -84,7 +84,7 @@ func Polygonize(geoms []geom.Geometry) (polygons []geom.Geometry, dangles []geom
 	rings := g.traceFaces()
 
 	// Classify shells vs holes by signed area.
-	shells, holes := classifyRings(rings, c)
+	shells, holes := classifyRings(rings)
 
 	// Cut edges: edges that did not contribute to any ring (each side
 	// of the edge is the outside or both rings collapsed to the same
@@ -105,16 +105,16 @@ func Polygonize(geoms []geom.Geometry) (polygons []geom.Geometry, dangles []geom
 		polys = append(polys, geom.NewPolygon(c, ringsOut...))
 	}
 
-	for _, ls := range dangleLines {
-		dangles = append(dangles, ls)
+	return polys, asGeometries(dangleLines), asGeometries(cutLines), asGeometries(invalid)
+}
+
+// asGeometries upcasts a LineString slice, preserving nil for empty input.
+func asGeometries(lines []*geom.LineString) []geom.Geometry {
+	var out []geom.Geometry
+	for _, ls := range lines {
+		out = append(out, ls)
 	}
-	for _, ls := range cutLines {
-		cutEdges = append(cutEdges, ls)
-	}
-	for _, ls := range invalid {
-		invalidRings = append(invalidRings, ls)
-	}
-	return polys, dangles, cutEdges, invalidRings
+	return out
 }
 
 func extractLines(g geom.Geometry, emit func(*geom.LineString)) {
@@ -465,7 +465,7 @@ func appendEdgeCoords(out *[]geom.XY, e *dirEdge, first bool) {
 // holes (CW, area<0). The outermost face — which traces CW around the
 // entire graph — is dropped (it represents the unbounded exterior,
 // not a polygon).
-func classifyRings(rings []*traceRing, _ *crs.CRS) (shells, holes []*traceRing) {
+func classifyRings(rings []*traceRing) (shells, holes []*traceRing) {
 	if len(rings) == 0 {
 		return nil, nil
 	}
@@ -522,16 +522,7 @@ func assignHolesToShells(shells, holes []*traceRing) {
 // In a well-noded valid input these are interior cut edges.
 func (g *graph) collectCutEdges(shells, holes []*traceRing) []*geom.LineString {
 	used := map[*geom.LineString]int{} // count of distinct face assignments
-	for _, r := range shells {
-		seen := map[*geom.LineString]bool{}
-		for _, e := range r.edges {
-			if !seen[e.line] {
-				seen[e.line] = true
-				used[e.line]++
-			}
-		}
-	}
-	for _, r := range holes {
+	for _, r := range append(shells[:len(shells):len(shells)], holes...) {
 		seen := map[*geom.LineString]bool{}
 		for _, e := range r.edges {
 			if !seen[e.line] {

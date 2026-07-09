@@ -12,6 +12,7 @@
 package linearref
 
 import (
+	"cmp"
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -147,47 +148,25 @@ func (l LinearLocation) IsValid(g geom.Geometry) bool {
 
 // Compare returns -1/0/+1 ordering of two locations along the geometry.
 func (l LinearLocation) Compare(o LinearLocation) int {
-	if l.ComponentIndex != o.ComponentIndex {
-		if l.ComponentIndex < o.ComponentIndex {
-			return -1
-		}
-		return 1
-	}
-	if l.SegmentIndex != o.SegmentIndex {
-		if l.SegmentIndex < o.SegmentIndex {
-			return -1
-		}
-		return 1
-	}
-	if l.SegmentFraction < o.SegmentFraction {
-		return -1
-	}
-	if l.SegmentFraction > o.SegmentFraction {
-		return 1
-	}
-	return 0
+	return l.CompareLocationValues(o.ComponentIndex, o.SegmentIndex, o.SegmentFraction)
 }
 
 // CompareLocationValues compares the receiver to a triple of raw
 // location values without constructing a LinearLocation. Mirrors JTS
 // LinearLocation.compareLocationValues.
 func (l LinearLocation) CompareLocationValues(componentIndex, segmentIndex int, segmentFraction float64) int {
-	if l.ComponentIndex != componentIndex {
-		if l.ComponentIndex < componentIndex {
-			return -1
-		}
-		return 1
+	if c := cmp.Compare(l.ComponentIndex, componentIndex); c != 0 {
+		return c
 	}
-	if l.SegmentIndex != segmentIndex {
-		if l.SegmentIndex < segmentIndex {
-			return -1
-		}
-		return 1
+	if c := cmp.Compare(l.SegmentIndex, segmentIndex); c != 0 {
+		return c
 	}
-	if l.SegmentFraction < segmentFraction {
+	// Not cmp.Compare: keep the historical "NaN compares equal" result
+	// rather than cmp's NaN-sorts-first ordering.
+	switch {
+	case l.SegmentFraction < segmentFraction:
 		return -1
-	}
-	if l.SegmentFraction > segmentFraction {
+	case l.SegmentFraction > segmentFraction:
 		return 1
 	}
 	return 0

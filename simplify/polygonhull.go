@@ -7,6 +7,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
@@ -296,7 +297,7 @@ func (rh *ringHull) addCorner(i int, pq *cornerHeap) {
 	pp := rh.pts[rh.prev[i]]
 	p := rh.pts[i]
 	pn := rh.pts[rh.next[i]]
-	if isStrictlyClockwise(pp, p, pn) {
+	if geomath.Orient(pp, p, pn) < 0 {
 		// Strictly CW = convex (since rings are oriented CW for "keep").
 		return
 	}
@@ -325,7 +326,7 @@ func (rh *ringHull) isCornerRemovable(c *corner, idx *ringHullIndex) bool {
 	pp := rh.pts[c.prev]
 	p := rh.pts[c.index]
 	pn := rh.pts[c.next]
-	env := triangleEnvelope(pp, p, pn)
+	env := geom.EnvelopeOfXY([]geom.XY{pp, p, pn})
 	if rh.hasIntersectingVertex(c, env, rh) {
 		return false
 	}
@@ -494,80 +495,35 @@ func isRingCW(pts []geom.XY) bool {
 	if len(pts) < 3 {
 		return true
 	}
-	// Shoelace (closed): sum (x_i * y_{i+1} - x_{i+1} * y_i).
-	a := 0.0
+	// Shoelace (closed): RingArea2 covers the open run, plus the
+	// wrap-around term back to the first vertex.
 	n := len(pts)
-	for i := 0; i < n; i++ {
-		j := (i + 1) % n
-		a += pts[i].X*pts[j].Y - pts[j].X*pts[i].Y
-	}
+	a := geomath.RingArea2(pts) + pts[n-1].X*pts[0].Y - pts[0].X*pts[n-1].Y
 	// Positive shoelace = CCW. So CW iff a < 0.
 	return a < 0
-}
-
-func triangleEnvelope(a, b, c geom.XY) geom.Envelope {
-	e := geom.Envelope{MinX: a.X, MaxX: a.X, MinY: a.Y, MaxY: a.Y}
-	for _, p := range [2]geom.XY{b, c} {
-		if p.X < e.MinX {
-			e.MinX = p.X
-		}
-		if p.X > e.MaxX {
-			e.MaxX = p.X
-		}
-		if p.Y < e.MinY {
-			e.MinY = p.Y
-		}
-		if p.Y > e.MaxY {
-			e.MaxY = p.Y
-		}
-	}
-	return e
-}
-
-// isStrictlyClockwise reports whether triple (a,b,c) makes a strictly CW
-// turn. Collinear and CCW return false.
-func isStrictlyClockwise(a, b, c geom.XY) bool {
-	cross := (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
-	return cross < 0
 }
 
 // triangleContains reports whether point p lies in the closed triangle
 // (a,b,c). Mirrors JTS Triangle.intersects: p is inside iff for every
 // edge p is not strictly on the "exterior" side.
 func triangleContains(a, b, c, p geom.XY) bool {
-	tri := triSign(a, b, c) // sign of triangle's own orientation
+	tri := geomath.Orient(a, b, c) // sign of triangle's own orientation
 	if tri == 0 {
 		// Degenerate triangle — fall back to strict bbox + collinearity.
 		return false
 	}
 	exterior := -tri // exterior side has opposite sign to tri
-	if sideSign(a, b, p) == exterior {
+	if geomath.Orient(a, b, p) == exterior {
 		return false
 	}
-	if sideSign(b, c, p) == exterior {
+	if geomath.Orient(b, c, p) == exterior {
 		return false
 	}
-	if sideSign(c, a, p) == exterior {
+	if geomath.Orient(c, a, p) == exterior {
 		return false
 	}
 	return true
 }
-
-// triSign returns +1 if (a,b,c) is CCW, -1 if CW, 0 if collinear.
-func triSign(a, b, c geom.XY) int {
-	v := (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
-	switch {
-	case v > 0:
-		return 1
-	case v < 0:
-		return -1
-	}
-	return 0
-}
-
-// sideSign returns the orientation index of p relative to the line a→b.
-// (Same numeric semantics as triSign, applied to (a,b,p).)
-func sideSign(a, b, p geom.XY) int { return triSign(a, b, p) }
 
 // polygonRingsArea returns the sum of the signed areas of all rings
 // (used for area-weighted target calculation; matches JTS Area.ofRing

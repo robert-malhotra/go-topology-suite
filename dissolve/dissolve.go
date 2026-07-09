@@ -16,7 +16,7 @@
 package dissolve
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -76,7 +76,10 @@ func (d *dissolver) add(g geom.Geometry) {
 		return
 	}
 	for _, ls := range geom.LineStringsOf(g) {
-		d.addLine(ls)
+		if d.srid == nil {
+			d.srid = ls.CRS()
+		}
+		d.addPts(ls.XYs())
 	}
 	// Polygons contribute their rings as linework.
 	for _, p := range geom.PolygonsOf(g) {
@@ -84,48 +87,24 @@ func (d *dissolver) add(g geom.Geometry) {
 			d.srid = p.CRS()
 		}
 		for i := 0; i < p.NumRings(); i++ {
-			d.addRing(p, i)
+			d.addPts(p.Ring(i))
 		}
 	}
 }
 
-func (d *dissolver) addLine(ls *geom.LineString) {
-	if d.srid == nil {
-		d.srid = ls.CRS()
-	}
-	n := ls.NumPoints()
-	if n < 2 {
+// addPts adds the segments of one linestring or ring vertex sequence.
+func (d *dissolver) addPts(pts []geom.XY) {
+	if len(pts) < 2 {
 		return
 	}
 	first := true
-	prev := ls.PointAt(0)
-	for i := 1; i < n; i++ {
-		cur := ls.PointAt(i)
+	prev := pts[0]
+	for _, cur := range pts[1:] {
 		if cur.Equal(prev) {
 			continue
 		}
 		if d.addEdge(prev, cur) && first {
-			d.startVerts[ls.PointAt(0)] = true
-			first = false
-		}
-		prev = cur
-	}
-}
-
-func (d *dissolver) addRing(p *geom.Polygon, ringIdx int) {
-	n := p.RingLen(ringIdx)
-	if n < 2 {
-		return
-	}
-	first := true
-	prev := p.RingVertex(ringIdx, 0)
-	for i := 1; i < n; i++ {
-		cur := p.RingVertex(ringIdx, i)
-		if cur.Equal(prev) {
-			continue
-		}
-		if d.addEdge(prev, cur) && first {
-			d.startVerts[p.RingVertex(ringIdx, 0)] = true
+			d.startVerts[pts[0]] = true
 			first = false
 		}
 		prev = cur
@@ -155,10 +134,6 @@ func addNeighbour(adj map[geom.XY]map[geom.XY]bool, v, w geom.XY) {
 	m[w] = true
 }
 
-func degree(adj map[geom.XY]map[geom.XY]bool, v geom.XY) int {
-	return len(adj[v])
-}
-
 // result emits maximal chains. Starts from non-degree-2 vertices; any
 // remaining unvisited edges form isolated rings.
 func (d *dissolver) result() []*geom.LineString {
@@ -172,7 +147,7 @@ func (d *dissolver) result() []*geom.LineString {
 	// Iterate vertices in deterministic (lex) order so output is stable.
 	verts := sortedVertices(d.adj)
 	for _, v := range verts {
-		if degree(d.adj, v) == 2 {
+		if len(d.adj[v]) == 2 {
 			continue
 		}
 		// Walk every unvisited incident edge.
@@ -215,7 +190,7 @@ func walkChain(adj map[geom.XY]map[geom.XY]bool, visited map[edgeKey]bool, v0, v
 	visited[newEdgeKey(v0, v1)] = true
 	prev := v0
 	cur := v1
-	for degree(adj, cur) == 2 {
+	for len(adj[cur]) == 2 {
 		// Only one neighbour besides prev.
 		var next geom.XY
 		found := false
@@ -251,7 +226,7 @@ func pickUnvisitedNeighbour(adj map[geom.XY]map[geom.XY]bool, visited map[edgeKe
 	for n := range adj[v] {
 		nbrs = append(nbrs, n)
 	}
-	sort.Slice(nbrs, func(i, j int) bool { return nbrs[i].Compare(nbrs[j]) < 0 })
+	slices.SortFunc(nbrs, geom.XY.Compare)
 	for _, n := range nbrs {
 		if !visited[newEdgeKey(v, n)] {
 			return n, true
@@ -313,6 +288,6 @@ func sortedVertices(adj map[geom.XY]map[geom.XY]bool) []geom.XY {
 	for v := range adj {
 		out = append(out, v)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Compare(out[j]) < 0 })
+	slices.SortFunc(out, geom.XY.Compare)
 	return out
 }

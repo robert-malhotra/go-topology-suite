@@ -43,7 +43,7 @@ func LocateInGeometry(p geom.XY, g geom.Geometry) Location {
 	if g == nil || g.IsEmpty() {
 		return Exterior
 	}
-	if !envelopeIntersectsXY(g.Envelope(), p) {
+	if !g.Envelope().ContainsXY(p) {
 		return Exterior
 	}
 	return locateInGeom(p, g)
@@ -69,7 +69,7 @@ func locateInGeom(p geom.XY, g geom.Geometry) Location {
 	case *geom.GeometryCollection:
 		for i := 0; i < v.NumGeometries(); i++ {
 			child := v.GeometryAt(i)
-			if !envelopeIntersectsXY(child.Envelope(), p) {
+			if !child.Envelope().ContainsXY(p) {
 				continue
 			}
 			loc := locateInGeom(p, child)
@@ -121,11 +121,4 @@ func locatePointInRing(p geom.XY, ring []geom.XY) Location {
 	default:
 		return Exterior
 	}
-}
-
-func envelopeIntersectsXY(e geom.Envelope, p geom.XY) bool {
-	if e.IsEmpty() {
-		return false
-	}
-	return p.X >= e.MinX && p.X <= e.MaxX && p.Y >= e.MinY && p.Y <= e.MaxY
 }

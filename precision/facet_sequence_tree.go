@@ -69,26 +69,8 @@ func buildFacetSequenceTree(g geom.Geometry) (*index.RTree[*facetSequence], []*f
 // Mirrors FacetSequenceTreeBuilder.computeFacetSequences.
 func computeFacetSequences(g geom.Geometry) []*facetSequence {
 	var out []*facetSequence
-	walkLeaves(g, func(leaf geom.Geometry) {
-		switch v := leaf.(type) {
-		case *geom.Point:
-			if v.IsEmpty() {
-				return
-			}
-			pts := []geom.XY{v.XY()}
-			out = append(out, newFacetSequence(pts, 0, 1))
-		case *geom.LineString:
-			pts := v.XYs()
-			out = append(out, addFacetSequences(pts)...)
-		case *geom.LinearRing:
-			pts := v.AsLineString().XYs()
-			out = append(out, addFacetSequences(pts)...)
-		case *geom.Polygon:
-			for r := 0; r < v.NumRings(); r++ {
-				ring := append([]geom.XY(nil), v.Ring(r)...)
-				out = append(out, addFacetSequences(ring)...)
-			}
-		}
+	walkChains(g, func(chain []geom.XY) {
+		out = append(out, addFacetSequences(chain)...)
 	})
 	return out
 }
@@ -177,11 +159,11 @@ func segmentClearance(fs1, fs2 *facetSequence, bestDist float64, pts *[2]geom.XY
 			if p == s0 || p == s1 {
 				continue
 			}
-			d := geomath.SegmentDistance(p, s0, s1)
+			d, cp := geomath.SegmentNearestPoint(p, s0, s1)
 			if d < bestDist {
 				bestDist = d
 				pts[0] = p
-				pts[1] = closestPointOnSegment(p, s0, s1)
+				pts[1] = cp
 				if d == 0 {
 					return d
 				}
@@ -237,11 +219,9 @@ func minClearanceFromTree(tree *index.RTree[*facetSequence], seqs []*facetSequen
 				return d
 			},
 		)
-		neighbour, ok := tree.Nearest(query, dist)
-		if !ok {
-			continue
-		}
-		_ = neighbour
+		// The Nearest result itself is unused: the closure already
+		// captured the best distance and witness pair.
+		tree.Nearest(query, dist)
 		if queryBestDist < best {
 			best = queryBestDist
 			bestPts = queryBestPts

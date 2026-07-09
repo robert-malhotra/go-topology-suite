@@ -103,11 +103,7 @@ func convexHullCoords(g geom.Geometry) []geom.XY {
 		}
 		return []geom.XY{v.XY()}
 	case *geom.LineString:
-		out := make([]geom.XY, v.NumPoints())
-		for i := 0; i < v.NumPoints(); i++ {
-			out[i] = v.PointAt(i)
-		}
-		return out
+		return v.XYs()
 	case *geom.Polygon:
 		if v.NumRings() == 0 {
 			return nil

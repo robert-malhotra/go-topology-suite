@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // DiscreteHausdorff returns the discrete Hausdorff distance between a and b.
@@ -80,7 +81,7 @@ func minDistanceToGeometry(p geom.XY, g geom.Geometry) float64 {
 	hasSegment := false
 	visitSegments(g, func(s1, s2 geom.XY) {
 		hasSegment = true
-		d := pointSegmentDistance(p, s1, s2)
+		d := geomath.SegmentDistance(p, s1, s2)
 		if d < min {
 			min = d
 		}
@@ -98,24 +99,4 @@ func minDistanceToGeometry(p geom.XY, g geom.Geometry) float64 {
 		return 0
 	}
 	return min
-}
-
-// pointSegmentDistance returns the Euclidean distance from p to the segment
-// (a, b). Equivalent to JTS Distance.pointToSegment.
-func pointSegmentDistance(p, a, b geom.XY) float64 {
-	if a.X == b.X && a.Y == b.Y {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	dx := b.X - a.X
-	dy := b.Y - a.Y
-	r := ((p.X-a.X)*dx + (p.Y-a.Y)*dy) / (dx*dx + dy*dy)
-	if r <= 0 {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	if r >= 1 {
-		return math.Hypot(p.X-b.X, p.Y-b.Y)
-	}
-	qx := a.X + r*dx
-	qy := a.Y + r*dy
-	return math.Hypot(p.X-qx, p.Y-qy)
 }

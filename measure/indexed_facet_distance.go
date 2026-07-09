@@ -45,12 +45,12 @@ func NewIndexedFacetDistance(g geom.Geometry) *IndexedFacetDistance {
 	}
 	full := geom.EmptyEnvelope()
 	visitSegments(g, func(a, b geom.XY) {
-		env := envOf(a, b)
+		env := geom.SegmentEnvelope(a, b)
 		full = full.ExpandToInclude(env)
 		tree.Insert(env, facet{a: a, b: b, hasSeg: true})
 	})
 	visitPointalVertices(g, func(p geom.XY) {
-		env := envOf(p, p)
+		env := geom.SegmentEnvelope(p, p)
 		full = full.ExpandToInclude(env)
 		tree.Insert(env, facet{a: p, b: p, hasSeg: false})
 	})
@@ -112,7 +112,7 @@ func (ifd *IndexedFacetDistance) distanceImpl(other geom.Geometry, terminate flo
 		if !math.IsInf(min, +1) && min <= terminate {
 			return
 		}
-		ifd.queryAgainst(envOf(qa, qb), qa, qb, hasSeg, &min, &bestA, &bestB)
+		ifd.queryAgainst(geom.SegmentEnvelope(qa, qb), qa, qb, hasSeg, &min, &bestA, &bestB)
 	}
 
 	visitSegments(other, func(a, b geom.XY) {
@@ -171,15 +171,6 @@ func facetFacetDistance(qa, qb geom.XY, qSeg bool, fa, fb geom.XY, fSeg bool) (f
 	default:
 		return euclid(qa, fa), qa, fa
 	}
-}
-
-// envOf returns the envelope of a single segment / point.
-func envOf(a, b geom.XY) geom.Envelope {
-	e := geom.EmptyEnvelope().ExpandToIncludeXY(a)
-	if a != b {
-		e = e.ExpandToIncludeXY(b)
-	}
-	return e
 }
 
 // envelopeMinDist returns the minimum Euclidean distance between two

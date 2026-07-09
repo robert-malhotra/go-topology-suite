@@ -178,8 +178,7 @@ func (pp *PreparedPolygon) anySegmentOfHits(g geom.Geometry) bool {
 func (pp *PreparedPolygon) anyProperSegmentCrossing(g geom.Geometry) bool {
 	cross := false
 	walkSegments(g, func(a, b geom.XY) bool {
-		q := geom.EmptyEnvelope().ExpandToIncludeXY(a).ExpandToIncludeXY(b)
-		pp.tree.Search(q, func(it index.Item[edgeRef]) bool {
+		pp.tree.Search(geom.SegmentEnvelope(a, b), func(it index.Item[edgeRef]) bool {
 			ring := pp.rings[it.Value.ring]
 			vi := int(it.Value.vertex)
 			c, d := ring[vi], ring[vi+1]
@@ -201,21 +200,11 @@ func (pp *PreparedPolygon) anyProperSegmentCrossing(g geom.Geometry) bool {
 
 // segmentHitsAnyEdge: any candidate edge from the R-tree intersects [a,b].
 func (pp *PreparedPolygon) segmentHitsAnyEdge(a, b geom.XY) bool {
-	q := geom.EmptyEnvelope().ExpandToIncludeXY(a).ExpandToIncludeXY(b)
 	hit := false
-	pp.tree.Search(q, func(it index.Item[edgeRef]) bool {
+	pp.tree.Search(geom.SegmentEnvelope(a, b), func(it index.Item[edgeRef]) bool {
 		ring := pp.rings[it.Value.ring]
 		vi := int(it.Value.vertex)
-		c, d := ring[vi], ring[vi+1]
-		if _, ok := planar.Default().SegmentIntersection(a, b, c, d); ok {
-			hit = true
-			return false
-		}
-		// Collinear-touch (endpoint-on-other-segment) cases.
-		if planar.Default().SegmentDistance(a, c, d) == 0 ||
-			planar.Default().SegmentDistance(b, c, d) == 0 ||
-			planar.Default().SegmentDistance(c, a, b) == 0 ||
-			planar.Default().SegmentDistance(d, a, b) == 0 {
+		if segmentsTouch(a, b, ring[vi], ring[vi+1]) {
 			hit = true
 			return false
 		}

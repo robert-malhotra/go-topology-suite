@@ -138,14 +138,30 @@ func DelaunayOf(points []geom.XY) ([]Triangle, error) {
 	env := geom.EnvelopeOfXY(pts)
 	subdiv := quadedge.NewSubdivision(env, 0.0)
 	tri := NewIncrementalDelaunayTriangulator(subdiv)
+	if err := tri.InsertSites(newVertices(pts)); err != nil {
+		return nil, err
+	}
+	return subdivisionTriangles(subdiv), nil
+}
+
+// Triangle is a planar triangle returned by DelaunayOf.
+type Triangle struct {
+	P0, P1, P2 geom.XY
+}
+
+// newVertices wraps each point in a quadedge.Vertex.
+func newVertices(pts []geom.XY) []*quadedge.Vertex {
 	verts := make([]*quadedge.Vertex, len(pts))
 	for i, p := range pts {
 		verts[i] = quadedge.NewVertex(p)
 	}
-	if err := tri.InsertSites(verts); err != nil {
-		return nil, err
-	}
-	tris := subdiv.TriangleVertices(false)
+	return verts
+}
+
+// subdivisionTriangles extracts the (non-frame) triangles of a completed
+// subdivision as Triangle values.
+func subdivisionTriangles(s *quadedge.Subdivision) []Triangle {
+	tris := s.TriangleVertices(false)
 	out := make([]Triangle, 0, len(tris))
 	for _, t := range tris {
 		out = append(out, Triangle{
@@ -154,12 +170,7 @@ func DelaunayOf(points []geom.XY) ([]Triangle, error) {
 			P2: t[2].Coordinate(),
 		})
 	}
-	return out, nil
-}
-
-// Triangle is a planar triangle returned by DelaunayOf.
-type Triangle struct {
-	P0, P1, P2 geom.XY
+	return out
 }
 
 func dedupPoints(pts []geom.XY) []geom.XY {

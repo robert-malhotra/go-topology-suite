@@ -63,21 +63,16 @@ func (loc *IndexedPointLocator) ensureIndex() {
 		}
 		idx := index.NewIntervalRTree[indexedSegment]()
 		count := 0
-		addRing := func(ring []geom.XY) {
-			for i := 1; i < len(ring); i++ {
-				a, b := ring[i-1], ring[i]
-				min := math.Min(a.Y, b.Y)
-				max := math.Max(a.Y, b.Y)
-				idx.Insert(min, max, indexedSegment{a: a, b: b})
-				count++
-			}
-		}
-		addPolygon := func(p *geom.Polygon) {
+		for _, p := range geom.PolygonsOf(loc.geom) {
 			for r := 0; r < p.NumRings(); r++ {
-				addRing(p.Ring(r))
+				ring := p.Ring(r)
+				for i := 1; i < len(ring); i++ {
+					a, b := ring[i-1], ring[i]
+					idx.Insert(math.Min(a.Y, b.Y), math.Max(a.Y, b.Y), indexedSegment{a: a, b: b})
+					count++
+				}
 			}
 		}
-		walk(loc.geom, addPolygon)
 
 		if count == 0 {
 			loc.isEmpty = true
@@ -88,23 +83,6 @@ func (loc *IndexedPointLocator) ensureIndex() {
 		// nulls geom after the index is built.
 		loc.geom = nil
 	})
-}
-
-func walk(g geom.Geometry, fn func(*geom.Polygon)) {
-	switch v := g.(type) {
-	case *geom.Polygon:
-		if !v.IsEmpty() {
-			fn(v)
-		}
-	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries(); i++ {
-			fn(v.PolygonAt(i))
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			walk(v.GeometryAt(i), fn)
-		}
-	}
 }
 
 // ---------------------------------------------------------------------------

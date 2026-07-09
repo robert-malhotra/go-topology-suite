@@ -278,24 +278,11 @@ func collectSegments(g geom.Geometry) []segment {
 // segments).
 func collectIsolatedPoints(g geom.Geometry) []geom.XY {
 	var out []geom.XY
-	var visit func(geom.Geometry)
-	visit = func(g geom.Geometry) {
-		switch v := g.(type) {
-		case *geom.Point:
-			if !v.IsEmpty() {
-				out = append(out, v.XY())
-			}
-		case *geom.MultiPoint:
-			for i := 0; i < v.NumGeometries(); i++ {
-				out = append(out, v.PointAt(i))
-			}
-		case *geom.GeometryCollection:
-			for i := 0; i < v.NumGeometries(); i++ {
-				visit(v.GeometryAt(i))
-			}
+	for _, pt := range geom.PointsOf(g) {
+		if !pt.IsEmpty() {
+			out = append(out, pt.XY())
 		}
 	}
-	visit(g)
 	return out
 }
 

@@ -23,6 +23,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // CentroidBuilder accumulates a dimensional-priority centroid across
@@ -196,9 +197,5 @@ func (c *CentroidBuilder) addPoint(p geom.XY) {
 // rings to mirror JTS Orientation.isCCW which also treats those as
 // non-CCW.
 func ringIsCCW(pts []geom.XY) bool {
-	var area2 float64
-	for i := 0; i+1 < len(pts); i++ {
-		area2 += pts[i].X*pts[i+1].Y - pts[i+1].X*pts[i].Y
-	}
-	return area2 > 0
+	return geomath.RingArea2(pts) > 0
 }

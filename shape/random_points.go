@@ -86,8 +86,7 @@ func RandomPointsInPolygon(n int, p *geom.Polygon, opts ...Option) []geom.XY {
 	cfg := newConfig(opts)
 	w := env.Width()
 	h := env.Height()
-	shell := p.ExteriorRing()
-	holes := p.InteriorRings()
+	rings := append([][]geom.XY{p.ExteriorRing()}, p.InteriorRings()...)
 
 	pts := make([]geom.XY, 0, n)
 	for len(pts) < n {
@@ -95,20 +94,9 @@ func RandomPointsInPolygon(n int, p *geom.Polygon, opts ...Option) []geom.XY {
 			X: env.MinX + w*cfg.random64(),
 			Y: env.MinY + h*cfg.random64(),
 		}
-		if !geomath.PointInRing(c, shell) {
-			continue
+		if geomath.PointInPolygonRings(c, rings) {
+			pts = append(pts, c)
 		}
-		inHole := false
-		for _, h := range holes {
-			if geomath.PointInRing(c, h) {
-				inHole = true
-				break
-			}
-		}
-		if inHole {
-			continue
-		}
-		pts = append(pts, c)
 	}
 	return pts
 }

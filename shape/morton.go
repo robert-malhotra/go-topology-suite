@@ -86,40 +86,6 @@ func mortonDeinterleave(x uint32) uint32 {
 //
 // JTS: org.locationtech.jts.shape.fractal.MortonCurveBuilder.
 func MortonCurve(order int, env geom.Envelope) *geom.LineString {
-	if order < 0 {
-		order = 0
-	}
-	if order > mortonMaxLevel {
-		order = mortonMaxLevel
-	}
-	nPts := MortonSize(order)
-
-	scaleX, scaleY := 1.0, 1.0
-	baseX, baseY := 0.0, 0.0
-	if !env.IsEmpty() {
-		// Match JTS getSquareBaseLine: use the longer side so the
-		// curve fits inside env without distortion.
-		side := env.Width()
-		if env.Height() < side {
-			side = env.Height()
-		}
-		maxOrd := MortonMaxOrdinate(order)
-		if maxOrd > 0 {
-			s := side / float64(maxOrd)
-			scaleX = s
-			scaleY = s
-		}
-		baseX = env.MinX
-		baseY = env.MinY
-	}
-
-	coords := make([]geom.XY, nPts)
-	for i := 0; i < nPts; i++ {
-		ix, iy := MortonDecode(i)
-		coords[i] = geom.XY{
-			X: float64(ix)*scaleX + baseX,
-			Y: float64(iy)*scaleY + baseY,
-		}
-	}
-	return geom.NewLineString(nil, coords)
+	order = min(max(order, 0), mortonMaxLevel)
+	return gridCurve(MortonSize(order), MortonMaxOrdinate(order), env, MortonDecode)
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 )
 
 // ErrNotSequenceable is returned by Sequence when no Eulerian
@@ -36,7 +37,9 @@ func Sequence(geometries []geom.Geometry) (*geom.MultiLineString, error) {
 	g := newGraph()
 	var resultCRS *crs.CRS
 	extracted := 0
-	extractLines(multiInput(geometries), func(ls *geom.LineString) {
+	// Wrap the flat slice in a GeometryCollection so extractLines (which
+	// expects a single geom.Geometry) can walk it.
+	extractLines(geom.NewGeometryCollection(nil, geometries...), func(ls *geom.LineString) {
 		if resultCRS == nil {
 			resultCRS = ls.CRS()
 		}
@@ -68,12 +71,6 @@ func Sequence(geometries []geom.Geometry) (*geom.MultiLineString, error) {
 func IsSequenceable(geometries []geom.Geometry) bool {
 	_, err := Sequence(geometries)
 	return err == nil
-}
-
-// multiInput wraps a flat slice in a GeometryCollection so we can
-// reuse extractLines (which expects a single geom.Geometry).
-func multiInput(gs []geom.Geometry) geom.Geometry {
-	return geom.NewGeometryCollection(nil, gs...)
 }
 
 // directedEdge is an oriented traversal of an undirected `edge`.
@@ -343,10 +340,5 @@ func buildLines(seq []*directedEdge) []*geom.LineString {
 }
 
 func reverseLineString(ls *geom.LineString) *geom.LineString {
-	n := ls.NumPoints()
-	rev := make([]geom.XY, n)
-	for i := 0; i < n; i++ {
-		rev[n-1-i] = ls.PointAt(i)
-	}
-	return geom.NewLineString(ls.CRS(), rev)
+	return geom.NewLineString(ls.CRS(), xybuf.ReverseCopy(ls.XYs()))
 }

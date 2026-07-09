@@ -12,10 +12,6 @@ type linearIterator struct {
 	vertexIdx    int
 }
 
-func newLinearIterator(g geom.Geometry) *linearIterator {
-	return newLinearIteratorAt(g, 0, 0)
-}
-
 func newLinearIteratorFromLocation(g geom.Geometry, start LinearLocation) *linearIterator {
 	v := start.SegmentIndex
 	if start.SegmentFraction > 0 {
@@ -74,15 +70,12 @@ func (it *linearIterator) isEndOfLine() bool {
 	return it.vertexIdx >= it.currentLine.NumPoints()-1
 }
 
-func (it *linearIterator) getComponentIndex() int { return it.componentIdx }
-func (it *linearIterator) getVertexIndex() int    { return it.vertexIdx }
-
-func (it *linearIterator) getSegmentStart() geom.XY {
+func (it *linearIterator) segmentStart() geom.XY {
 	return it.currentLine.PointAt(it.vertexIdx)
 }
 
-// getSegmentEnd returns the next vertex; callers must check isEndOfLine
+// segmentEnd returns the next vertex; callers must check isEndOfLine
 // first to avoid an out-of-range access.
-func (it *linearIterator) getSegmentEnd() geom.XY {
+func (it *linearIterator) segmentEnd() geom.XY {
 	return it.currentLine.PointAt(it.vertexIdx + 1)
 }

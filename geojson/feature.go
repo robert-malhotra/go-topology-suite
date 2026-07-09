@@ -73,18 +73,23 @@ func (f *FeatureG[P]) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("geojson: properties: %w", err)
 	}
 	b.Write(propJSON)
-	for k, v := range f.Foreign {
-		if isReservedFeatureKey(k) {
+	writeForeign(&b, f.Foreign, isReservedFeatureKey)
+	b.WriteByte('}')
+	return b.Bytes(), nil
+}
+
+// writeForeign emits each non-reserved foreign member as `,"key":value`.
+func writeForeign(b *bytes.Buffer, m map[string]json.RawMessage, reserved func(string) bool) {
+	for k, v := range m {
+		if reserved(k) {
 			continue
 		}
-		b.WriteString(`,`)
+		b.WriteByte(',')
 		k2, _ := json.Marshal(k)
 		b.Write(k2)
 		b.WriteByte(':')
 		b.WriteString(rawJSONOrNull(v))
 	}
-	b.WriteByte('}')
-	return b.Bytes(), nil
 }
 
 func isReservedFeatureKey(k string) bool {
@@ -185,16 +190,7 @@ func (fc *FeatureCollectionG[P]) MarshalJSON() ([]byte, error) {
 		b.Write(fb)
 	}
 	b.WriteByte(']')
-	for k, v := range fc.Foreign {
-		if isReservedCollectionKey(k) {
-			continue
-		}
-		b.WriteByte(',')
-		k2, _ := json.Marshal(k)
-		b.Write(k2)
-		b.WriteByte(':')
-		b.WriteString(rawJSONOrNull(v))
-	}
+	writeForeign(&b, fc.Foreign, isReservedCollectionKey)
 	b.WriteByte('}')
 	return b.Bytes(), nil
 }

@@ -87,19 +87,17 @@ func makeEdgeKey(a, b geom.XY) edgeKey {
 // chaining cannot complete (degree != 1 at some vertex) so the caller
 // can fall back to a constructive union.
 func traceCoverageBoundary(polygons []*geom.Polygon) ([][]geom.XY, bool) {
-	// Tally undirected occurrences (1 = boundary, 2 = shared). Track
-	// the directed edges separately so shared pairs in the same
-	// orientation (an invalid coverage) can be detected.
+	// Walk every ring once, tallying undirected occurrences (1 =
+	// boundary, 2 = shared) and recording every directed edge in
+	// document order.
 	count := make(map[edgeKey]int)
+	var edges []directedSeg
 	for _, p := range polygons {
 		if p == nil || p.IsEmpty() {
 			continue
 		}
 		for r := 0; r < p.NumRings(); r++ {
 			n := p.RingLen(r)
-			if n < 2 {
-				continue
-			}
 			for j := 0; j+1 < n; j++ {
 				a := p.RingVertex(r, j)
 				b := p.RingVertex(r, j+1)
@@ -107,30 +105,17 @@ func traceCoverageBoundary(polygons []*geom.Polygon) ([][]geom.XY, bool) {
 					continue
 				}
 				count[makeEdgeKey(a, b)]++
+				edges = append(edges, directedSeg{a, b})
 			}
 		}
 	}
-	// Collect surviving directed edges (those whose undirected count is 1).
-	var survivors []directedSeg
-	for _, p := range polygons {
-		if p == nil || p.IsEmpty() {
-			continue
-		}
-		for r := 0; r < p.NumRings(); r++ {
-			n := p.RingLen(r)
-			if n < 2 {
-				continue
-			}
-			for j := 0; j+1 < n; j++ {
-				a := p.RingVertex(r, j)
-				b := p.RingVertex(r, j+1)
-				if a == b {
-					continue
-				}
-				if count[makeEdgeKey(a, b)] == 1 {
-					survivors = append(survivors, directedSeg{a, b})
-				}
-			}
+	// Surviving directed edges are those whose undirected count is 1;
+	// shared pairs (count 2, or same-orientation duplicates from an
+	// invalid coverage) drop out.
+	survivors := edges[:0]
+	for _, e := range edges {
+		if count[makeEdgeKey(e.a, e.b)] == 1 {
+			survivors = append(survivors, e)
 		}
 	}
 	// Build adjacency: for each "from" vertex, the list of edges

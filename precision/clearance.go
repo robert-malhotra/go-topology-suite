@@ -48,22 +48,7 @@ func MinimumClearance(g geom.Geometry) (distance float64, segment [2]geom.XY) {
 // brute-force algorithms.
 func countVertices(g geom.Geometry) int {
 	n := 0
-	walkLeaves(g, func(leaf geom.Geometry) {
-		switch v := leaf.(type) {
-		case *geom.Point:
-			if !v.IsEmpty() {
-				n++
-			}
-		case *geom.LineString:
-			n += v.NumPoints()
-		case *geom.LinearRing:
-			n += v.AsLineString().NumPoints()
-		case *geom.Polygon:
-			for r := 0; r < v.NumRings(); r++ {
-				n += len(v.Ring(r))
-			}
-		}
-	})
+	walkChains(g, func(chain []geom.XY) { n += len(chain) })
 	return n
 }
 
@@ -121,7 +106,7 @@ func (s *SimpleMinimumClearance) compute() {
 
 	// Collect every vertex once. We iterate in O(N^2) regardless of
 	// structure, so a flat list is the simplest representation.
-	verts := collectVertices(s.input)
+	verts := allCoords(s.input)
 	// The "rings" structure preserves component boundaries so we can
 	// iterate over segments without crossing component boundaries.
 	rings := collectRings(s.input)
@@ -144,9 +129,9 @@ func (s *SimpleMinimumClearance) compute() {
 				if q == a || q == b {
 					continue
 				}
-				d := geomath.SegmentDistance(q, a, b)
+				d, cp := geomath.SegmentNearestPoint(q, a, b)
 				if d > 0 {
-					s.updateSegment(d, q, a, b)
+					s.update(d, q, cp)
 				}
 			}
 		}
@@ -161,73 +146,14 @@ func (s *SimpleMinimumClearance) update(candidate float64, p0, p1 geom.XY) {
 	}
 }
 
-func (s *SimpleMinimumClearance) updateSegment(candidate float64, p, a, b geom.XY) {
-	if candidate < s.minClearance {
-		s.minClearance = candidate
-		s.minClearancePts[0] = p
-		s.minClearancePts[1] = closestPointOnSegment(p, a, b)
-	}
-}
-
-// collectVertices walks every coordinate of every component of g.
-func collectVertices(g geom.Geometry) []geom.XY {
-	var out []geom.XY
-	walkLeaves(g, func(leaf geom.Geometry) {
-		switch v := leaf.(type) {
-		case *geom.Point:
-			if !v.IsEmpty() {
-				out = append(out, v.XY())
-			}
-		case *geom.LineString:
-			for i := 0; i < v.NumPoints(); i++ {
-				out = append(out, v.PointAt(i))
-			}
-		case *geom.LinearRing:
-			ls := v.AsLineString()
-			for i := 0; i < ls.NumPoints(); i++ {
-				out = append(out, ls.PointAt(i))
-			}
-		case *geom.Polygon:
-			for r := 0; r < v.NumRings(); r++ {
-				ring := v.Ring(r)
-				out = append(out, ring...)
-			}
-		}
-	})
-	return out
-}
-
 // collectRings returns every chain of vertices that defines an edge
 // sequence: each LineString as one ring, and each polygon ring as one
 // ring. Single Points are skipped (they have no segments).
 func collectRings(g geom.Geometry) [][]geom.XY {
 	var out [][]geom.XY
-	walkLeaves(g, func(leaf geom.Geometry) {
-		switch v := leaf.(type) {
-		case *geom.LineString:
-			pts := make([]geom.XY, v.NumPoints())
-			for i := 0; i < v.NumPoints(); i++ {
-				pts[i] = v.PointAt(i)
-			}
-			if len(pts) >= 2 {
-				out = append(out, pts)
-			}
-		case *geom.LinearRing:
-			ls := v.AsLineString()
-			pts := make([]geom.XY, ls.NumPoints())
-			for i := 0; i < ls.NumPoints(); i++ {
-				pts[i] = ls.PointAt(i)
-			}
-			if len(pts) >= 2 {
-				out = append(out, pts)
-			}
-		case *geom.Polygon:
-			for r := 0; r < v.NumRings(); r++ {
-				ring := append([]geom.XY(nil), v.Ring(r)...)
-				if len(ring) >= 2 {
-					out = append(out, ring)
-				}
-			}
+	walkChains(g, func(chain []geom.XY) {
+		if len(chain) >= 2 {
+			out = append(out, chain)
 		}
 	})
 	return out
@@ -261,20 +187,25 @@ func walkLeaves(g geom.Geometry, fn func(geom.Geometry)) {
 	}
 }
 
-// closestPointOnSegment returns the projection of p onto segment (a,b),
-// clamped to the segment endpoints. Mirrors JTS LineSegment.closestPoint.
-func closestPointOnSegment(p, a, b geom.XY) geom.XY {
-	if a.X == b.X && a.Y == b.Y {
-		return a
-	}
-	dx := b.X - a.X
-	dy := b.Y - a.Y
-	r := ((p.X-a.X)*dx + (p.Y-a.Y)*dy) / (dx*dx + dy*dy)
-	if r <= 0 {
-		return a
-	}
-	if r >= 1 {
-		return b
-	}
-	return geom.XY{X: a.X + r*dx, Y: a.Y + r*dy}
+// walkChains visits every vertex chain of g: each Point as a one-vertex
+// chain, each LineString / LinearRing as its vertex sequence, and each
+// polygon ring as one chain. Chain slices are freshly allocated; callers
+// may retain or mutate them.
+func walkChains(g geom.Geometry, fn func([]geom.XY)) {
+	walkLeaves(g, func(leaf geom.Geometry) {
+		switch v := leaf.(type) {
+		case *geom.Point:
+			if !v.IsEmpty() {
+				fn([]geom.XY{v.XY()})
+			}
+		case *geom.LineString:
+			fn(v.XYs())
+		case *geom.LinearRing:
+			fn(v.AsLineString().XYs())
+		case *geom.Polygon:
+			for r := 0; r < v.NumRings(); r++ {
+				fn(v.Ring(r))
+			}
+		}
+	})
 }

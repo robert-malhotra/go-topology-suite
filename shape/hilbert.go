@@ -81,40 +81,39 @@ func hilbertDeinterleave(x uint32) uint32 {
 //
 // JTS: org.locationtech.jts.shape.fractal.HilbertCurveBuilder
 func HilbertCurve(order int, env geom.Envelope) *geom.LineString {
-	if order < 0 {
-		order = 0
-	}
-	if order > hilbertMaxLevel {
-		order = hilbertMaxLevel
-	}
-	nPts := hilbertSize(order)
+	order = min(max(order, 0), hilbertMaxLevel)
+	return gridCurve(hilbertSize(order), hilbertMaxOrdinate(order), env,
+		func(i int) (int, int) { return hilbertDecode(order, i) })
+}
 
-	scaleX, scaleY := 1.0, 1.0
+// gridCurve materialises a space-filling curve as a LineString: decode
+// yields the integer grid coordinate of curve index i, maxOrd is the
+// largest grid ordinate. If env is non-empty the curve is scaled by
+// side/maxOrd (side = the shorter envelope side, matching JTS
+// getSquareBaseLine) and anchored at (MinX, MinY); otherwise it stays
+// in native grid coordinates.
+func gridCurve(nPts, maxOrd int, env geom.Envelope, decode func(i int) (int, int)) *geom.LineString {
+	scale := 1.0
 	baseX, baseY := 0.0, 0.0
 	if !env.IsEmpty() {
-		// Match JTS's getSquareBaseLine: use the longer side so the
-		// curve fits inside env without distortion. Anchor at MinX/MinY.
 		side := env.Width()
 		if env.Height() < side {
 			side = env.Height()
 		}
-		// Avoid div-by-zero for a degenerate envelope.
-		maxOrd := hilbertMaxOrdinate(order)
+		// Avoid div-by-zero for order 0.
 		if maxOrd > 0 {
-			s := side / float64(maxOrd)
-			scaleX = s
-			scaleY = s
+			scale = side / float64(maxOrd)
 		}
 		baseX = env.MinX
 		baseY = env.MinY
 	}
 
 	coords := make([]geom.XY, nPts)
-	for i := 0; i < nPts; i++ {
-		ix, iy := hilbertDecode(order, i)
+	for i := range coords {
+		ix, iy := decode(i)
 		coords[i] = geom.XY{
-			X: float64(ix)*scaleX + baseX,
-			Y: float64(iy)*scaleY + baseY,
+			X: float64(ix)*scale + baseX,
+			Y: float64(iy)*scale + baseY,
 		}
 	}
 	return geom.NewLineString(nil, coords)

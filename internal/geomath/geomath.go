@@ -195,3 +195,47 @@ func RingArea2(ring []geom.XY) float64 {
 	}
 	return a
 }
+
+// DouglasPeuckerKeep runs the classic recursive Douglas-Peucker scan on
+// the open sub-chain pts[lo..hi], marking in keep every vertex whose
+// perpendicular distance from the (pts[lo], pts[hi]) chord exceeds tol.
+// keep[lo] / keep[hi] are the caller's responsibility.
+func DouglasPeuckerKeep(pts []geom.XY, lo, hi int, tol float64, keep []bool) {
+	if hi-lo < 2 {
+		return
+	}
+	maxD := -1.0
+	maxI := lo
+	for i := lo + 1; i < hi; i++ {
+		d := PerpDistance(pts[i], pts[lo], pts[hi])
+		if d > maxD {
+			maxD = d
+			maxI = i
+		}
+	}
+	if maxD > tol {
+		keep[maxI] = true
+		DouglasPeuckerKeep(pts, lo, maxI, tol, keep)
+		DouglasPeuckerKeep(pts, maxI, hi, tol, keep)
+	}
+}
+
+// DouglasPeucker returns the Douglas-Peucker simplification of the open
+// polyline pts with tolerance tol, always retaining both endpoints. The
+// result is freshly allocated.
+func DouglasPeucker(pts []geom.XY, tol float64) []geom.XY {
+	if len(pts) <= 2 {
+		return append([]geom.XY(nil), pts...)
+	}
+	keep := make([]bool, len(pts))
+	keep[0] = true
+	keep[len(pts)-1] = true
+	DouglasPeuckerKeep(pts, 0, len(pts)-1, tol, keep)
+	out := make([]geom.XY, 0, len(pts))
+	for i, p := range pts {
+		if keep[i] {
+			out = append(out, p)
+		}
+	}
+	return out
+}

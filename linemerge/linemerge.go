@@ -40,38 +40,32 @@ func Merge(geoms []geom.Geometry) []*geom.LineString {
 }
 
 // extractLines walks any geometry and reports each non-trivial
-// LineString component. Trivial inputs (empty, fewer than two
-// distinct vertices) are skipped. Mirrors JTS's
+// LineString component in document order. Trivial inputs (empty, fewer
+// than two distinct vertices) are skipped. Mirrors JTS's
 // GeometryComponentFilter behaviour: any dimension of geometry is
 // accepted, and each constituent linestring (including polygon
 // boundary rings) is extracted.
 func extractLines(g geom.Geometry, emit func(*geom.LineString)) {
 	switch v := g.(type) {
-	case *geom.LineString:
-		if isTrivialLine(v) {
-			return
-		}
-		emit(v)
 	case *geom.LinearRing:
-		// LinearRing is operationally a closed LineString.
+		// LinearRing is operationally a closed LineString (and, unlike
+		// plain LineStrings, is emitted even when trivial).
 		emit(v.AsLineString())
-	case *geom.MultiLineString:
-		for i := 0; i < v.NumGeometries(); i++ {
-			ls := v.LineStringAt(i)
-			if isTrivialLine(ls) {
-				continue
-			}
-			emit(ls)
-		}
-	case *geom.Polygon:
-		emitPolygonRings(v, emit)
-	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries(); i++ {
-			emitPolygonRings(v.PolygonAt(i), emit)
-		}
 	case *geom.GeometryCollection:
+		// Recurse to keep document order for heterogeneous collections.
 		for i := 0; i < v.NumGeometries(); i++ {
 			extractLines(v.GeometryAt(i), emit)
+		}
+	default:
+		// g is homogeneous here, so at most one of the two extractor
+		// loops yields anything and document order is preserved.
+		for _, ls := range geom.LineStringsOf(g) {
+			if !isTrivialLine(ls) {
+				emit(ls)
+			}
+		}
+		for _, p := range geom.PolygonsOf(g) {
+			emitPolygonRings(p, emit)
 		}
 	}
 }

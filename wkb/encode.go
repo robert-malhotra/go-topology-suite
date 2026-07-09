@@ -80,29 +80,11 @@ func baseCode(t geom.Type) (uint32, error) {
 }
 
 func encodeTypeCode(g geom.Geometry, c *config, includeSRIDFlag bool, srid int) (uint32, error) {
-	base, err := baseCode(g.Type())
+	base, err := encodeTypeCodeForChild(g.Type(), g.Layout(), c)
 	if err != nil {
 		return 0, err
 	}
-	layout := g.Layout()
-	if c.iso {
-		switch layout {
-		case geom.LayoutXYZ:
-			base += isoOffsetZ
-		case geom.LayoutXYM:
-			base += isoOffsetM
-		case geom.LayoutXYZM:
-			base += isoOffsetZM
-		}
-		return base, nil
-	}
-	if layout.HasZ() {
-		base |= flagZ
-	}
-	if layout.HasM() {
-		base |= flagM
-	}
-	if includeSRIDFlag && srid != 0 {
+	if !c.iso && includeSRIDFlag && srid != 0 {
 		base |= flagSRID
 	}
 	return base, nil
@@ -173,11 +155,7 @@ func appendPointBody(dst []byte, p *geom.Point, c *config) ([]byte, error) {
 		}
 		return dst, nil
 	}
-	flat := p.FlatCoords()
-	for i := 0; i < stride; i++ {
-		dst = appendFloat64(dst, c.order, flat[i])
-	}
-	return dst, nil
+	return appendCoordRun(dst, p.FlatCoords()[:stride], c), nil
 }
 
 func appendCoordRun(dst []byte, flat []float64, c *config) []byte {
@@ -229,10 +207,7 @@ func appendMultiPointBody(dst []byte, mp *geom.MultiPoint, c *config) ([]byte, e
 		dst = appendByteOrder(dst, c.order)
 		tc, _ := encodeTypeCodeForChild(geom.PointType, mp.Layout(), c)
 		dst = appendUint32(dst, c.order, tc)
-		off := i * stride
-		for j := 0; j < stride; j++ {
-			dst = appendFloat64(dst, c.order, flat[off+j])
-		}
+		dst = appendCoordRun(dst, flat[i*stride:(i+1)*stride], c)
 	}
 	return dst, nil
 }

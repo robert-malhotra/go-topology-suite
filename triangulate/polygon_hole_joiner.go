@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
@@ -64,21 +65,14 @@ func joinPolygonHoles(p *geom.Polygon) []geom.XY {
 // orientedRing returns a copy of ring with the requested orientation
 // (true = clockwise). The closing duplicate is preserved.
 func orientedRing(ring []geom.XY, wantCW bool) []geom.XY {
-	n := len(ring)
-	if n == 0 {
+	if len(ring) == 0 {
 		return nil
 	}
-	signed := planar.Default().RingArea(ring) // > 0 for CCW
-	isCW := signed < 0
-	out := make([]geom.XY, n)
+	isCW := planar.Default().RingArea(ring) < 0 // > 0 for CCW
 	if isCW == wantCW {
-		copy(out, ring)
-		return out
+		return append([]geom.XY(nil), ring...)
 	}
-	for i, p := range ring {
-		out[n-1-i] = p
-	}
-	return out
+	return xybuf.ReverseCopy(ring)
 }
 
 // boundsXY returns [minX, minY] of a ring (excluding closing vertex).

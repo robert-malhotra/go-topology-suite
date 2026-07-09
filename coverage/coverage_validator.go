@@ -1,9 +1,8 @@
 package coverage
 
 import (
-	"math"
-
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/predicate"
 )
 
@@ -246,7 +245,7 @@ func approxMinDistance(a, b *geom.Polygon) float64 {
 			for rb := 0; rb < b.NumRings(); rb++ {
 				nb := b.RingLen(rb)
 				for k := 0; k+1 < nb; k++ {
-					d := distPointSeg(pv, b.RingVertex(rb, k), b.RingVertex(rb, k+1))
+					d := geomath.SegmentDistance(pv, b.RingVertex(rb, k), b.RingVertex(rb, k+1))
 					upd(d)
 				}
 			}
@@ -256,19 +255,4 @@ func approxMinDistance(a, b *geom.Polygon) float64 {
 		return 0
 	}
 	return min
-}
-
-func distPointSeg(p, a, b geom.XY) float64 {
-	dx, dy := b.X-a.X, b.Y-a.Y
-	if dx == 0 && dy == 0 {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	t := ((p.X-a.X)*dx + (p.Y-a.Y)*dy) / (dx*dx + dy*dy)
-	if t < 0 {
-		t = 0
-	} else if t > 1 {
-		t = 1
-	}
-	cx, cy := a.X+t*dx, a.Y+t*dy
-	return math.Hypot(p.X-cx, p.Y-cy)
 }

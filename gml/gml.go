@@ -32,7 +32,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
@@ -172,9 +171,9 @@ func writeGeom(b *strings.Builder, g geom.Geometry, level int, isRoot bool, c *c
 	case *geom.Point:
 		writePoint(b, v, level, isRoot, c)
 	case *geom.LineString:
-		writeLineString(b, v, level, isRoot, c)
+		writeCurve(b, elemLineString, v, level, isRoot, c)
 	case *geom.LinearRing:
-		writeLinearRing(b, v.AsLineString(), level, isRoot, c)
+		writeCurve(b, elemLinearRing, v.AsLineString(), level, isRoot, c)
 	case *geom.Polygon:
 		writePolygon(b, v, level, isRoot, c)
 	case *geom.MultiPoint:
@@ -194,28 +193,18 @@ func writeGeom(b *strings.Builder, g geom.Geometry, level int, isRoot bool, c *c
 func writePoint(b *strings.Builder, p *geom.Point, level int, isRoot bool, c *config) {
 	startTag(b, elemPoint, level, isRoot, c)
 	if !p.IsEmpty() {
-		writeCoordsXY(b, []geom.XY{p.XY()}, []float64{pointZ(p)}, level+1, c)
+		writeCoordsXY(b, []geom.XY{p.XY()}, []float64{p.Z()}, level+1, c)
 	}
 	endTag(b, elemPoint, level, c)
 }
 
-func pointZ(p *geom.Point) float64 {
-	z := p.Z()
-	return z
-}
-
-func writeLineString(b *strings.Builder, ls *geom.LineString, level int, isRoot bool, c *config) {
-	startTag(b, elemLineString, level, isRoot, c)
-	xys, zs := lineCoords(ls)
-	writeCoordsXY(b, xys, zs, level+1, c)
-	endTag(b, elemLineString, level, c)
-}
-
-func writeLinearRing(b *strings.Builder, ls *geom.LineString, level int, isRoot bool, c *config) {
-	startTag(b, elemLinearRing, level, isRoot, c)
-	xys, zs := lineCoords(ls)
-	writeCoordsXY(b, xys, zs, level+1, c)
-	endTag(b, elemLinearRing, level, c)
+// writeCurve emits a LineString-backed geometry under the given element
+// name (LineString or LinearRing). Per-vertex Z is not emitted (nil zs);
+// this matches JTS's GMLWriter, which writes 2D tuples for line strings.
+func writeCurve(b *strings.Builder, elem string, ls *geom.LineString, level int, isRoot bool, c *config) {
+	startTag(b, elem, level, isRoot, c)
+	writeCoordsXY(b, ls.XYs(), nil, level+1, c)
+	endTag(b, elem, level, c)
 }
 
 func writePolygon(b *strings.Builder, p *geom.Polygon, level int, isRoot bool, c *config) {
@@ -236,11 +225,7 @@ func writePolygon(b *strings.Builder, p *geom.Polygon, level int, isRoot bool, c
 
 func writeRing(b *strings.Builder, ring []geom.XY, level int, c *config) {
 	startTag(b, elemLinearRing, level, false, c)
-	zs := make([]float64, len(ring))
-	for i := range zs {
-		zs[i] = math.NaN()
-	}
-	writeCoordsXY(b, ring, zs, level+1, c)
+	writeCoordsXY(b, ring, nil, level+1, c)
 	endTag(b, elemLinearRing, level, c)
 }
 
@@ -259,7 +244,7 @@ func writeMultiLineString(b *strings.Builder, mls *geom.MultiLineString, level i
 	startTag(b, elemMultiLineString, level, isRoot, c)
 	for i := 0; i < mls.NumGeometries(); i++ {
 		startTag(b, elemLineStringMember, level+1, false, c)
-		writeLineString(b, mls.LineStringAt(i), level+2, false, c)
+		writeCurve(b, elemLineString, mls.LineStringAt(i), level+2, false, c)
 		endTag(b, elemLineStringMember, level+1, c)
 	}
 	endTag(b, elemMultiLineString, level, c)
@@ -285,6 +270,9 @@ func writeMultiGeometry(b *strings.Builder, gc *geom.GeometryCollection, level i
 	endTag(b, elemMultiGeometry, level, c)
 }
 
+// writeCoordsXY emits a <coordinates> block for the given vertices. zs[i]
+// supplies the Z ordinate for tuple i; NaN entries (or a nil/short zs)
+// emit a 2D `x,y` tuple.
 func writeCoordsXY(b *strings.Builder, xys []geom.XY, zs []float64, level int, c *config) {
 	indent(b, level, c)
 	b.WriteByte('<')
@@ -368,17 +356,6 @@ func escapeAttr(s string) string {
 	return r.Replace(s)
 }
 
-func lineCoords(ls *geom.LineString) ([]geom.XY, []float64) {
-	n := ls.NumPoints()
-	xys := make([]geom.XY, n)
-	zs := make([]float64, n)
-	for i := 0; i < n; i++ {
-		xys[i] = ls.PointAt(i)
-		zs[i] = math.NaN()
-	}
-	return xys, zs
-}
-
 // =====================================================================
 // Reader
 // =====================================================================
@@ -433,7 +410,7 @@ func parseFirstNestedGeom(dec *xml.Decoder, start xml.StartElement) (geom.Geomet
 			}
 			if g != nil {
 				// Drain to end of `start`.
-				if err := drainTo(dec, start.Name); err != nil {
+				if err := skipElement(dec); err != nil {
 					return nil, err
 				}
 				return g, nil
@@ -444,24 +421,6 @@ func parseFirstNestedGeom(dec *xml.Decoder, start xml.StartElement) (geom.Geomet
 			}
 		}
 	}
-}
-
-func drainTo(dec *xml.Decoder, name xml.Name) error {
-	depth := 1
-	for depth > 0 {
-		tok, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		switch tok.(type) {
-		case xml.StartElement:
-			depth++
-		case xml.EndElement:
-			depth--
-		}
-	}
-	_ = name
-	return nil
 }
 
 func parsePoint(dec *xml.Decoder, start xml.StartElement) (*geom.Point, error) {
@@ -545,7 +504,7 @@ func readBoundary(dec *xml.Decoder, start xml.StartElement) ([]geom.XY, error) {
 				if err != nil {
 					return nil, err
 				}
-				if err := drainTo(dec, start.Name); err != nil {
+				if err := skipElement(dec); err != nil {
 					return nil, err
 				}
 				return ring, nil
@@ -683,7 +642,7 @@ func parseFirstChildGeom(dec *xml.Decoder, start xml.StartElement) (geom.Geometr
 			if err != nil {
 				return nil, err
 			}
-			if err := drainTo(dec, start.Name); err != nil {
+			if err := skipElement(dec); err != nil {
 				return nil, err
 			}
 			return g, nil
@@ -832,9 +791,10 @@ func readFloatChild(dec *xml.Decoder, start xml.StartElement) (float64, error) {
 	}
 }
 
-// skipElement consumes tokens until the EndElement of the most recent
-// StartElement seen by the decoder. Caller invokes this immediately
-// after reading a StartElement it doesn't care about.
+// skipElement consumes tokens until the currently open element is
+// closed (depth returns to zero). Callers use it either to skip a
+// StartElement they don't care about, or to drain the remainder of an
+// element whose interesting child has already been parsed.
 func skipElement(dec *xml.Decoder) error {
 	depth := 1
 	for depth > 0 {
@@ -862,7 +822,3 @@ func localName(s xml.StartElement) string {
 type xyz struct {
 	x, y, z float64
 }
-
-// keep crs import alive — used only when emitting/parsing CRS-bearing
-// geometries from callers; the package itself does not stamp a CRS.
-var _ = crs.WGS84

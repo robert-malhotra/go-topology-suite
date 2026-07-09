@@ -56,7 +56,7 @@ func MakeValid(g geom.Geometry) (geom.Geometry, error) {
 // remain, the result degrades to a Point. An originally well-formed line
 // is returned with duplicates removed (which is still valid, never empty).
 func makeValidLineString(ls *geom.LineString) geom.Geometry {
-	pts := collectPoints(ls)
+	pts := ls.XYs()
 	dedup := collapseAdjacentDuplicates(pts)
 	if len(dedup) < 2 {
 		// Degrade to a Point at the only remaining vertex.
@@ -70,30 +70,17 @@ func makeValidLineString(ls *geom.LineString) geom.Geometry {
 	return geom.NewLineString(ls.CRS(), dedup)
 }
 
-func collectPoints(ls *geom.LineString) []geom.XY {
-	out := make([]geom.XY, 0, ls.NumPoints())
-	for p := range ls.CoordsXY() {
-		out = append(out, p)
-	}
-	return out
-}
-
+// collapseAdjacentDuplicates drops non-finite vertices, then removes
+// runs of equal consecutive vertices. The result is always a fresh
+// slice (the input is never mutated).
 func collapseAdjacentDuplicates(pts []geom.XY) []geom.XY {
-	if len(pts) == 0 {
-		return pts
-	}
 	pts = removeNonFinite(pts)
 	if len(pts) == 0 {
 		return pts
 	}
-	out := make([]geom.XY, 0, len(pts))
-	out = append(out, pts[0])
-	for i := 1; i < len(pts); i++ {
-		if pts[i] != out[len(out)-1] {
-			out = append(out, pts[i])
-		}
-	}
-	return out
+	out := make([]geom.XY, len(pts))
+	copy(out, pts)
+	return xybuf.DedupeConsecutive(out)
 }
 
 // removeNonFinite drops any vertex whose X or Y is NaN or ±Inf,

@@ -114,9 +114,8 @@ func writeVertex(b *strings.Builder, flat []float64, off int, layout geom.Layout
 	writeNumber(b, flat[off+1], c)
 	if layout.HasZ() {
 		// Z is at index 2 for XYZ and XYZM; XYM has no Z.
-		zIdx := 2
 		b.WriteByte(',')
-		writeNumber(b, flat[off+zIdx], c)
+		writeNumber(b, flat[off+2], c)
 	}
 	b.WriteByte(']')
 }
@@ -135,10 +134,16 @@ func writePoint(b *strings.Builder, p *geom.Point, c *config) error {
 	return nil
 }
 
+// writeCoordSequence emits a run of vertices as `[[x,y],[x,y,z],...]`,
+// honouring the supplied layout (Z is preserved; M is dropped per RFC 7946
+// §3.1.1).
 func writeCoordSequence(b *strings.Builder, flat []float64, layout geom.Layout, c *config) {
 	stride := layout.Stride()
+	n := 0
+	if stride > 0 {
+		n = len(flat) / stride
+	}
 	b.WriteByte('[')
-	n := len(flat) / stride
 	for i := 0; i < n; i++ {
 		if i > 0 {
 			b.WriteByte(',')
@@ -182,27 +187,9 @@ func writePolygonRings(b *strings.Builder, p *geom.Polygon, c *config) {
 		if c != nil && c.forceCCW {
 			ringFlat = orientedFlatRing(ringFlat, layout, r)
 		}
-		writeRingFlat(b, ringFlat, layout, c)
+		writeCoordSequence(b, ringFlat, layout, c)
 		vertexOff += n
 	}
-}
-
-// writeRingFlat emits a single ring as `[[x,y],[x,y,z],...]`, honouring the
-// supplied layout (Z is preserved; M is dropped per RFC 7946 §3.1.1).
-func writeRingFlat(b *strings.Builder, flat []float64, layout geom.Layout, c *config) {
-	stride := layout.Stride()
-	n := 0
-	if stride > 0 {
-		n = len(flat) / stride
-	}
-	b.WriteByte('[')
-	for i := 0; i < n; i++ {
-		if i > 0 {
-			b.WriteByte(',')
-		}
-		writeVertex(b, flat, i*stride, layout, c)
-	}
-	b.WriteByte(']')
 }
 
 // orientedFlatRing returns a fresh stride-aware slice rewound to the

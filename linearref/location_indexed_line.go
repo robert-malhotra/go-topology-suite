@@ -4,6 +4,8 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 )
 
 // LocationIndexedLine supports linear referencing along a linear
@@ -90,16 +92,16 @@ func indexOfFromStart(g geom.Geometry, p geom.XY, minIndex *LinearLocation) (Lin
 	var minComp, minSeg int
 	minFrac := -1.0
 
-	it := newLinearIterator(g)
+	it := newLinearIteratorAt(g, 0, 0)
 	for it.hasNext() {
 		if !it.isEndOfLine() {
-			s0 := it.getSegmentStart()
-			s1 := it.getSegmentEnd()
-			segDist := pointSegmentDistance(p, s0, s1)
+			s0 := it.segmentStart()
+			s1 := it.segmentEnd()
+			segDist := geomath.SegmentDistance(p, s0, s1)
 			segFrac := segmentProjectionFraction(p, s0, s1)
 
-			ci := it.getComponentIndex()
-			si := it.getVertexIndex()
+			ci := it.componentIdx
+			si := it.vertexIdx
 			if segDist < minDist {
 				if minIndex == nil ||
 					minIndex.CompareLocationValues(ci, si, segFrac) < 0 {
@@ -141,15 +143,6 @@ func segmentProjectionFraction(p, s0, s1 geom.XY) float64 {
 	return t
 }
 
-// pointSegmentDistance returns the Euclidean distance from p to segment
-// [s0, s1].
-func pointSegmentDistance(p, s0, s1 geom.XY) float64 {
-	t := segmentProjectionFraction(p, s0, s1)
-	cx := s0.X + t*(s1.X-s0.X)
-	cy := s0.Y + t*(s1.Y-s0.Y)
-	return math.Hypot(p.X-cx, p.Y-cy)
-}
-
 // extractLineByLocation returns the sub-line of g between the two
 // locations. Port of JTS ExtractLineByLocation.
 func extractLineByLocation(g geom.Geometry, start, end LinearLocation) geom.Geometry {
@@ -163,12 +156,7 @@ func extractLineByLocation(g geom.Geometry, start, end LinearLocation) geom.Geom
 func reverseLinear(g geom.Geometry) geom.Geometry {
 	switch v := g.(type) {
 	case *geom.LineString:
-		n := v.NumPoints()
-		pts := make([]geom.XY, n)
-		for i := 0; i < n; i++ {
-			pts[i] = v.PointAt(n - 1 - i)
-		}
-		return geom.NewLineString(v.CRS(), pts)
+		return geom.NewLineString(v.CRS(), xybuf.ReverseCopy(v.XYs()))
 	case *geom.MultiLineString:
 		n := v.NumGeometries()
 		parts := make([]*geom.LineString, n)
@@ -191,10 +179,10 @@ func computeLinear(g geom.Geometry, start, end LinearLocation) geom.Geometry {
 	}
 	for it := newLinearIteratorFromLocation(g, start); it.hasNext(); it.next() {
 		// Stop once we've passed the end location.
-		if end.CompareLocationValues(it.getComponentIndex(), it.getVertexIndex(), 0) < 0 {
+		if end.CompareLocationValues(it.componentIdx, it.vertexIdx, 0) < 0 {
 			break
 		}
-		pt := it.getSegmentStart()
+		pt := it.segmentStart()
 		b.add(pt)
 		if it.isEndOfLine() {
 			b.endLine()

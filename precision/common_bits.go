@@ -127,10 +127,10 @@ func (r *CommonBitsRemover) Add(g geom.Geometry) {
 	if g == nil || g.IsEmpty() {
 		return
 	}
-	walkCoords(g, func(p geom.XY) {
+	for _, p := range allCoords(g) {
 		r.commonX.Add(p.X)
 		r.commonY.Add(p.Y)
-	})
+	}
 	r.hasCommon = true
 }
 
@@ -196,48 +196,4 @@ func CommonBitsOp(a, b geom.Geometry, op func(a, b geom.Geometry) (geom.Geometry
 		return nil, nil
 	}
 	return r.AddCommonBits(res), nil
-}
-
-// walkCoords visits every coordinate of g exactly once.
-func walkCoords(g geom.Geometry, fn func(geom.XY)) {
-	if g == nil {
-		return
-	}
-	switch v := g.(type) {
-	case *geom.Point:
-		if !v.IsEmpty() {
-			fn(v.XY())
-		}
-	case *geom.LineString:
-		for i := 0; i < v.NumPoints(); i++ {
-			fn(v.PointAt(i))
-		}
-	case *geom.LinearRing:
-		ls := v.AsLineString()
-		for i := 0; i < ls.NumPoints(); i++ {
-			fn(ls.PointAt(i))
-		}
-	case *geom.Polygon:
-		for r := 0; r < v.NumRings(); r++ {
-			for _, p := range v.Ring(r) {
-				fn(p)
-			}
-		}
-	case *geom.MultiPoint:
-		for i := 0; i < v.NumGeometries(); i++ {
-			fn(v.PointAt(i))
-		}
-	case *geom.MultiLineString:
-		for i := 0; i < v.NumGeometries(); i++ {
-			walkCoords(v.LineStringAt(i), fn)
-		}
-	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries(); i++ {
-			walkCoords(v.PolygonAt(i), fn)
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			walkCoords(v.GeometryAt(i), fn)
-		}
-	}
 }

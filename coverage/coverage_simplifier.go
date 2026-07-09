@@ -132,7 +132,9 @@ func Simplify(polygons []*geom.Polygon, tolerance float64) []*geom.Polygon {
 					if rev {
 						canon = xybuf.ReverseCopy(chain)
 					}
-					simp = dpSimplifyChain(canon, tolerance)
+					// DP-simplify the open chain, preserving its
+					// (node) endpoints.
+					simp = geomath.DouglasPeucker(canon, tolerance)
 					chainCache[key] = simp
 				}
 				oriented := simp
@@ -199,28 +201,6 @@ func canonicalChainKey(chain []geom.XY) (string, bool) {
 	return string(buf), rev
 }
 
-// dpSimplifyChain runs Douglas-Peucker on an open chain, preserving
-// its endpoints (chain[0] and chain[len-1]).
-func dpSimplifyChain(chain []geom.XY, tol float64) []geom.XY {
-	n := len(chain)
-	if n <= 2 {
-		out := make([]geom.XY, n)
-		copy(out, chain)
-		return out
-	}
-	keep := make([]bool, n)
-	keep[0] = true
-	keep[n-1] = true
-	dpRecurse(chain, 0, n-1, tol, keep)
-	out := make([]geom.XY, 0, n)
-	for i, k := range keep {
-		if k {
-			out = append(out, chain[i])
-		}
-	}
-	return out
-}
-
 // douglasPeuckerClosed simplifies a closed ring (no shared chains).
 // Anchors the first vertex and applies DP between repeated anchors.
 // Ensures at least 4 vertices remain so the result is a valid ring.
@@ -248,8 +228,8 @@ func douglasPeuckerClosed(ring []geom.XY, tol float64) []geom.XY {
 	keep[0] = true
 	keep[pivot] = true
 	keep[n-1] = true
-	dpRecurse(ring, 0, pivot, tol, keep)
-	dpRecurse(ring, pivot, n-1, tol, keep)
+	geomath.DouglasPeuckerKeep(ring, 0, pivot, tol, keep)
+	geomath.DouglasPeuckerKeep(ring, pivot, n-1, tol, keep)
 	var out []geom.XY
 	for i, k := range keep {
 		if k {
@@ -263,24 +243,4 @@ func douglasPeuckerClosed(ring []geom.XY, tol float64) []geom.XY {
 		out = append(out, out[0])
 	}
 	return out
-}
-
-func dpRecurse(pts []geom.XY, lo, hi int, tol float64, keep []bool) {
-	if hi <= lo+1 {
-		return
-	}
-	maxD := -1.0
-	idx := lo
-	for i := lo + 1; i < hi; i++ {
-		d := geomath.PerpDistance(pts[i], pts[lo], pts[hi])
-		if d > maxD {
-			maxD = d
-			idx = i
-		}
-	}
-	if maxD > tol {
-		keep[idx] = true
-		dpRecurse(pts, lo, idx, tol, keep)
-		dpRecurse(pts, idx, hi, tol, keep)
-	}
 }

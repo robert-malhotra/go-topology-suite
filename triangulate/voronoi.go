@@ -45,11 +45,7 @@ func Voronoi(points []geom.XY, clipBox *geom.Envelope) []*geom.Polygon {
 	tri := NewIncrementalDelaunayTriangulator(subdiv)
 	tri.ForceConvex(false)
 
-	verts := make([]*quadedge.Vertex, len(pts))
-	for i, p := range pts {
-		verts[i] = quadedge.NewVertex(p)
-	}
-	if err := tri.InsertSites(verts); err != nil {
+	if err := tri.InsertSites(newVertices(pts)); err != nil {
 		return nil
 	}
 
@@ -134,19 +130,17 @@ func clipPolygonToEnvelope(ring []geom.XY, env geom.Envelope) []geom.XY {
 	}
 	// Clip against each of four half-planes: left, right, bottom, top.
 	out := append([]geom.XY(nil), ring...)
-	out = clipAgainst(out, func(p geom.XY) bool { return p.X >= env.MinX }, env.MinX, true, false)
-	out = clipAgainst(out, func(p geom.XY) bool { return p.X <= env.MaxX }, env.MaxX, true, true)
-	out = clipAgainst(out, func(p geom.XY) bool { return p.Y >= env.MinY }, env.MinY, false, false)
-	out = clipAgainst(out, func(p geom.XY) bool { return p.Y <= env.MaxY }, env.MaxY, false, true)
+	out = clipAgainst(out, func(p geom.XY) bool { return p.X >= env.MinX }, env.MinX, true)
+	out = clipAgainst(out, func(p geom.XY) bool { return p.X <= env.MaxX }, env.MaxX, true)
+	out = clipAgainst(out, func(p geom.XY) bool { return p.Y >= env.MinY }, env.MinY, false)
+	out = clipAgainst(out, func(p geom.XY) bool { return p.Y <= env.MaxY }, env.MaxY, false)
 	return out
 }
 
 // clipAgainst implements one Sutherland–Hodgman pass against a single
 // axis-aligned half-plane. If isX is true, the plane is x = bound; else
-// y = bound. If isMax is false, the inside half is the >= side; if true,
-// the inside half is the <= side. The supplied inside func performs the
-// inside-test and matches that pair.
-func clipAgainst(ring []geom.XY, inside func(geom.XY) bool, bound float64, isX, isMax bool) []geom.XY {
+// y = bound. The supplied inside func performs the half-plane test.
+func clipAgainst(ring []geom.XY, inside func(geom.XY) bool, bound float64, isX bool) []geom.XY {
 	if len(ring) == 0 {
 		return ring
 	}
@@ -166,7 +160,6 @@ func clipAgainst(ring []geom.XY, inside func(geom.XY) bool, bound float64, isX, 
 		prev = curr
 		prevIn = currIn
 	}
-	_ = isMax
 	return out
 }
 

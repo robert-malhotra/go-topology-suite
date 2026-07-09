@@ -116,45 +116,8 @@ func extractTargetCoordinates(g geom.Geometry) []geom.XY {
 // through collections. Caller is free to mutate the returned slice.
 func allCoords(g geom.Geometry) []geom.XY {
 	var out []geom.XY
-	collectCoords(g, &out)
+	walkChains(g, func(chain []geom.XY) { out = append(out, chain...) })
 	return out
-}
-
-func collectCoords(g geom.Geometry, out *[]geom.XY) {
-	switch v := g.(type) {
-	case *geom.Point:
-		if !v.IsEmpty() {
-			*out = append(*out, v.XY())
-		}
-	case *geom.LineString:
-		for p := range v.CoordsXY() {
-			*out = append(*out, p)
-		}
-	case *geom.LinearRing:
-		for p := range v.CoordsXY() {
-			*out = append(*out, p)
-		}
-	case *geom.Polygon:
-		for r := 0; r < v.NumRings(); r++ {
-			*out = append(*out, v.Ring(r)...)
-		}
-	case *geom.MultiPoint:
-		for i := 0; i < v.NumGeometries(); i++ {
-			*out = append(*out, v.PointAt(i))
-		}
-	case *geom.MultiLineString:
-		for i := 0; i < v.NumGeometries(); i++ {
-			collectCoords(v.LineStringAt(i), out)
-		}
-	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries(); i++ {
-			collectCoords(v.PolygonAt(i), out)
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			collectCoords(v.GeometryAt(i), out)
-		}
-	}
 }
 
 // snapGeometry applies snapLine to each LineString-like component of g,
@@ -277,7 +240,7 @@ func findSnapForVertex(pt geom.XY, snapPts []geom.XY, tolerance float64) (geom.X
 		if pt == sp {
 			return geom.XY{}, false
 		}
-		if dist(pt, sp) < tolerance {
+		if math.Hypot(pt.X-sp.X, pt.Y-sp.Y) < tolerance {
 			return sp, true
 		}
 	}
@@ -313,10 +276,6 @@ func findSegmentIndexToSnap(snapPt geom.XY, src []geom.XY, tolerance float64, al
 		}
 	}
 	return snapIndex
-}
-
-func dist(a, b geom.XY) float64 {
-	return math.Hypot(a.X-b.X, a.Y-b.Y)
 }
 
 // pointSegmentDistanceSq returns the squared Euclidean distance from p

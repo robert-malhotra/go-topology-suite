@@ -49,21 +49,14 @@ func LineString(ls *geom.LineString) *PreparedLineString {
 	if n == 0 {
 		return pl
 	}
-	pl.pts = make([]geom.XY, n)
-	for i := 0; i < n; i++ {
-		pl.pts[i] = ls.PointAt(i)
-	}
+	pl.pts = ls.XYs()
 	if n < 2 {
 		return pl
 	}
 	items := make([]index.Item[segmentRef], 0, n-1)
 	for i := 0; i+1 < n; i++ {
-		a, b := pl.pts[i], pl.pts[i+1]
-		env := geom.EmptyEnvelope().
-			ExpandToIncludeXY(a).
-			ExpandToIncludeXY(b)
 		items = append(items, index.Item[segmentRef]{
-			Env:   env,
+			Env:   geom.SegmentEnvelope(pl.pts[i], pl.pts[i+1]),
 			Value: segmentRef{vertex: int32(i)},
 		})
 	}
@@ -223,26 +216,31 @@ func (pl *PreparedLineString) intersectsPolygon(poly *geom.Polygon) bool {
 // intersectsSegment is the inner loop: look up candidate prepared segments
 // via the R-tree and run a planar segment-segment intersection on each.
 func (pl *PreparedLineString) intersectsSegment(a, b geom.XY) bool {
-	q := geom.EmptyEnvelope().ExpandToIncludeXY(a).ExpandToIncludeXY(b)
 	hit := false
-	pl.tree.Search(q, func(it index.Item[segmentRef]) bool {
+	pl.tree.Search(geom.SegmentEnvelope(a, b), func(it index.Item[segmentRef]) bool {
 		vi := int(it.Value.vertex)
-		c, d := pl.pts[vi], pl.pts[vi+1]
-		if _, ok := planar.Default().SegmentIntersection(a, b, c, d); ok {
-			hit = true
-			return false
-		}
-		// Touch-only via collinear endpoints.
-		if planar.Default().SegmentDistance(a, c, d) == 0 ||
-			planar.Default().SegmentDistance(b, c, d) == 0 ||
-			planar.Default().SegmentDistance(c, a, b) == 0 ||
-			planar.Default().SegmentDistance(d, a, b) == 0 {
+		if segmentsTouch(a, b, pl.pts[vi], pl.pts[vi+1]) {
 			hit = true
 			return false
 		}
 		return true
 	})
 	return hit
+}
+
+// segmentsTouch reports whether segments [a,b] and [c,d] share any point:
+// a proper or improper intersection, or a collinear endpoint-on-segment
+// touch.
+func segmentsTouch(a, b, c, d geom.XY) bool {
+	k := planar.Default()
+	if _, ok := k.SegmentIntersection(a, b, c, d); ok {
+		return true
+	}
+	// Collinear-touch (endpoint-on-other-segment) cases.
+	return k.SegmentDistance(a, c, d) == 0 ||
+		k.SegmentDistance(b, c, d) == 0 ||
+		k.SegmentDistance(c, a, b) == 0 ||
+		k.SegmentDistance(d, a, b) == 0
 }
 
 // segmentIntersectsEnvelope reports whether the closed segment [a,b]

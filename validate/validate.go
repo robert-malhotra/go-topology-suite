@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
@@ -133,10 +134,7 @@ func (v *validator) check(g geom.Geometry) {
 // checkCoordinates flags any non-finite ordinate (NaN or ±Inf) found
 // anywhere in g. JTS treats such inputs as invalid geometries.
 func (v *validator) checkCoordinates(g geom.Geometry) {
-	bad := func(p geom.XY) bool {
-		return math.IsNaN(p.X) || math.IsNaN(p.Y) ||
-			math.IsInf(p.X, 0) || math.IsInf(p.Y, 0)
-	}
+	bad := func(p geom.XY) bool { return !finiteXY(p) }
 	report := func(p geom.XY) {
 		v.add(DefectInvalidCoordinate,
 			fmt.Sprintf("non-finite coordinate: %v", p), p)
@@ -229,10 +227,7 @@ func (v *validator) checkLinearRing(lr *geom.LinearRing) {
 	if lr.IsEmpty() {
 		return
 	}
-	ring := make([]geom.XY, lr.NumPoints())
-	for i := 0; i < lr.NumPoints(); i++ {
-		ring[i] = lr.PointAt(i)
-	}
+	ring := lr.AsLineString().XYs()
 	if len(ring) < 4 {
 		loc := geom.XY{}
 		if len(ring) > 0 {
@@ -730,10 +725,7 @@ func ringTouchPointCount(a, b []geom.XY) int {
 }
 
 func collinearShare(p1, p2, p3, p4 geom.XY) bool {
-	cross := func(o, p, q geom.XY) float64 {
-		return (p.X-o.X)*(q.Y-o.Y) - (p.Y-o.Y)*(q.X-o.X)
-	}
-	if cross(p1, p2, p3) != 0 || cross(p1, p2, p4) != 0 {
+	if geomath.Cross(p1, p2, p3) != 0 || geomath.Cross(p1, p2, p4) != 0 {
 		return false
 	}
 	dx, dy := p2.X-p1.X, p2.Y-p1.Y

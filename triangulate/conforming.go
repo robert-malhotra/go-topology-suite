@@ -124,16 +124,7 @@ func ConformingDelaunayOf(points []geom.XY, segments [][2]geom.XY) ([]Triangle, 
 		if splits == 0 {
 			// Done — every segment is Gabriel and so appears as an edge
 			// of the Delaunay triangulation.
-			tris := subdiv.TriangleVertices(false)
-			out := make([]Triangle, 0, len(tris))
-			for _, t := range tris {
-				out = append(out, Triangle{
-					P0: t[0].Coordinate(),
-					P1: t[1].Coordinate(),
-					P2: t[2].Coordinate(),
-				})
-			}
-			return out, nil
+			return subdivisionTriangles(subdiv), nil
 		}
 	}
 	return nil, ErrConformingDelaunayDidNotConverge

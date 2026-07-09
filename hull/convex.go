@@ -35,47 +35,34 @@ func ConvexHull(g geom.Geometry) geom.Geometry {
 	}
 }
 
+// collectVertices gathers every vertex of g in document order.
 func collectVertices(g geom.Geometry) []geom.XY {
 	var out []geom.XY
-	visit(g, func(p geom.XY) { out = append(out, p) })
+	appendVertices(g, &out)
 	return out
 }
 
-func visit(g geom.Geometry, fn func(geom.XY)) {
-	switch v := g.(type) {
-	case *geom.Point:
-		if !v.IsEmpty() {
-			fn(v.XY())
+func appendVertices(g geom.Geometry, out *[]geom.XY) {
+	// Recurse into collections so heterogeneous members keep document
+	// order. Any other geometry is homogeneous: at most one of the three
+	// extractor loops below yields anything.
+	if gc, ok := g.(*geom.GeometryCollection); ok {
+		for i := 0; i < gc.NumGeometries(); i++ {
+			appendVertices(gc.GeometryAt(i), out)
 		}
-	case *geom.LineString:
-		for i := 0; i < v.NumPoints(); i++ {
-			fn(v.PointAt(i))
+		return
+	}
+	for _, p := range geom.PointsOf(g) {
+		if !p.IsEmpty() {
+			*out = append(*out, p.XY())
 		}
-	case *geom.LinearRing:
-		for i := 0; i < v.NumPoints(); i++ {
-			fn(v.PointAt(i))
-		}
-	case *geom.Polygon:
-		for r := 0; r < v.NumRings(); r++ {
-			for _, p := range v.Ring(r) {
-				fn(p)
-			}
-		}
-	case *geom.MultiPoint:
-		for i := 0; i < v.NumGeometries(); i++ {
-			fn(v.PointAt(i))
-		}
-	case *geom.MultiLineString:
-		for i := 0; i < v.NumGeometries(); i++ {
-			visit(v.LineStringAt(i), fn)
-		}
-	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries(); i++ {
-			visit(v.PolygonAt(i), fn)
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			visit(v.GeometryAt(i), fn)
+	}
+	for _, ls := range geom.LineStringsOf(g) {
+		*out = append(*out, ls.XYs()...)
+	}
+	for _, pl := range geom.PolygonsOf(g) {
+		for r := 0; r < pl.NumRings(); r++ {
+			*out = append(*out, pl.Ring(r)...)
 		}
 	}
 }

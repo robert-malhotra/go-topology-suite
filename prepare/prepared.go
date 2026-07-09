@@ -69,13 +69,8 @@ func Polygon(p *geom.Polygon) *PreparedPolygon {
 			continue
 		}
 		for vi := 0; vi < len(ring)-1; vi++ {
-			a := ring[vi]
-			b := ring[vi+1]
-			env := geom.EmptyEnvelope().
-				ExpandToIncludeXY(a).
-				ExpandToIncludeXY(b)
 			items = append(items, index.Item[edgeRef]{
-				Env: env,
+				Env: geom.SegmentEnvelope(ring[vi], ring[vi+1]),
 				Value: edgeRef{
 					ring:   int32(ri),
 					vertex: int32(vi),

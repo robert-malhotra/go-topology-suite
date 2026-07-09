@@ -69,7 +69,7 @@ func Simplify(g geom.Geometry, tolerance float64) geom.Geometry {
 
 func simplifyLineString(ls *geom.LineString, tol float64) *geom.LineString {
 	pts := ls.XYs()
-	out := douglasPeucker(pts, tol)
+	out := geomath.DouglasPeucker(pts, tol)
 	return geom.NewLineString(ls.CRS(), out)
 }
 
@@ -84,7 +84,7 @@ func simplifyPolygon(p *geom.Polygon, tol float64) geom.Geometry {
 		if r == 0 && ringEnvelopeMinDim(ring) <= tol {
 			return geom.NewEmptyPolygon(p.CRS(), p.Layout())
 		}
-		simplified := douglasPeucker(ring, tol)
+		simplified := geomath.DouglasPeucker(ring, tol)
 		// A polygon ring needs at least 4 distinct vertices (closed). If
 		// simplification collapses below that, drop the ring.
 		if len(simplified) >= 4 && math.Abs(geomath.RingArea2(simplified)) > 0 {
@@ -114,66 +114,6 @@ func ringEnvelopeMinDim(ring []geom.XY) float64 {
 	if len(ring) == 0 {
 		return 0
 	}
-	minX, maxX := ring[0].X, ring[0].X
-	minY, maxY := ring[0].Y, ring[0].Y
-	for _, p := range ring[1:] {
-		if p.X < minX {
-			minX = p.X
-		}
-		if p.X > maxX {
-			maxX = p.X
-		}
-		if p.Y < minY {
-			minY = p.Y
-		}
-		if p.Y > maxY {
-			maxY = p.Y
-		}
-	}
-	w := maxX - minX
-	h := maxY - minY
-	if w < h {
-		return w
-	}
-	return h
-}
-
-// douglasPeucker is the classic recursive simplification.
-func douglasPeucker(pts []geom.XY, tol float64) []geom.XY {
-	if len(pts) <= 2 {
-		return append([]geom.XY(nil), pts...)
-	}
-	keep := make([]bool, len(pts))
-	keep[0] = true
-	keep[len(pts)-1] = true
-	dpRecurse(pts, 0, len(pts)-1, tol, keep)
-
-	out := make([]geom.XY, 0, len(pts))
-	for i, p := range pts {
-		if keep[i] {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-func dpRecurse(pts []geom.XY, lo, hi int, tol float64, keep []bool) {
-	if hi-lo < 2 {
-		return
-	}
-	a, b := pts[lo], pts[hi]
-	maxD := -1.0
-	maxI := -1
-	for i := lo + 1; i < hi; i++ {
-		d := geomath.PerpDistance(pts[i], a, b)
-		if d > maxD {
-			maxD = d
-			maxI = i
-		}
-	}
-	if maxD > tol {
-		keep[maxI] = true
-		dpRecurse(pts, lo, maxI, tol, keep)
-		dpRecurse(pts, maxI, hi, tol, keep)
-	}
+	env := geom.EnvelopeOfXY(ring)
+	return math.Min(env.MaxX-env.MinX, env.MaxY-env.MinY)
 }

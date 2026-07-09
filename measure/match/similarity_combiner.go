@@ -1,6 +1,9 @@
 package match
 
-import "math"
+import (
+	"math"
+	"slices"
+)
 
 // CombineSimilarities combines multiple similarity scores into a
 // single composite metric using the geometric mean.
@@ -54,14 +57,5 @@ func CombineMin(values ...float64) float64 {
 	if len(values) == 0 {
 		return math.NaN()
 	}
-	m := math.Inf(+1)
-	for _, v := range values {
-		if math.IsNaN(v) {
-			return math.NaN()
-		}
-		if v < m {
-			m = v
-		}
-	}
-	return m
+	return slices.Min(values) // propagates NaN
 }

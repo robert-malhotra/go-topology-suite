@@ -68,9 +68,9 @@ func appendGeometry(b *strings.Builder, g geom.Geometry, c *config) error {
 	case *geom.Point:
 		return appendPoint(b, v, c)
 	case *geom.LineString:
-		return appendLineString(b, v, c)
+		return appendCurve(b, "LINESTRING", v, c)
 	case *geom.LinearRing:
-		return appendLinearRing(b, v, c)
+		return appendCurve(b, "LINEARRING", v.AsLineString(), c)
 	case *geom.Polygon:
 		return appendPolygon(b, v, c)
 	case *geom.MultiPoint:
@@ -119,17 +119,25 @@ func writeFlatPoint(b *strings.Builder, coords []float64, off, stride int, c *co
 	}
 }
 
-func appendPoint(b *strings.Builder, p *geom.Point, c *config) error {
-	b.WriteString("POINT")
-	b.WriteString(layoutSuffix(p.Layout()))
-	if p.IsEmpty() {
+// writeHeader emits the type keyword plus any layout suffix, and " EMPTY"
+// for empty geometries. It reports whether the geometry was empty (in which
+// case the caller is done).
+func writeHeader(b *strings.Builder, keyword string, g geom.Geometry) bool {
+	b.WriteString(keyword)
+	b.WriteString(layoutSuffix(g.Layout()))
+	if g.IsEmpty() {
 		b.WriteString(" EMPTY")
+		return true
+	}
+	return false
+}
+
+func appendPoint(b *strings.Builder, p *geom.Point, c *config) error {
+	if writeHeader(b, "POINT", p) {
 		return nil
 	}
 	b.WriteString(" (")
-	flat := p.FlatCoords()
-	stride := p.Layout().Stride()
-	writeFlatPoint(b, flat, 0, stride, c)
+	writeFlatPoint(b, p.FlatCoords(), 0, p.Layout().Stride(), c)
 	b.WriteByte(')')
 	return nil
 }
@@ -146,11 +154,10 @@ func appendCoordSequence(b *strings.Builder, flat []float64, stride int, c *conf
 	b.WriteByte(')')
 }
 
-func appendLineString(b *strings.Builder, ls *geom.LineString, c *config) error {
-	b.WriteString("LINESTRING")
-	b.WriteString(layoutSuffix(ls.Layout()))
-	if ls.IsEmpty() {
-		b.WriteString(" EMPTY")
+// appendCurve emits a LineString-backed geometry under the given keyword
+// (LINESTRING or LINEARRING).
+func appendCurve(b *strings.Builder, keyword string, ls *geom.LineString, c *config) error {
+	if writeHeader(b, keyword, ls) {
 		return nil
 	}
 	b.WriteByte(' ')
@@ -158,23 +165,8 @@ func appendLineString(b *strings.Builder, ls *geom.LineString, c *config) error 
 	return nil
 }
 
-func appendLinearRing(b *strings.Builder, lr *geom.LinearRing, c *config) error {
-	b.WriteString("LINEARRING")
-	b.WriteString(layoutSuffix(lr.Layout()))
-	if lr.IsEmpty() {
-		b.WriteString(" EMPTY")
-		return nil
-	}
-	b.WriteByte(' ')
-	appendCoordSequence(b, lr.FlatCoords(), lr.Layout().Stride(), c)
-	return nil
-}
-
 func appendPolygon(b *strings.Builder, p *geom.Polygon, c *config) error {
-	b.WriteString("POLYGON")
-	b.WriteString(layoutSuffix(p.Layout()))
-	if p.IsEmpty() {
-		b.WriteString(" EMPTY")
+	if writeHeader(b, "POLYGON", p) {
 		return nil
 	}
 	b.WriteString(" (")
@@ -199,31 +191,13 @@ func writePolygonRingsFlat(b *strings.Builder, p *geom.Polygon, c *config) {
 			b.WriteString(", ")
 		}
 		n := p.RingLen(r)
-		ringFlat := flat[vertexOff*stride : (vertexOff+n)*stride]
-		writeRingFlatWKT(b, ringFlat, stride, c)
+		appendCoordSequence(b, flat[vertexOff*stride:(vertexOff+n)*stride], stride, c)
 		vertexOff += n
 	}
 }
 
-// writeRingFlatWKT emits a single ring as `(x y z, x y z, ...)` using the
-// supplied stride.
-func writeRingFlatWKT(b *strings.Builder, flat []float64, stride int, c *config) {
-	n := len(flat) / stride
-	b.WriteByte('(')
-	for i := 0; i < n; i++ {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		writeFlatPoint(b, flat, i*stride, stride, c)
-	}
-	b.WriteByte(')')
-}
-
 func appendMultiPoint(b *strings.Builder, mp *geom.MultiPoint, c *config) error {
-	b.WriteString("MULTIPOINT")
-	b.WriteString(layoutSuffix(mp.Layout()))
-	if mp.IsEmpty() {
-		b.WriteString(" EMPTY")
+	if writeHeader(b, "MULTIPOINT", mp) {
 		return nil
 	}
 	stride := mp.Layout().Stride()
@@ -243,10 +217,7 @@ func appendMultiPoint(b *strings.Builder, mp *geom.MultiPoint, c *config) error 
 }
 
 func appendMultiLineString(b *strings.Builder, m *geom.MultiLineString, c *config) error {
-	b.WriteString("MULTILINESTRING")
-	b.WriteString(layoutSuffix(m.Layout()))
-	if m.IsEmpty() {
-		b.WriteString(" EMPTY")
+	if writeHeader(b, "MULTILINESTRING", m) {
 		return nil
 	}
 	b.WriteString(" (")
@@ -262,10 +233,7 @@ func appendMultiLineString(b *strings.Builder, m *geom.MultiLineString, c *confi
 }
 
 func appendMultiPolygon(b *strings.Builder, m *geom.MultiPolygon, c *config) error {
-	b.WriteString("MULTIPOLYGON")
-	b.WriteString(layoutSuffix(m.Layout()))
-	if m.IsEmpty() {
-		b.WriteString(" EMPTY")
+	if writeHeader(b, "MULTIPOLYGON", m) {
 		return nil
 	}
 	b.WriteString(" (")
@@ -283,10 +251,7 @@ func appendMultiPolygon(b *strings.Builder, m *geom.MultiPolygon, c *config) err
 }
 
 func appendGeometryCollection(b *strings.Builder, gc *geom.GeometryCollection, c *config) error {
-	b.WriteString("GEOMETRYCOLLECTION")
-	b.WriteString(layoutSuffix(gc.Layout()))
-	if gc.IsEmpty() {
-		b.WriteString(" EMPTY")
+	if writeHeader(b, "GEOMETRYCOLLECTION", gc) {
 		return nil
 	}
 	b.WriteString(" (")

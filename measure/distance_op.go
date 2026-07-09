@@ -52,10 +52,11 @@ func distanceOpWithLocations(a, b geom.Geometry, terminate float64) (float64, ge
 	}
 	// Containment fast paths: if either side is areal and contains a vertex
 	// of the other, distance is 0 with that vertex as the witness.
-	if pt, ok := containmentPoint(a, b); ok {
+	k := planar.Default()
+	if pt, ok := containmentPoint(a, b, k); ok {
 		return 0, pt, pt
 	}
-	if pt, ok := containmentPoint(b, a); ok {
+	if pt, ok := containmentPoint(b, a, k); ok {
 		return 0, pt, pt
 	}
 
@@ -69,9 +70,9 @@ func distanceOpWithLocations(a, b geom.Geometry, terminate float64) (float64, ge
 	done := func() bool { return !math.IsInf(min, +1) && min <= terminate }
 
 	// Lines × Lines: segment-to-segment.
-	visitSegmentsWithEnv(a, func(a1, a2 geom.XY, envA segmentEnvelope) bool {
-		visitSegmentsWithEnv(b, func(b1, b2 geom.XY, envB segmentEnvelope) bool {
-			if envA.distance(envB) > min {
+	visitSegmentsWithEnv(a, func(a1, a2 geom.XY, envA geom.Envelope) bool {
+		visitSegmentsWithEnv(b, func(b1, b2 geom.XY, envB geom.Envelope) bool {
+			if envelopeMinDist(envA, envB) > min {
 				return false
 			}
 			d, pa, pb := segmentSegmentNearest(a1, a2, b1, b2)
@@ -135,19 +136,19 @@ func distanceOpWithLocations(a, b geom.Geometry, terminate float64) (float64, ge
 
 // containmentPoint reports the first vertex of `inner` that lies inside the
 // areal closure of `outer`, or false if none does.
-func containmentPoint(outer, inner geom.Geometry) (geom.XY, bool) {
+func containmentPoint(outer, inner geom.Geometry, k kernel.Kernel) (geom.XY, bool) {
 	switch v := outer.(type) {
 	case *geom.Polygon:
-		return polygonContains(v, inner)
+		return polygonContains(v, inner, k)
 	case *geom.MultiPolygon:
 		for i := 0; i < v.NumGeometries(); i++ {
-			if pt, ok := polygonContains(v.PolygonAt(i), inner); ok {
+			if pt, ok := polygonContains(v.PolygonAt(i), inner, k); ok {
 				return pt, true
 			}
 		}
 	case *geom.GeometryCollection:
 		for i := 0; i < v.NumGeometries(); i++ {
-			if pt, ok := containmentPoint(v.GeometryAt(i), inner); ok {
+			if pt, ok := containmentPoint(v.GeometryAt(i), inner, k); ok {
 				return pt, true
 			}
 		}
@@ -155,14 +156,13 @@ func containmentPoint(outer, inner geom.Geometry) (geom.XY, bool) {
 	return geom.XY{}, false
 }
 
-func polygonContains(p *geom.Polygon, other geom.Geometry) (geom.XY, bool) {
+func polygonContains(p *geom.Polygon, other geom.Geometry, k kernel.Kernel) (geom.XY, bool) {
 	var found geom.XY
 	hit := false
 	visitVertices(other, func(q geom.XY) {
 		if hit {
 			return
 		}
-		k := planar.Default()
 		if c := k.PointInRing(q, p.Ring(0)); c != kernel.Outside {
 			inHole := false
 			for r := 1; r < p.NumRings(); r++ {
@@ -180,55 +180,16 @@ func polygonContains(p *geom.Polygon, other geom.Geometry) (geom.XY, bool) {
 	return found, hit
 }
 
-// segmentEnvelope is the planar bounding box of a single segment.
-type segmentEnvelope struct {
-	minX, minY, maxX, maxY float64
-}
-
-func newSegEnv(a, b geom.XY) segmentEnvelope {
-	e := segmentEnvelope{minX: a.X, minY: a.Y, maxX: a.X, maxY: a.Y}
-	if b.X < e.minX {
-		e.minX = b.X
-	}
-	if b.X > e.maxX {
-		e.maxX = b.X
-	}
-	if b.Y < e.minY {
-		e.minY = b.Y
-	}
-	if b.Y > e.maxY {
-		e.maxY = b.Y
-	}
-	return e
-}
-
-// distance returns the minimum Euclidean distance between two segment
-// envelopes; 0 if they overlap.
-func (e segmentEnvelope) distance(o segmentEnvelope) float64 {
-	dx := 0.0
-	if e.maxX < o.minX {
-		dx = o.minX - e.maxX
-	} else if o.maxX < e.minX {
-		dx = e.minX - o.maxX
-	}
-	dy := 0.0
-	if e.maxY < o.minY {
-		dy = o.minY - e.maxY
-	} else if o.maxY < e.minY {
-		dy = e.minY - o.maxY
-	}
-	return math.Hypot(dx, dy)
-}
-
-// visitSegmentsWithEnv yields each segment along with its envelope. The
+// visitSegmentsWithEnv yields each segment along with its envelope
+// (compared via envelopeMinDist in indexed_facet_distance.go). The
 // callback can return true to abort the iteration early.
-func visitSegmentsWithEnv(g geom.Geometry, fn func(a, b geom.XY, env segmentEnvelope) bool) {
+func visitSegmentsWithEnv(g geom.Geometry, fn func(a, b geom.XY, env geom.Envelope) bool) {
 	abort := false
 	visitSegments(g, func(a, b geom.XY) {
 		if abort {
 			return
 		}
-		if fn(a, b, newSegEnv(a, b)) {
+		if fn(a, b, geom.SegmentEnvelope(a, b)) {
 			abort = true
 		}
 	})
@@ -305,18 +266,9 @@ func segmentIntersect(a1, a2, b1, b2 geom.XY) (float64, float64, bool) {
 // segment-segment loop, where they appear as zero-length segment endpoints
 // adjacent to at least one real segment.
 func visitPointalVertices(g geom.Geometry, fn func(geom.XY)) {
-	switch v := g.(type) {
-	case *geom.Point:
-		if !v.IsEmpty() {
-			fn(v.XY())
-		}
-	case *geom.MultiPoint:
-		for i := 0; i < v.NumGeometries(); i++ {
-			fn(v.PointAt(i))
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			visitPointalVertices(v.GeometryAt(i), fn)
+	for _, pt := range geom.PointsOf(g) {
+		if !pt.IsEmpty() {
+			fn(pt.XY())
 		}
 	}
 }

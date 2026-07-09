@@ -44,13 +44,8 @@ func HausdorffSimilarity(a, b geom.Geometry) float64 {
 	if a == nil || b == nil {
 		return math.NaN()
 	}
-	aEmpty := a.IsEmpty()
-	bEmpty := b.IsEmpty()
-	if aEmpty && bEmpty {
-		return 1
-	}
-	if aEmpty || bEmpty {
-		return 0
+	if s, done := emptyScore(a, b); done {
+		return s
 	}
 
 	envA := a.Envelope()
@@ -99,13 +94,8 @@ func AreaSimilarity(a, b geom.Geometry) float64 {
 	if a == nil || b == nil {
 		return math.NaN()
 	}
-	aEmpty := a.IsEmpty()
-	bEmpty := b.IsEmpty()
-	if aEmpty && bEmpty {
-		return 1
-	}
-	if aEmpty || bEmpty {
-		return 0
+	if s, done := emptyScore(a, b); done {
+		return s
 	}
 	inter, err := overlay.Intersection(a, b)
 	if err != nil {
@@ -142,13 +132,8 @@ func FrechetSimilarity(a, b *geom.LineString) float64 {
 	if a == nil || b == nil {
 		return math.NaN()
 	}
-	aEmpty := a.IsEmpty()
-	bEmpty := b.IsEmpty()
-	if aEmpty && bEmpty {
-		return 1
-	}
-	if aEmpty || bEmpty {
-		return 0
+	if s, done := emptyScore(a, b); done {
+		return s
 	}
 
 	dist := measure.DiscreteFrechet(a, b)
@@ -169,6 +154,23 @@ func FrechetSimilarity(a, b *geom.LineString) float64 {
 		return 0
 	}
 	return 1 - dist/envSize
+}
+
+// emptyScore resolves the empty-input cases shared by every similarity
+// measure: both inputs empty is vacuously identical (1), exactly one
+// empty is fully dissimilar (0). done=false means neither input is
+// empty and the caller must compute the real score. Inputs must be
+// non-nil.
+func emptyScore(a, b geom.Geometry) (score float64, done bool) {
+	aEmpty := a.IsEmpty()
+	bEmpty := b.IsEmpty()
+	switch {
+	case aEmpty && bEmpty:
+		return 1, true
+	case aEmpty || bEmpty:
+		return 0, true
+	}
+	return 0, false
 }
 
 // envelopeDiagonal returns the length of the envelope's diagonal, or 0

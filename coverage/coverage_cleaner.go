@@ -213,13 +213,9 @@ func isAreaValidPolygon(p *geom.Polygon) bool {
 	if p == nil || p.IsEmpty() || p.NumRings() == 0 {
 		return false
 	}
-	n := p.RingLen(0)
-	if n < 4 {
+	ring := p.Ring(0)
+	if len(ring) < 4 {
 		return false
-	}
-	ring := make([]geom.XY, n)
-	for j := 0; j < n; j++ {
-		ring[j] = p.RingVertex(0, j)
 	}
 	return (planar.Kernel{}).RingArea(ring) != 0
 }

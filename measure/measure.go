@@ -135,48 +135,11 @@ func geometryDistance(a, b geom.Geometry, k kernel.Kernel) float64 {
 }
 
 // areaContainsAnyPoint reports whether g (when areal) contains any
-// vertex of other in its closure (interior or boundary).
+// vertex of other in its closure (interior or boundary). It shares the
+// containment walk with DistanceOp (see distance_op.go).
 func areaContainsAnyPoint(g, other geom.Geometry, k kernel.Kernel) bool {
-	switch v := g.(type) {
-	case *geom.Polygon:
-		return polygonContainsAnyVertex(v, other, k)
-	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries(); i++ {
-			if polygonContainsAnyVertex(v.PolygonAt(i), other, k) {
-				return true
-			}
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			if areaContainsAnyPoint(v.GeometryAt(i), other, k) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func polygonContainsAnyVertex(p *geom.Polygon, other geom.Geometry, k kernel.Kernel) bool {
-	hit := false
-	visitVertices(other, func(q geom.XY) {
-		if hit {
-			return
-		}
-		if c := k.PointInRing(q, p.Ring(0)); c != kernel.Outside {
-			// Interior or on outer boundary — verify not in any hole.
-			inHole := false
-			for r := 1; r < p.NumRings(); r++ {
-				if hc := k.PointInRing(q, p.Ring(r)); hc == kernel.Inside {
-					inHole = true
-					break
-				}
-			}
-			if !inHole {
-				hit = true
-			}
-		}
-	})
-	return hit
+	_, ok := containmentPoint(g, other, k)
+	return ok
 }
 
 // Length returns the total length of all linear components in g.
@@ -567,9 +530,7 @@ func visitVertices(g geom.Geometry, fn func(geom.XY)) {
 			fn(v.PointAt(i))
 		}
 	case *geom.LinearRing:
-		for i := 0; i < v.NumPoints(); i++ {
-			fn(v.PointAt(i))
-		}
+		visitVertices(v.AsLineString(), fn)
 	case *geom.Polygon:
 		for r := 0; r < v.NumRings(); r++ {
 			for _, p := range v.Ring(r) {
@@ -604,9 +565,7 @@ func visitSegments(g geom.Geometry, fn func(a, b geom.XY)) {
 			fn(v.PointAt(i), v.PointAt(i+1))
 		}
 	case *geom.LinearRing:
-		for i := 0; i+1 < v.NumPoints(); i++ {
-			fn(v.PointAt(i), v.PointAt(i+1))
-		}
+		visitSegments(v.AsLineString(), fn)
 	case *geom.Polygon:
 		for r := 0; r < v.NumRings(); r++ {
 			ring := v.Ring(r)

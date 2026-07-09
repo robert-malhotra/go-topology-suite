@@ -1,8 +1,6 @@
 package index
 
 import (
-	"cmp"
-	"slices"
 	"sync"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -151,14 +149,14 @@ func recomputeEnvelopeRecursive[T any](n *node[T]) {
 // path back up to the root.
 func (t *RTree[T]) splitAndPropagate(n *node[T]) {
 	if n == t.root {
-		left, right := splitNode(n, t.minEntries)
+		left, right := rstarSplit(n, t.minEntries)
 		newRoot := &node[T]{leaf: false, children: []*node[T]{left, right}}
 		recomputeEnvelope(newRoot)
 		t.root = newRoot
 		return
 	}
 	parent := findParent(t.root, n)
-	left, right := splitNode(n, t.minEntries)
+	left, right := rstarSplit(n, t.minEntries)
 	for i, c := range parent.children {
 		if c == n {
 			parent.children[i] = left
@@ -187,51 +185,6 @@ func findParent[T any](root, target *node[T]) *node[T] {
 		}
 	}
 	return nil
-}
-
-// splitNode partitions a saturated node using the R*-tree split heuristic
-// (Beckmann et al., 1990): pick the axis whose total perimeter sum is
-// smaller, then on that axis pick the distribution with minimum overlap
-// (ties broken by area). See rstar.go for the implementation.
-//
-// The legacy linear split (sort by MinX, halve at min(minEntries, n/2)) is
-// retained as linearSplit for benchmarks; it is no longer on the hot path.
-func splitNode[T any](n *node[T], min int) (*node[T], *node[T]) {
-	return rstarSplit(n, min)
-}
-
-// linearSplit is the original Guttman-style linear split — kept for
-// regression benchmarks comparing the R*-style heuristic. Not used by the
-// production insert path.
-func linearSplit[T any](n *node[T], min int) (*node[T], *node[T]) {
-	left := &node[T]{leaf: n.leaf}
-	right := &node[T]{leaf: n.leaf}
-	if n.leaf {
-		items := n.items
-		slices.SortFunc(items, func(a, b Item[T]) int {
-			return cmp.Compare(a.Env.MinX, b.Env.MinX)
-		})
-		mid := len(items) / 2
-		if mid < min {
-			mid = min
-		}
-		left.items = append(left.items, items[:mid]...)
-		right.items = append(right.items, items[mid:]...)
-	} else {
-		children := n.children
-		slices.SortFunc(children, func(a, b *node[T]) int {
-			return cmp.Compare(a.env.MinX, b.env.MinX)
-		})
-		mid := len(children) / 2
-		if mid < min {
-			mid = min
-		}
-		left.children = append(left.children, children[:mid]...)
-		right.children = append(right.children, children[mid:]...)
-	}
-	recomputeEnvelope(left)
-	recomputeEnvelope(right)
-	return left, right
 }
 
 // Search invokes fn for every item whose envelope intersects query.

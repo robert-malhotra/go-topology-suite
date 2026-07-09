@@ -127,25 +127,11 @@ func interiorPointPoint(g geom.Geometry) (geom.XY, bool) {
 	best := geom.XY{}
 	bestDist := math.Inf(1)
 	found := false
-	var walk func(geom.Geometry)
-	walk = func(x geom.Geometry) {
-		if x == nil || x.IsEmpty() {
-			return
-		}
-		switch v := x.(type) {
-		case *geom.Point:
-			considerPoint(v.XY(), centroid, &best, &bestDist, &found)
-		case *geom.MultiPoint:
-			for i := 0; i < v.NumGeometries(); i++ {
-				considerPoint(v.PointAt(i), centroid, &best, &bestDist, &found)
-			}
-		case *geom.GeometryCollection:
-			for i := 0; i < v.NumGeometries(); i++ {
-				walk(v.GeometryAt(i))
-			}
+	for _, pt := range geom.PointsOf(g) {
+		if !pt.IsEmpty() {
+			considerPoint(pt.XY(), centroid, &best, &bestDist, &found)
 		}
 	}
-	walk(g)
 	if !found {
 		return geom.XY{}, false
 	}
@@ -181,49 +167,30 @@ func interiorPointLine(g geom.Geometry) (geom.XY, bool) {
 	bestDist := math.Inf(1)
 	found := false
 
+	lines := geom.LineStringsOf(g)
 	// Pass 1: interior vertices.
-	walkLines(g, func(pts []geom.XY) {
+	for _, ls := range lines {
+		pts := ls.XYs()
 		for i := 1; i < len(pts)-1; i++ {
 			considerPoint(pts[i], centroid, &best, &bestDist, &found)
 		}
-	})
+	}
 	if found {
 		return best, true
 	}
 	// Pass 2: endpoints (only used when no interior vertex was seen).
-	walkLines(g, func(pts []geom.XY) {
+	for _, ls := range lines {
+		pts := ls.XYs()
 		if len(pts) == 0 {
-			return
+			continue
 		}
 		considerPoint(pts[0], centroid, &best, &bestDist, &found)
 		considerPoint(pts[len(pts)-1], centroid, &best, &bestDist, &found)
-	})
+	}
 	if !found {
 		return geom.XY{}, false
 	}
 	return best, true
-}
-
-// walkLines invokes fn on the coordinate slice of every LineString
-// component of g (recursing into MultiLineString and GeometryCollection).
-func walkLines(g geom.Geometry, fn func([]geom.XY)) {
-	if g == nil || g.IsEmpty() {
-		return
-	}
-	switch v := g.(type) {
-	case *geom.LineString:
-		fn(v.XYs())
-	case *geom.LinearRing:
-		fn(v.AsLineString().XYs())
-	case *geom.MultiLineString:
-		for i := 0; i < v.NumGeometries(); i++ {
-			fn(v.LineStringAt(i).XYs())
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			walkLines(v.GeometryAt(i), fn)
-		}
-	}
 }
 
 // ----- InteriorPointArea (JTS InteriorPointArea) ------------------------------
@@ -236,39 +203,21 @@ func interiorPointArea(g geom.Geometry) (geom.XY, bool) {
 	best := geom.XY{}
 	bestWidth := -1.0
 	found := false
-	walkPolygons(g, func(p *geom.Polygon) {
+	for _, p := range geom.PolygonsOf(g) {
 		ip, w, ok := polygonInteriorPoint(p)
 		if !ok {
-			return
+			continue
 		}
 		if w > bestWidth {
 			best = ip
 			bestWidth = w
 			found = true
 		}
-	})
+	}
 	if !found {
 		return geom.XY{}, false
 	}
 	return best, true
-}
-
-func walkPolygons(g geom.Geometry, fn func(*geom.Polygon)) {
-	if g == nil || g.IsEmpty() {
-		return
-	}
-	switch v := g.(type) {
-	case *geom.Polygon:
-		fn(v)
-	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries(); i++ {
-			fn(v.PolygonAt(i))
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			walkPolygons(v.GeometryAt(i), fn)
-		}
-	}
 }
 
 // polygonInteriorPoint returns the interior point and section width

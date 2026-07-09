@@ -81,12 +81,7 @@ type Datum struct {
 
 // IsIdentityToWGS84 reports whether the datum's ToWGS84 vector is zero.
 func (d Datum) IsIdentityToWGS84() bool {
-	for _, v := range d.ToWGS84 {
-		if v != 0 {
-			return false
-		}
-	}
-	return true
+	return d.ToWGS84 == [7]float64{}
 }
 
 // Projection is the contract every concrete projection (Mercator,
