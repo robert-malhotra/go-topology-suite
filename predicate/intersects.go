@@ -1,8 +1,6 @@
 package predicate
 
 import (
-	"errors"
-
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -47,7 +45,15 @@ func Intersects(a, b geom.Geometry, opts ...Option) (bool, error) {
 			return pi.Intersects(b), nil
 		}
 	}
-	return intersectsDispatch(a, b, c.kernel)
+	// Point-vs-areal direct path: a raw point-in-polygon test through the
+	// configured kernel, with no topology-graph construction.
+	if hit, handled := pointArealIntersects(b, a, c.kernel); handled {
+		return hit, nil
+	}
+	if hit, handled := pointArealIntersects(a, b, c.kernel); handled {
+		return hit, nil
+	}
+	return relateViaNG(a, b, c.boundaryRule()).IsIntersects(), nil
 }
 
 // Disjoint is the complement of Intersects.
@@ -59,223 +65,26 @@ func Disjoint(a, b geom.Geometry, opts ...Option) (bool, error) {
 	return !x, nil
 }
 
-func intersectsDispatch(a, b geom.Geometry, k kernel.Kernel) (bool, error) {
-	// Order operands so that the type code of a <= b. Symmetric handling
-	// per pair-of-types.
-	if typeRank(a) > typeRank(b) {
-		a, b = b, a
+// pointArealIntersects answers Intersects for the (Point, Polygon) and
+// (Point, MultiPolygon) operand pairs without building a topology graph.
+// handled is false for every other pair.
+func pointArealIntersects(p, g geom.Geometry, k kernel.Kernel) (hit bool, handled bool) {
+	pt, ok := p.(*geom.Point)
+	if !ok {
+		return false, false
 	}
-	switch va := a.(type) {
-	case *geom.Point:
-		return pointIntersectsAny(va, b, k)
-	case *geom.LineString:
-		switch vb := b.(type) {
-		case *geom.LineString:
-			return lineLineIntersects(va, vb, k), nil
-		case *geom.Polygon:
-			return lineRingsIntersect(va, vb, k), nil
-		default:
-			return collectionFanout(a, b, k)
-		}
+	switch v := g.(type) {
 	case *geom.Polygon:
-		switch vb := b.(type) {
-		case *geom.Polygon:
-			return polygonPolygonIntersects(va, vb, k), nil
-		default:
-			return collectionFanout(a, b, k)
-		}
-	default:
-		return collectionFanout(a, b, k)
-	}
-}
-
-// typeRank ranks the seven geometry types so that ordering gives stable
-// dispatch. Lower rank = simpler shape.
-func typeRank(g geom.Geometry) int {
-	switch g.(type) {
-	case *geom.Point:
-		return 0
-	case *geom.LineString:
-		return 1
-	case *geom.Polygon:
-		return 2
-	case *geom.MultiPoint:
-		return 3
-	case *geom.MultiLineString:
-		return 4
-	case *geom.MultiPolygon:
-		return 5
-	case *geom.GeometryCollection:
-		return 6
-	default:
-		return 99
-	}
-}
-
-// pointIntersectsAny checks a point against any other geometry.
-func pointIntersectsAny(p *geom.Point, other geom.Geometry, k kernel.Kernel) (bool, error) {
-	pp := p.XY()
-	switch v := other.(type) {
-	case *geom.Point:
-		return pp == v.XY(), nil
-	case *geom.LineString:
-		return pointOnLine(pp, v, k), nil
-	case *geom.Polygon:
-		return pointInPolygon(pp, v, k) != kernel.Outside, nil
-	case *geom.MultiPoint:
-		for i := 0; i < v.NumGeometries(); i++ {
-			if v.PointAt(i) == pp {
-				return true, nil
-			}
-		}
-		return false, nil
-	case *geom.MultiLineString:
-		for i := 0; i < v.NumGeometries(); i++ {
-			if pointOnLine(pp, v.LineStringAt(i), k) {
-				return true, nil
-			}
-		}
-		return false, nil
+		return pointInPolygon(pt.XY(), v, k) != kernel.Outside, true
 	case *geom.MultiPolygon:
 		for i := 0; i < v.NumGeometries(); i++ {
-			if pointInPolygon(pp, v.PolygonAt(i), k) != kernel.Outside {
-				return true, nil
+			if pointInPolygon(pt.XY(), v.PolygonAt(i), k) != kernel.Outside {
+				return true, true
 			}
 		}
-		return false, nil
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			ok, err := Intersects(p, v.GeometryAt(i))
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				return true, nil
-			}
-		}
-		return false, nil
+		return false, true
 	}
-	return false, errors.New("predicate: unhandled geometry type")
-}
-
-func pointOnLine(p geom.XY, ls *geom.LineString, k kernel.Kernel) bool {
-	n := ls.NumPoints()
-	for i := 0; i+1 < n; i++ {
-		a, b := ls.PointAt(i), ls.PointAt(i+1)
-		if pointOnSegmentRobust(p, a, b, k) {
-			return true
-		}
-	}
-	return false
-}
-
-func pointOnSegmentRobust(p, a, b geom.XY, k kernel.Kernel) bool {
-	if a == b {
-		return p == a
-	}
-	if k.Orient(a, b, p) != kernel.Collinear {
-		return false
-	}
-	const eps = 1e-12
-	minX, maxX := a.X, b.X
-	if minX > maxX {
-		minX, maxX = maxX, minX
-	}
-	minY, maxY := a.Y, b.Y
-	if minY > maxY {
-		minY, maxY = maxY, minY
-	}
-	return p.X >= minX-eps && p.X <= maxX+eps &&
-		p.Y >= minY-eps && p.Y <= maxY+eps
-}
-
-func lineLineIntersects(a, b *geom.LineString, k kernel.Kernel) bool {
-	na, nb := a.NumPoints(), b.NumPoints()
-	for i := 0; i+1 < na; i++ {
-		a1, a2 := a.PointAt(i), a.PointAt(i+1)
-		for j := 0; j+1 < nb; j++ {
-			b1, b2 := b.PointAt(j), b.PointAt(j+1)
-			if _, ok := k.SegmentIntersection(a1, a2, b1, b2); ok {
-				return true
-			}
-			// Handle collinear-touch cases that SegmentIntersection misses.
-			if k.SegmentDistance(b1, a1, a2) == 0 || k.SegmentDistance(b2, a1, a2) == 0 {
-				return true
-			}
-			if k.SegmentDistance(a1, b1, b2) == 0 || k.SegmentDistance(a2, b1, b2) == 0 {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func lineRingsIntersect(ls *geom.LineString, p *geom.Polygon, k kernel.Kernel) bool {
-	// Any vertex inside the polygon, or any edge crossing any ring.
-	n := ls.NumPoints()
-	for i := 0; i < n; i++ {
-		if pointInPolygon(ls.PointAt(i), p, k) != kernel.Outside {
-			return true
-		}
-	}
-	bufp := borrowRingBuf()
-	defer releaseRingBuf(bufp)
-	for r := 0; r < p.NumRings(); r++ {
-		ring := p.RingInto((*bufp)[:0], r)
-		*bufp = ring
-		for i := 0; i+1 < n; i++ {
-			a1, a2 := ls.PointAt(i), ls.PointAt(i+1)
-			for j := 0; j+1 < len(ring); j++ {
-				if _, ok := k.SegmentIntersection(a1, a2, ring[j], ring[j+1]); ok {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-func polygonPolygonIntersects(a, b *geom.Polygon, k kernel.Kernel) bool {
-	// Quick: any vertex of a inside b, or vice versa, or any edge crossing.
-	bufA := borrowRingBuf()
-	defer releaseRingBuf(bufA)
-	bufB := borrowRingBuf()
-	defer releaseRingBuf(bufB)
-
-	for r := 0; r < a.NumRings(); r++ {
-		ring := a.RingInto((*bufA)[:0], r)
-		*bufA = ring
-		for _, v := range ring {
-			if pointInPolygon(v, b, k) != kernel.Outside {
-				return true
-			}
-		}
-	}
-	for r := 0; r < b.NumRings(); r++ {
-		ring := b.RingInto((*bufB)[:0], r)
-		*bufB = ring
-		for _, v := range ring {
-			if pointInPolygon(v, a, k) != kernel.Outside {
-				return true
-			}
-		}
-	}
-	for ra := 0; ra < a.NumRings(); ra++ {
-		ringA := a.RingInto((*bufA)[:0], ra)
-		*bufA = ringA
-		for rb := 0; rb < b.NumRings(); rb++ {
-			ringB := b.RingInto((*bufB)[:0], rb)
-			*bufB = ringB
-			for i := 0; i+1 < len(ringA); i++ {
-				for j := 0; j+1 < len(ringB); j++ {
-					if _, ok := k.SegmentIntersection(ringA[i], ringA[i+1], ringB[j], ringB[j+1]); ok {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
+	return false, false
 }
 
 // pointInPolygon: outer ring contains, then no hole strictly contains.
@@ -305,51 +114,4 @@ func pointInPolygon(p geom.XY, poly *geom.Polygon, k kernel.Kernel) kernel.Conta
 		}
 	}
 	return c
-}
-
-// collectionFanout handles MultiX and GeometryCollection by checking each
-// member of the collection against the other operand.
-func collectionFanout(a, b geom.Geometry, k kernel.Kernel) (bool, error) {
-	for i := 0; i < a.NumGeometries(); i++ {
-		ai := childOf(a, i)
-		if ai == nil {
-			continue
-		}
-		for j := 0; j < b.NumGeometries(); j++ {
-			bj := childOf(b, j)
-			if bj == nil {
-				continue
-			}
-			ok, err := Intersects(ai, bj, WithKernel(k))
-			if err != nil {
-				return false, err
-			}
-			if ok {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
-}
-
-// childOf returns the i-th sub-geometry, treating singleton types as a
-// 1-element collection.
-func childOf(g geom.Geometry, i int) geom.Geometry {
-	switch v := g.(type) {
-	case *geom.MultiPoint:
-		// MultiPoint members aren't separately addressable as *Point here;
-		// produce a fresh Point for the dispatch.
-		return geom.NewPoint(v.CRS(), v.PointAt(i))
-	case *geom.MultiLineString:
-		return v.LineStringAt(i)
-	case *geom.MultiPolygon:
-		return v.PolygonAt(i)
-	case *geom.GeometryCollection:
-		return v.GeometryAt(i)
-	default:
-		if i == 0 {
-			return g
-		}
-		return nil
-	}
 }

@@ -124,6 +124,16 @@ func resolve(g geom.Geometry, opts []Option) Option {
 	return c
 }
 
+// boundaryRule returns the boundary node rule to hand to RelateNG: the
+// explicitly configured rule when WithBoundaryNodeRule was passed, the
+// OGC SFS Mod-2 rule otherwise.
+func (c Option) boundaryRule() BoundaryNodeRule {
+	if c.bnrSet {
+		return c.bnr
+	}
+	return Mod2BoundaryNodeRule
+}
+
 // defaultKernelFor returns spherical for geographic CRSes, planar otherwise.
 // For predicates the cheap spherical model is preferred to the geodesic;
 // the topological answer is the same for non-degenerate inputs.
