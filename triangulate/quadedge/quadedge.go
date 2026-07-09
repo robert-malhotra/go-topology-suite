@@ -1,5 +1,7 @@
 package quadedge
 
+import "math"
+
 // QuadEdge represents one of the four directed edges in a quad-edge
 // quartet, implementing the algebra of Guibas & Stolfi (1985,
 // "Primitives for the manipulation of general subdivisions and the
@@ -145,7 +147,7 @@ func (e *QuadEdge) Length() float64 {
 	d := e.Dest().P
 	dx := o.X - d.X
 	dy := o.Y - d.Y
-	return sqrt(dx*dx + dy*dy)
+	return math.Hypot(dx, dy)
 }
 
 // EqualsOriented reports whether two edges have the same line segment

@@ -108,7 +108,6 @@ func writeNumber(b *strings.Builder, f float64, c *config) {
 // writeVertex writes [x, y] or [x, y, z] depending on layout. M is
 // dropped per RFC 7946 §3.1.1 (M not part of GeoJSON).
 func writeVertex(b *strings.Builder, flat []float64, off int, layout geom.Layout, c *config) {
-	stride := layout.Stride()
 	b.WriteByte('[')
 	writeNumber(b, flat[off], c)
 	b.WriteByte(',')
@@ -119,7 +118,6 @@ func writeVertex(b *strings.Builder, flat []float64, off int, layout geom.Layout
 		b.WriteByte(',')
 		writeNumber(b, flat[off+zIdx], c)
 	}
-	_ = stride
 	b.WriteByte(']')
 }
 

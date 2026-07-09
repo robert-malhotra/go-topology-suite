@@ -1,6 +1,7 @@
 package coverage
 
 import (
+	"encoding/binary"
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -31,26 +32,21 @@ func Simplify(polygons []*geom.Polygon, tolerance float64) []*geom.Polygon {
 	}
 	c := polygons[0].CRS()
 
-	// Step 1: count how many directed half-edges leave each vertex
-	// across the whole coverage. A "node" is any vertex incident to
-	// more than two directed edges (i.e. the meeting point of three
-	// or more rings, or a vertex where shared/unshared edges meet).
-	degree := make(map[geom.XY]int)
-	for _, p := range polygons {
-		if p == nil || p.IsEmpty() {
-			continue
+	// Step 1: build the distinct-neighbor set of every vertex across
+	// the coverage. A vertex interior to a chain (shared or free) has
+	// exactly two distinct neighbors; junctions of three or more edges
+	// and the endpoints where a shared boundary diverges into two free
+	// boundaries have more, so they become chain nodes and are always
+	// preserved.
+	neighbors := make(map[geom.XY]map[geom.XY]struct{})
+	addNeighbor := func(v, w geom.XY) {
+		set, ok := neighbors[v]
+		if !ok {
+			set = make(map[geom.XY]struct{}, 2)
+			neighbors[v] = set
 		}
-		for r := 0; r < p.NumRings(); r++ {
-			n := p.RingLen(r)
-			for j := 0; j < n; j++ {
-				degree[p.RingVertex(r, j)]++
-			}
-		}
+		set[w] = struct{}{}
 	}
-
-	// Step 2: count undirected occurrences of each segment so we
-	// know which edges are shared (count >= 2) vs free (count == 1).
-	segCount := make(map[edgeKey]int)
 	for _, p := range polygons {
 		if p == nil || p.IsEmpty() {
 			continue
@@ -63,40 +59,24 @@ func Simplify(polygons []*geom.Polygon, tolerance float64) []*geom.Polygon {
 				if a == b {
 					continue
 				}
-				segCount[makeEdgeKey(a, b)]++
+				addNeighbor(a, b)
+				addNeighbor(b, a)
 			}
 		}
 	}
 
-	// Step 3: build per-edge simplified vertex sequences. We
-	// canonicalise each edge by its undirected key, simplify it
-	// once, and cache the result. When emitting a polygon we look
-	// up the simplified chain for each (a,b) and replay it in the
-	// correct orientation.
-	//
-	// To find chain endpoints (nodes), a vertex is a node if its
-	// degree > 4 (more than two ring-occurrences) OR if it is the
-	// boundary of a shared-vs-free edge transition. As a robust
-	// approximation we simply preserve every vertex whose total
-	// degree across the coverage is not exactly 4 (4 = exactly two
-	// passes through, the typical case for a vertex that's
-	// internal to a shared chain or a free-chain interior). This
-	// matches the JTS rule for inner-vertex preservation.
-	isNode := func(v geom.XY) bool {
-		// A vertex has degree 4 when it appears once-in once-out
-		// in each of two rings sharing a single edge through it,
-		// or twice-in twice-out in the same ring. Anything else
-		// is a corner / triple junction / free endpoint — preserve.
-		return degree[v] != 4
-	}
+	// Step 2: chains are split at nodes and each chain is simplified
+	// once, cached under a direction-canonical key so the two polygons
+	// sharing a boundary replay the identical simplified vertex
+	// sequence (each in its own walk direction).
+	isNode := func(v geom.XY) bool { return len(neighbors[v]) != 2 }
 
 	// For each polygon, walk each ring and split it into chains at
-	// node vertices, then DP-simplify each chain (preserving its
-	// node endpoints), then reassemble. To keep shared chains
-	// in lockstep across two polygons, we use a chain-cache keyed
-	// by the chain's two endpoints + the sorted set of all interior
-	// vertices.
-	chainCache := make(map[chainKey][]geom.XY)
+	// node vertices, then DP-simplify each chain (preserving its node
+	// endpoints), then reassemble. The cache key is the full canonical
+	// vertex sequence, and cached results are stored in canonical
+	// direction and replayed in each walker's own direction.
+	chainCache := make(map[string][]geom.XY)
 
 	out := make([]*geom.Polygon, len(polygons))
 	for pi, p := range polygons {
@@ -143,18 +123,26 @@ func Simplify(polygons []*geom.Polygon, tolerance float64) []*geom.Polygon {
 					j++
 				}
 				chain := rot[i : j+1]
-				key := makeChainKey(chain)
+				key, rev := canonicalChainKey(chain)
 				simp, ok := chainCache[key]
 				if !ok {
-					simp = dpSimplifyChain(chain, tolerance)
+					canon := chain
+					if rev {
+						canon = reversedXY(chain)
+					}
+					simp = dpSimplifyChain(canon, tolerance)
 					chainCache[key] = simp
 				}
-				// Append simp without the trailing vertex (it'll
-				// be the lead of the next chain).
+				oriented := simp
+				if rev {
+					oriented = reversedXY(simp)
+				}
+				// Append without the trailing vertex (it'll be the
+				// lead of the next chain).
 				if len(newRing) == 0 {
-					newRing = append(newRing, simp...)
+					newRing = append(newRing, oriented...)
 				} else {
-					newRing = append(newRing, simp[1:]...)
+					newRing = append(newRing, oriented[1:]...)
 				}
 				i = j
 			}
@@ -169,46 +157,53 @@ func Simplify(polygons []*geom.Polygon, tolerance float64) []*geom.Polygon {
 	return out
 }
 
-// chainKey canonicalises a chain into a value usable as a map key.
-type chainKey struct {
-	a, b geom.XY
-	hash uint64
-}
-
-// makeChainKey canonicalises a chain so the same shared edge
-// considered from either side hashes to the same key.
-func makeChainKey(chain []geom.XY) chainKey {
-	if len(chain) < 2 {
-		return chainKey{}
+// canonicalChainKey returns a direction-canonical cache key for the
+// chain plus whether the chain's walk direction is reversed relative
+// to canonical. Both walks of a shared chain produce the same key, and
+// the key encodes every vertex exactly, so distinct chains never
+// collide. Closed chains (first == last vertex) orient by their
+// second-from-each-end vertices.
+func canonicalChainKey(chain []geom.XY) (string, bool) {
+	if len(chain) == 0 {
+		return "", false
 	}
 	a, b := chain[0], chain[len(chain)-1]
-	// Order endpoints so (a,b) and (b,a) collide.
-	swap := false
-	if (b.X < a.X) || (b.X == a.X && b.Y < a.Y) {
-		a, b = b, a
-		swap = true
+	rev := false
+	switch {
+	case b.X < a.X || (b.X == a.X && b.Y < a.Y):
+		rev = true
+	case a == b && len(chain) > 2:
+		p, q := chain[1], chain[len(chain)-2]
+		if q.X < p.X || (q.X == p.X && q.Y < p.Y) {
+			rev = true
+		}
 	}
-	// Hash interior vertices in canonical order.
-	var h uint64 = 1469598103934665603 // FNV-1a 64 offset
-	const prime uint64 = 1099511628211
-	mix := func(v geom.XY) {
-		bx := math.Float64bits(v.X)
-		by := math.Float64bits(v.Y)
-		h ^= bx
-		h *= prime
-		h ^= by
-		h *= prime
+	buf := make([]byte, 0, len(chain)*16)
+	put := func(v geom.XY) {
+		var w [16]byte
+		binary.LittleEndian.PutUint64(w[:8], math.Float64bits(v.X))
+		binary.LittleEndian.PutUint64(w[8:], math.Float64bits(v.Y))
+		buf = append(buf, w[:]...)
 	}
-	if swap {
-		for i := len(chain) - 2; i >= 1; i-- {
-			mix(chain[i])
+	if rev {
+		for i := len(chain) - 1; i >= 0; i-- {
+			put(chain[i])
 		}
 	} else {
-		for i := 1; i < len(chain)-1; i++ {
-			mix(chain[i])
+		for _, v := range chain {
+			put(v)
 		}
 	}
-	return chainKey{a: a, b: b, hash: h}
+	return string(buf), rev
+}
+
+// reversedXY returns a reversed copy of pts.
+func reversedXY(pts []geom.XY) []geom.XY {
+	out := make([]geom.XY, len(pts))
+	for i, p := range pts {
+		out[len(pts)-1-i] = p
+	}
+	return out
 }
 
 // dpSimplifyChain runs Douglas-Peucker on an open chain, preserving

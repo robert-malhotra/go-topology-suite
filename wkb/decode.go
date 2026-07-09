@@ -249,7 +249,7 @@ func (d *decoder) readPolygon(layout geom.Layout, cr *crs.CRS, o binary.ByteOrde
 		return nil, err
 	}
 	if numRings == 0 {
-		return geom.NewEmptyPolygon(cr, geom.LayoutXY), nil
+		return geom.NewEmptyPolygon(cr, layout), nil
 	}
 	// Two-pass decode: first pass reads the per-ring vertex counts so we
 	// can allocate the flat coord buffer in one shot, second pass reads
@@ -275,30 +275,21 @@ func (d *decoder) readPolygon(layout geom.Layout, cr *crs.CRS, o binary.ByteOrde
 		d.pos += int(nv) * stride * 8
 	}
 	d.pos = mark
-	flat := make([]float64, 0, 2*totalVerts)
+	flat := make([]float64, 0, stride*totalVerts)
 	for r := uint32(0); r < numRings; r++ {
 		nv, err := d.readUint32(o)
 		if err != nil {
 			return nil, err
 		}
-		for i := uint32(0); i < nv; i++ {
-			x, err := d.readFloat64(o)
+		for i := 0; i < int(nv)*stride; i++ {
+			v, err := d.readFloat64(o)
 			if err != nil {
 				return nil, err
 			}
-			y, err := d.readFloat64(o)
-			if err != nil {
-				return nil, err
-			}
-			for j := 2; j < stride; j++ {
-				if _, err := d.readFloat64(o); err != nil {
-					return nil, err
-				}
-			}
-			flat = append(flat, x, y)
+			flat = append(flat, v)
 		}
 	}
-	return geom.NewPolygonOwned(geom.LayoutXY, cr, flat, starts), nil
+	return geom.NewPolygonOwned(layout, cr, flat, starts), nil
 }
 
 func (d *decoder) readMultiPoint(layout geom.Layout, cr *crs.CRS, o binary.ByteOrder) (geom.Geometry, error) {

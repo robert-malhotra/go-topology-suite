@@ -199,19 +199,19 @@ func appendLineStringBody(dst []byte, ls *geom.LineString, c *config) ([]byte, e
 	return dst, nil
 }
 
-func appendRingFlat(dst []byte, ring []geom.XY, c *config) []byte {
-	dst = appendUint32(dst, c.order, uint32(len(ring)))
-	for _, p := range ring {
-		dst = appendFloat64(dst, c.order, p.X)
-		dst = appendFloat64(dst, c.order, p.Y)
-	}
-	return dst
-}
-
+// appendPolygonBody emits rings from the polygon's flat coordinate
+// buffer at full stride, so the vertex payload matches the Z/M flags
+// the type code advertises.
 func appendPolygonBody(dst []byte, p *geom.Polygon, c *config) ([]byte, error) {
 	dst = appendUint32(dst, c.order, uint32(p.NumRings()))
+	stride := p.Layout().Stride()
+	flat := p.FlatCoords()
+	vertexOff := 0
 	for i := 0; i < p.NumRings(); i++ {
-		dst = appendRingFlat(dst, p.Ring(i), c)
+		n := p.RingLen(i)
+		dst = appendUint32(dst, c.order, uint32(n))
+		dst = appendCoordRun(dst, flat[vertexOff*stride:(vertexOff+n)*stride], c)
+		vertexOff += n
 	}
 	return dst, nil
 }

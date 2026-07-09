@@ -18,7 +18,6 @@ package densify
 import (
 	"math"
 
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
@@ -46,7 +45,7 @@ func densify(g geom.Geometry, tol float64) geom.Geometry {
 	case *geom.LineString:
 		return densifyLineString(v, tol)
 	case *geom.LinearRing:
-		ring := densifyRing(ringPoints(v.AsLineString()), tol)
+		ring := densifyRing(v.AsLineString().XYs(), tol)
 		return geom.NewLinearRing(v.CRS(), ring)
 	case *geom.MultiLineString:
 		parts := make([]*geom.LineString, 0, v.NumGeometries())
@@ -96,19 +95,7 @@ func densifyPolygon(p *geom.Polygon, tol float64) *geom.Polygon {
 	for i := 0; i < p.NumRings(); i++ {
 		rings[i] = densifyRing(p.Ring(i), tol)
 	}
-	return polygonFromRings(p.CRS(), rings)
-}
-
-func polygonFromRings(c *crs.CRS, rings [][]geom.XY) *geom.Polygon {
-	return geom.NewPolygon(c, rings...)
-}
-
-func ringPoints(ls *geom.LineString) []geom.XY {
-	pts := make([]geom.XY, ls.NumPoints())
-	for i := 0; i < ls.NumPoints(); i++ {
-		pts[i] = ls.PointAt(i)
-	}
-	return pts
+	return geom.NewPolygon(p.CRS(), rings...)
 }
 
 func densifyRing(pts []geom.XY, tol float64) []geom.XY {
