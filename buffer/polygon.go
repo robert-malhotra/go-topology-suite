@@ -165,8 +165,8 @@ func bufferPolygon(p *geom.Polygon, distance float64, cfg config) (geom.Geometry
 		// the distance check is the load-bearing rejection criterion.
 		// The winding-number conjunction is the strictly safer
 		// composite (rejects everything either check rejects, allows
-		// nothing more) and supersedes the legacy
-		// faceValidatorFor(p, d, 1.0).
+		// nothing more) and supersedes the legacy point-in-polygon +
+		// boundary-distance validator.
 		validate := negativeBufferHybridValidator(p, d)
 		// No min-area filter: legitimate inset slivers can be much
 		// smaller than d^2 (an inset of a thin parcel may produce a
@@ -269,38 +269,14 @@ func insetOvershoot(inset, orig []geom.XY, d float64) bool {
 		return false
 	}
 	threshold := d * 0.5
+	origRings := [][]geom.XY{orig}
 	for _, p := range inset {
 		// Distance from p to the original ring's nearest segment.
-		minD := math.Inf(1)
-		for i := 0; i+1 < len(orig); i++ {
-			seg := pointSegmentPerpDist(p, orig[i], orig[i+1])
-			if seg < minD {
-				minD = seg
-			}
-		}
-		if minD < threshold {
+		if minDistToBoundary(p, origRings) < threshold {
 			return true
 		}
 	}
 	return false
-}
-
-// pointSegmentPerpDist returns the perpendicular distance from p to
-// the line segment a→b (clamped to the segment endpoints).
-func pointSegmentPerpDist(p, a, b geom.XY) float64 {
-	dx, dy := b.X-a.X, b.Y-a.Y
-	L2 := dx*dx + dy*dy
-	if L2 == 0 {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	t := ((p.X-a.X)*dx + (p.Y-a.Y)*dy) / L2
-	if t < 0 {
-		t = 0
-	} else if t > 1 {
-		t = 1
-	}
-	cx, cy := a.X+t*dx, a.Y+t*dy
-	return math.Hypot(p.X-cx, p.Y-cy)
 }
 
 // unionMultiBufferParts unions a slice of buffer polygons, falling
@@ -647,10 +623,12 @@ func ringCentroid(ring []geom.XY) (float64, float64, bool) {
 	return sumX / (3 * sumA), sumY / (3 * sumA), true
 }
 
-// bboxTooThinForInset reports whether the polygon's outer-ring bounding
-// box has a side smaller than 2d, in which case no point inside can be
-// at distance ≥ d from every boundary segment, so a negative buffer of
-// magnitude d collapses to empty.
+// bboxTooThinForInset reports whether the ring's bounding box has a
+// side smaller than 2d, in which case no point inside can be at
+// distance ≥ d from every boundary segment. For an outer ring this
+// means a negative buffer of magnitude d collapses to empty; for a
+// hole ring it means a positive buffer of magnitude d fully consumes
+// the hole (see emitPolygonOffsetSegments).
 func bboxTooThinForInset(ring []geom.XY, d float64) bool {
 	if len(ring) == 0 {
 		return true

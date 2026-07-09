@@ -467,20 +467,6 @@ func TestWindingDepth_PolygonWithHole(t *testing.T) {
 	}
 }
 
-// TestNegativeBufferWindingValidator_AcceptsInteriorRejectsOutside checks
-// the negative-buffer winding-validator: only points strictly inside
-// the original polygon are kept.
-func TestNegativeBufferWindingValidator_AcceptsInteriorRejectsOutside(t *testing.T) {
-	square := geom.NewPolygon(nil, []geom.XY{
-		{X: 0, Y: 0}, {X: 10, Y: 0}, {X: 10, Y: 10}, {X: 0, Y: 10}, {X: 0, Y: 0},
-	})
-	v := negativeBufferWindingValidator(square)
-	assert.True(t, v(geom.XY{X: 5, Y: 5}), "centre kept")
-	assert.True(t, v(geom.XY{X: 0.5, Y: 5}), "just inside kept")
-	assert.False(t, v(geom.XY{X: -5, Y: 5}), "outside rejected")
-	assert.False(t, v(geom.XY{X: 15, Y: 5}), "outside right rejected")
-}
-
 // TestPositiveBufferWindingValidator_KeepsValidWindings verifies the
 // positive-buffer winding-validator keeps points inside the polygon
 // (winding == +sign) and points outside the polygon (winding == 0).
@@ -499,22 +485,4 @@ func TestPositiveBufferWindingValidator_KeepsValidWindings(t *testing.T) {
 	assert.True(t, v(geom.XY{X: 2, Y: 2}), "polygon body kept (winding +1)")
 	assert.True(t, v(geom.XY{X: 25, Y: 10}), "outside polygon kept (winding 0)")
 	assert.True(t, v(geom.XY{X: 10, Y: 10}), "hole interior accepted (winding 0)")
-}
-
-// TestFaceValidator_PointInPolygonAndDistance: faceValidatorFor's
-// composite predicate (point-in-poly AND ≥ d*frac from boundary).
-func TestFaceValidator_PointInPolygonAndDistance(t *testing.T) {
-	// 10×10 square, frac=0.5, d=2, so threshold = 1.0 from boundary.
-	square := geom.NewPolygon(nil, []geom.XY{
-		{X: 0, Y: 0}, {X: 10, Y: 0}, {X: 10, Y: 10}, {X: 0, Y: 10}, {X: 0, Y: 0},
-	})
-	v := faceValidatorFor(square, 2.0, 0.5)
-	// Centre is inside, 5 units from any boundary > 1.0 → keep.
-	assert.True(t, v(geom.XY{X: 5, Y: 5}), "centre kept")
-	// Near edge (0.5 from left boundary), threshold 1.0 → reject.
-	assert.False(t, v(geom.XY{X: 0.5, Y: 5}), "too close to boundary")
-	// Outside polygon → reject regardless of distance.
-	assert.False(t, v(geom.XY{X: -5, Y: 5}), "outside")
-	// Just inside boundary, > threshold → keep.
-	assert.True(t, v(geom.XY{X: 1.5, Y: 5}), "just inside, above threshold")
 }

@@ -6,11 +6,14 @@ import (
 	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
-// ringRepresentativePoint returns a point strictly inside ring's
+// RingRepresentativePoint returns a point strictly inside ring's
 // interior. Picks the midpoint of the longest segment and nudges
 // perpendicular toward the ring's interior (left of edge direction
 // for CCW rings, right for CW).
-func ringRepresentativePoint(ring []geom.XY) geom.XY {
+//
+// Exported within this internal package so the buffer polygonizer can
+// share it for ring-containment nesting.
+func RingRepresentativePoint(ring []geom.XY) geom.XY {
 	if len(ring) < 4 {
 		if len(ring) > 0 {
 			return ring[0]
@@ -45,11 +48,14 @@ func ringRepresentativePoint(ring []geom.XY) geom.XY {
 	return geom.XY{X: mx + nx*eps, Y: my + ny*eps}
 }
 
-// assembleOutputPolygons takes the boundary rings produced by
+// AssembleOutputPolygons takes the boundary rings produced by
 // extractResultRings and groups them into Polygons by detecting
 // containment: a ring contained in exactly one other ring becomes a
 // hole of that ring; doubly-contained rings (a ring inside a ring
 // inside a ring) become separate outer polygons; etc.
+//
+// Exported within this internal package so the buffer polygonizer can
+// share the same ring-assembly step.
 //
 // Algorithm:
 //  1. For each ring, count how many OTHER rings contain its first
@@ -63,7 +69,7 @@ func ringRepresentativePoint(ring []geom.XY) geom.XY {
 //
 // Edge case: if no rings have even depth (all-odd), treat shallowest as
 // outer — defensive fallback for inputs the algorithm might mis-orient.
-func assembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*geom.Polygon, error) {
+func AssembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*geom.Polygon, error) {
 	if len(rings) == 0 {
 		return geom.NewEmptyPolygon(c, geom.LayoutXY), nil, nil
 	}
@@ -80,7 +86,7 @@ func assembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*ge
 	// that should be a hole as a separate outer.
 	reps := make([]geom.XY, len(rings))
 	for i, ring := range rings {
-		reps[i] = ringRepresentativePoint(ring)
+		reps[i] = RingRepresentativePoint(ring)
 	}
 	depths := make([]int, len(rings))
 	for i := range rings {

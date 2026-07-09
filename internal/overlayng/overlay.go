@@ -245,13 +245,13 @@ func overlayCorePolygonalMixed(
 		if err != nil {
 			return nil, err
 		}
-		return wrapPolygonResult(c, first, rest), nil
+		return WrapPolygonResult(c, first, rest), nil
 	}
 
 	classifyFacesByPolygons(d, subjRings, subjPerPoly, clipRings, clipPerPoly)
 	applyOp(d, op)
 	rings := extractResultRings(d)
-	first, rest, polyErr := assembleOutputPolygons(c, rings)
+	first, rest, polyErr := AssembleOutputPolygons(c, rings)
 	if polyErr != nil {
 		return nil, polyErr
 	}
@@ -267,9 +267,11 @@ func overlayCorePolygonalMixed(
 	return assembleMixedDim(c, first, rest, lines, points), nil
 }
 
-// wrapPolygonResult turns the legacy (first, rest) polygon return
-// into a single geometry.
-func wrapPolygonResult(c *crs.CRS, first *geom.Polygon, rest []*geom.Polygon) geom.Geometry {
+// WrapPolygonResult turns the legacy (first, rest) polygon return
+// into a single geometry: empty polygon / single polygon /
+// MultiPolygon. Exported within this internal package as the single
+// 0/1/N result boxer shared with the overlay and buffer packages.
+func WrapPolygonResult(c *crs.CRS, first *geom.Polygon, rest []*geom.Polygon) geom.Geometry {
 	if first == nil || first.IsEmpty() {
 		if len(rest) == 0 {
 			return geom.NewEmptyPolygon(c, geom.LayoutXY)
@@ -313,7 +315,7 @@ func assembleMixedDim(c *crs.CRS, first *geom.Polygon, rest []*geom.Polygon, lin
 	}
 	if classes == 1 {
 		if hasPoly || hasMulti {
-			return wrapPolygonResult(c, first, rest)
+			return WrapPolygonResult(c, first, rest)
 		}
 		if hasLines {
 			return wrapLinesResult(c, lines)
@@ -322,7 +324,7 @@ func assembleMixedDim(c *crs.CRS, first *geom.Polygon, rest []*geom.Polygon, lin
 	}
 	// Mixed: build a GeometryCollection.
 	var members []geom.Geometry
-	if poly := wrapPolygonResult(c, first, rest); !poly.IsEmpty() {
+	if poly := WrapPolygonResult(c, first, rest); !poly.IsEmpty() {
 		members = append(members, poly)
 	}
 	if hasLines {
@@ -406,7 +408,7 @@ func overlayCorePolygonal(
 	if len(rings) == 0 {
 		return geom.NewEmptyPolygon(c, geom.LayoutXY), nil, nil
 	}
-	return assembleOutputPolygons(c, rings)
+	return AssembleOutputPolygons(c, rings)
 }
 
 // mayHandleMultiComponent returns true when the multi-component DCEL

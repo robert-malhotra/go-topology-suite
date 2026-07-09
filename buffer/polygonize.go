@@ -9,6 +9,7 @@ import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/noding"
+	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 	"github.com/exergy-dev/go-topology-suite/internal/snaprounding"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
@@ -172,8 +173,11 @@ func emitPolygonOffsetSegments(p *geom.Polygon, distance float64, cfg config) []
 		// spurious depth-deficit region inside what should be filled
 		// buffer. Skip these — the polygonizer naturally fills the
 		// hole because the outer offset's depth dominates with no
-		// hole-offset contribution.
-		if r > 0 && distance > 0 && holeIsConsumed(ring, d) {
+		// hole-offset contribution. The "hole is consumed" bound is
+		// the same bbox test as the inset-collapse bound: if the
+		// smaller bbox side is less than 2d, no point inside the hole
+		// is at distance > d from the hole boundary.
+		if r > 0 && distance > 0 && bboxTooThinForInset(ring, d) {
 			continue
 		}
 		offset, ok := offsetClosedRing(ring, d, outward, cfg)
@@ -308,34 +312,6 @@ func removeSpikes(ring []geom.XY, tol float64) []geom.XY {
 	return out
 }
 
-// holeIsConsumed reports whether a hole ring is too small to survive
-// a positive buffer of magnitude d. The simple bounding-box bound:
-// if the smaller side of the hole's bbox is less than 2d, no point
-// inside the hole is at distance > d from the hole boundary, so the
-// hole is fully consumed by the dilation.
-func holeIsConsumed(ring []geom.XY, d float64) bool {
-	if len(ring) == 0 {
-		return true
-	}
-	minX, maxX := ring[0].X, ring[0].X
-	minY, maxY := ring[0].Y, ring[0].Y
-	for _, p := range ring[1:] {
-		if p.X < minX {
-			minX = p.X
-		}
-		if p.X > maxX {
-			maxX = p.X
-		}
-		if p.Y < minY {
-			minY = p.Y
-		}
-		if p.Y > maxY {
-			maxY = p.Y
-		}
-	}
-	return (maxX-minX) < 2*d || (maxY-minY) < 2*d
-}
-
 // polygonizeBuffer is the JTS-style buffer pipeline:
 //  1. Snap-round the input offset segments so every intersection is a
 //     shared vertex.
@@ -442,38 +418,6 @@ func polygonizeBufferWithFilter(
 		return geom.NewEmptyPolygon(c, geom.LayoutXY), nil
 	}
 	return assemblePolygonizeRings(c, rings), nil
-}
-
-// faceValidatorFor builds a "is this representative point a valid
-// inset-interior point" predicate against the original polygon. A point
-// is valid iff it lies inside the original polygon AND its perpendicular
-// distance to the nearest original boundary segment is at least d * frac.
-//
-// d is the inset magnitude (positive). frac controls how strict the
-// boundary-clearance check is; the JTS-style threshold is d/2 (frac=0.5),
-// which is conservative enough to drop mitre-overshoot lobes whose
-// representative points sit very close to the original boundary, while
-// keeping legitimate inset faces whose nearest-boundary distance is at
-// least d (every interior inset face has clearance ≥ d by construction,
-// modulo floating-point noise).
-func faceValidatorFor(orig *geom.Polygon, d, frac float64) func(geom.XY) bool {
-	if orig == nil || orig.IsEmpty() || orig.NumRings() == 0 {
-		return func(geom.XY) bool { return false }
-	}
-	rings := make([][]geom.XY, orig.NumRings())
-	for i := 0; i < orig.NumRings(); i++ {
-		rings[i] = orig.Ring(i)
-	}
-	threshold := d * frac
-	return func(p geom.XY) bool {
-		if !geomath.PointInPolygonRings(p, rings) {
-			return false
-		}
-		if minDistToBoundary(p, rings) < threshold {
-			return false
-		}
-		return true
-	}
 }
 
 // windingDepth returns the integer winding number of the original
@@ -620,36 +564,6 @@ func outerOrientationSign(orig *geom.Polygon) int {
 		return -1
 	}
 	return 0
-}
-
-// negativeBufferWindingValidator returns a face-validity predicate for
-// the negative-buffer (inset) polygonizer. A face's representative
-// interior point is kept iff its winding number against the original
-// polygon's rings has the same sign as the outer ring's natural
-// orientation — i.e. rep lies STRICTLY inside the original polygon
-// body. This is the principled JTS-style classifier that supersedes
-// the brittle distance-from-boundary test used by V3.1: it is robust
-// to ULP-scale rep-point noise because winding-number flips are global
-// topology changes (rep moves across an entire boundary), not local
-// boundary-skin proximity events.
-//
-// Phantom mitre-overshoot subgraphs whose rep lands outside the
-// original polygon have winding == 0 and are rejected. Subgraphs whose
-// rep lands inside a hole (winding == 0 in JTS's CCW-outer/CW-hole
-// layout) are also rejected — the inset buffer must not extend into
-// hole interior.
-//
-// orig is the original input polygon. The returned predicate captures a
-// snapshot of orig's rings at construction time.
-func negativeBufferWindingValidator(orig *geom.Polygon) func(geom.XY) bool {
-	rings := originalRingsOf(orig)
-	sign := outerOrientationSign(orig)
-	if len(rings) == 0 || sign == 0 {
-		return func(geom.XY) bool { return false }
-	}
-	return func(p geom.XY) bool {
-		return windingDepth(p, rings) == sign
-	}
 }
 
 // positiveBufferWindingValidator returns a face-validity predicate for
@@ -1430,130 +1344,23 @@ func nextBoundaryAtPGVertex(e *pgHalfEdge, isBoundary func(*pgHalfEdge) bool) *p
 // assemblePolygonizeRings nests extracted rings into Polygons /
 // MultiPolygon by containment. Outer rings (depth-from-other-rings is
 // even) get any inner rings (odd depth) directly contained as holes.
+// Delegates to the shared overlayng ring-assembly (the same
+// containment-depth algorithm previously duplicated here) and boxes
+// the (first, rest) result into a single geometry.
+//
+// Ring nesting uses overlayng.RingRepresentativePoint: a point on the
+// "skin" of the ring (just inside its own boundary), unlikely to fall
+// inside a contained child ring — which keeps the containment-depth
+// logic correct. The post-extraction face-validity filter (V3.1) uses
+// a different rep-point algorithm: see ringInscribedRep below.
 func assemblePolygonizeRings(c *crs.CRS, rings [][]geom.XY) geom.Geometry {
-	if len(rings) == 0 {
+	first, rest, err := overlayng.AssembleOutputPolygons(c, rings)
+	if err != nil {
+		// AssembleOutputPolygons never returns a non-nil error today;
+		// defensive empty result preserves this helper's signature.
 		return geom.NewEmptyPolygon(c, geom.LayoutXY)
 	}
-	if len(rings) == 1 {
-		return geom.NewPolygon(c, rings[0])
-	}
-	reps := make([]geom.XY, len(rings))
-	for i, ring := range rings {
-		reps[i] = ringRepPoint(ring)
-	}
-	depths := make([]int, len(rings))
-	for i := range rings {
-		for j := range rings {
-			if i == j {
-				continue
-			}
-			if geomath.PointInRing(reps[i], rings[j]) {
-				depths[i]++
-			}
-		}
-	}
-	type group struct {
-		outer int
-		holes []int
-	}
-	var groups []group
-	for i := range rings {
-		if depths[i]%2 != 0 {
-			continue
-		}
-		gr := group{outer: i}
-		for j := range rings {
-			if i == j || depths[j] != depths[i]+1 {
-				continue
-			}
-			if !geomath.PointInRing(reps[j], rings[i]) {
-				continue
-			}
-			deeper := false
-			for k := range rings {
-				if k == i || depths[k] >= depths[i]+1 {
-					continue
-				}
-				if !geomath.PointInRing(reps[j], rings[k]) {
-					continue
-				}
-				if depths[k] > depths[i] {
-					deeper = true
-					break
-				}
-			}
-			if !deeper {
-				gr.holes = append(gr.holes, j)
-			}
-		}
-		groups = append(groups, gr)
-	}
-	if len(groups) == 0 {
-		// Defensive: emit each ring as its own polygon.
-		polys := make([]*geom.Polygon, 0, len(rings))
-		for _, r := range rings {
-			polys = append(polys, geom.NewPolygon(c, r))
-		}
-		if len(polys) == 1 {
-			return polys[0]
-		}
-		return geom.NewMultiPolygon(c, polys...)
-	}
-	polys := make([]*geom.Polygon, 0, len(groups))
-	for _, gr := range groups {
-		all := make([][]geom.XY, 0, 1+len(gr.holes))
-		all = append(all, rings[gr.outer])
-		for _, h := range gr.holes {
-			all = append(all, rings[h])
-		}
-		polys = append(polys, geom.NewPolygon(c, all...))
-	}
-	if len(polys) == 1 {
-		return polys[0]
-	}
-	return geom.NewMultiPolygon(c, polys...)
-}
-
-// ringRepPoint returns a strictly-interior representative point of a
-// ring (midpoint of longest segment, nudged into the interior). Used by
-// the assembly step to nest rings: this point lies on the "skin" of the
-// ring (just inside its own boundary), making it unlikely to fall inside
-// a contained child ring (a hole) — which keeps the containment-depth
-// nesting logic correct.
-//
-// The post-extraction face-validity filter (V3.1) uses a different rep-
-// point algorithm: see ringInscribedRep below.
-func ringRepPoint(ring []geom.XY) geom.XY {
-	if len(ring) < 4 {
-		if len(ring) > 0 {
-			return ring[0]
-		}
-		return geom.XY{}
-	}
-	bestIdx := 0
-	var bestLen2 float64
-	for i := 0; i+1 < len(ring); i++ {
-		dx := ring[i+1].X - ring[i].X
-		dy := ring[i+1].Y - ring[i].Y
-		l2 := dx*dx + dy*dy
-		if l2 > bestLen2 {
-			bestLen2 = l2
-			bestIdx = i
-		}
-	}
-	a, b := ring[bestIdx], ring[bestIdx+1]
-	mx, my := (a.X+b.X)/2, (a.Y+b.Y)/2
-	dx, dy := b.X-a.X, b.Y-a.Y
-	signedArea2 := 0.0
-	for i := 0; i+1 < len(ring); i++ {
-		signedArea2 += ring[i].X*ring[i+1].Y - ring[i+1].X*ring[i].Y
-	}
-	const eps = 1e-9
-	nx, ny := -dy, dx
-	if signedArea2 < 0 {
-		nx, ny = dy, -dx
-	}
-	return geom.XY{X: mx + nx*eps, Y: my + ny*eps}
+	return overlayng.WrapPolygonResult(c, first, rest)
 }
 
 // ringInscribedRep returns a representative interior point of ring whose

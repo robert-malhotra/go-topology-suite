@@ -813,15 +813,13 @@ func polygonsOf(g geom.Geometry) ([]*geom.Polygon, error) {
 // polygonsToGeometry returns a single polygon, multipolygon, or empty
 // based on the slice contents. Used to box results from the overlay
 // fallbacks where the operation effectively returns "the input
-// unchanged" or "a subset of the input".
+// unchanged" or "a subset of the input". Thin slice-shaped adapter
+// over the shared overlayng 0/1/N result boxer.
 func polygonsToGeometry(c *crs.CRS, polys []*geom.Polygon) geom.Geometry {
-	switch len(polys) {
-	case 0:
-		return geom.NewEmptyPolygon(c, geom.LayoutXY)
-	case 1:
-		return polys[0]
+	if len(polys) == 0 {
+		return overlayng.WrapPolygonResult(c, nil, nil)
 	}
-	return geom.NewMultiPolygon(c, polys...)
+	return overlayng.WrapPolygonResult(c, polys[0], polys[1:])
 }
 
 // nonEmptyOf returns whichever of subj/oth is non-nil, packed as a
