@@ -4,12 +4,10 @@ package jtstest
 
 import (
 	"math"
-	"sort"
 
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/measure"
-	"github.com/exergy-dev/go-topology-suite/overlay"
 	"github.com/exergy-dev/go-topology-suite/predicate"
 )
 
@@ -61,13 +59,7 @@ func equalsTopologicalApprox(a, b geom.Geometry) bool {
 	dy := env.MaxY - env.MinY
 	diag := math.Hypot(dx, dy)
 	hTol := math.Max(1e-3, diag*1e-6)
-	if discreteHausdorff(a, b) > hTol {
-		return false
-	}
-	if discreteHausdorff(b, a) > hTol {
-		return false
-	}
-	return true
+	return measure.DiscreteHausdorff(a, b) <= hTol
 }
 
 func envelopeMatchesApprox(a, b geom.Geometry, tol float64) bool {
@@ -136,110 +128,7 @@ func bufferResultMatchesApprox(got, expected geom.Geometry) bool {
 		diag = 1.0
 	}
 	hTol := 0.01*diag + 1e-6
-	if discreteHausdorff(got, expected) > hTol {
-		return false
-	}
-	if discreteHausdorff(expected, got) > hTol {
-		return false
-	}
-	return true
-}
-
-// discreteHausdorff returns the maximum over the vertices of A of
-// the minimum distance from each vertex to B. This is a discrete
-// approximation of the directed Hausdorff distance, sufficient for
-// buffer-shape comparison where both inputs sample dense polygon
-// rings.
-func discreteHausdorff(a, b geom.Geometry) float64 {
-	max := 0.0
-	visitGeomVertices(a, func(p geom.XY) {
-		d := pointToGeometryDistance(p, b)
-		if d > max {
-			max = d
-		}
-	})
-	return max
-}
-
-// pointToGeometryDistance returns the minimum distance from p to any
-// vertex or segment of g. Polygons are treated as their boundary —
-// the function reports distance to the boundary, not signed distance
-// to the interior.
-func pointToGeometryDistance(p geom.XY, g geom.Geometry) float64 {
-	min := math.Inf(1)
-	consider := func(a, b geom.XY) {
-		d := pointSegmentDistance(p, a, b)
-		if d < min {
-			min = d
-		}
-	}
-	visitGeometrySegments(g, consider)
-	if math.IsInf(min, 1) {
-		// No segments — fall back to vertex distance.
-		visitGeomVertices(g, func(q geom.XY) {
-			d := math.Hypot(p.X-q.X, p.Y-q.Y)
-			if d < min {
-				min = d
-			}
-		})
-		if math.IsInf(min, 1) {
-			return 0
-		}
-	}
-	return min
-}
-
-// pointSegmentDistance returns the perpendicular distance from p to
-// segment [a, b], clamped to the segment endpoints when the foot of
-// the perpendicular lies outside [a, b].
-func pointSegmentDistance(p, a, b geom.XY) float64 {
-	dx, dy := b.X-a.X, b.Y-a.Y
-	if dx == 0 && dy == 0 {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	t := ((p.X-a.X)*dx + (p.Y-a.Y)*dy) / (dx*dx + dy*dy)
-	if t < 0 {
-		t = 0
-	} else if t > 1 {
-		t = 1
-	}
-	fx := a.X + t*dx
-	fy := a.Y + t*dy
-	return math.Hypot(p.X-fx, p.Y-fy)
-}
-
-// visitGeometrySegments calls fn for each oriented segment of g's
-// boundary. Polygons emit each ring; multi-types recurse.
-func visitGeometrySegments(g geom.Geometry, fn func(a, b geom.XY)) {
-	switch v := g.(type) {
-	case *geom.LineString:
-		for i := 0; i+1 < v.NumPoints(); i++ {
-			fn(v.PointAt(i), v.PointAt(i+1))
-		}
-	case *geom.LinearRing:
-		for i := 0; i+1 < v.NumPoints(); i++ {
-			fn(v.PointAt(i), v.PointAt(i+1))
-		}
-	case *geom.Polygon:
-		for r := 0; r < v.NumRings(); r++ {
-			ring := v.Ring(r)
-			for i := 0; i+1 < len(ring); i++ {
-				fn(ring[i], ring[i+1])
-			}
-		}
-	case *geom.MultiLineString:
-		for i := 0; i < v.NumGeometries(); i++ {
-			visitGeometrySegments(v.LineStringAt(i), fn)
-		}
-	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries(); i++ {
-			visitGeometrySegments(v.PolygonAt(i), fn)
-		}
-	case *geom.GeometryCollection:
-		for i := 0; i < v.NumGeometries(); i++ {
-			visitGeometrySegments(v.GeometryAt(i), fn)
-		}
-	}
+	return measure.DiscreteHausdorff(got, expected) <= hTol
 }
 
 func sameVertexSet(a, b geom.Geometry, scale float64) bool {
@@ -407,162 +296,6 @@ func lineXY(ls *geom.LineString) []geom.XY {
 		out[i] = ls.PointAt(i)
 	}
 	return out
-}
-
-// densifyGeometry returns a copy of g where every linear segment is
-// subdivided so no edge exceeds tol in length. Points pass through
-// unchanged.
-func densifyGeometry(g geom.Geometry, tol float64) geom.Geometry {
-	if tol <= 0 || g == nil || g.IsEmpty() {
-		return g
-	}
-	switch v := g.(type) {
-	case *geom.Point, *geom.MultiPoint:
-		return v
-	case *geom.LineString:
-		return geom.NewLineStringOwned(v.Layout(), v.CRS(),
-			densifyFlat(lineXY(v), v.Layout().Stride(), tol))
-	case *geom.LinearRing:
-		ls := v.AsLineString()
-		return geom.NewLinearRingOwned(v.Layout(), v.CRS(),
-			densifyFlat(lineXY(ls), v.Layout().Stride(), tol))
-	case *geom.Polygon:
-		rings := make([][]geom.XY, v.NumRings())
-		for i := 0; i < v.NumRings(); i++ {
-			rings[i] = densifyRing(v.Ring(i), tol)
-		}
-		return geom.NewPolygon(v.CRS(), rings...)
-	case *geom.MultiLineString:
-		parts := make([]*geom.LineString, v.NumGeometries())
-		for i := 0; i < v.NumGeometries(); i++ {
-			parts[i] = densifyGeometry(v.LineStringAt(i), tol).(*geom.LineString)
-		}
-		return geom.NewMultiLineString(v.CRS(), parts...)
-	case *geom.MultiPolygon:
-		parts := make([]*geom.Polygon, v.NumGeometries())
-		for i := 0; i < v.NumGeometries(); i++ {
-			parts[i] = densifyGeometry(v.PolygonAt(i), tol).(*geom.Polygon)
-		}
-		return geom.NewMultiPolygon(v.CRS(), parts...)
-	case *geom.GeometryCollection:
-		members := make([]geom.Geometry, v.NumGeometries())
-		for i := 0; i < v.NumGeometries(); i++ {
-			members[i] = densifyGeometry(v.GeometryAt(i), tol)
-		}
-		return geom.NewGeometryCollection(v.CRS(), members...)
-	}
-	return g
-}
-
-func densifyRing(ring []geom.XY, tol float64) []geom.XY {
-	if len(ring) < 2 {
-		return ring
-	}
-	var out []geom.XY
-	for i := 0; i+1 < len(ring); i++ {
-		a, b := ring[i], ring[i+1]
-		out = append(out, a)
-		d := math.Hypot(b.X-a.X, b.Y-a.Y)
-		if d > tol {
-			n := int(math.Ceil(d / tol))
-			for k := 1; k < n; k++ {
-				t := float64(k) / float64(n)
-				out = append(out, geom.XY{
-					X: a.X + (b.X-a.X)*t,
-					Y: a.Y + (b.Y-a.Y)*t,
-				})
-			}
-		}
-	}
-	out = append(out, ring[len(ring)-1])
-	return out
-}
-
-func densifyFlat(pts []geom.XY, stride int, tol float64) []float64 {
-	dense := densifyRing(pts, tol)
-	flat := make([]float64, 0, len(dense)*stride)
-	for _, p := range dense {
-		flat = append(flat, p.X, p.Y)
-		for k := 2; k < stride; k++ {
-			flat = append(flat, 0)
-		}
-	}
-	return flat
-}
-
-// reducePrecision snaps each coordinate to a grid of spacing 1/scale.
-// Coordinates are rounded half-up to the nearest grid cell. Geometric
-// validity after snap is not enforced (matching JTS PrecisionReducer's
-// "no fix" mode is sufficient for the corpus's compare-WKT tests).
-func reducePrecision(g geom.Geometry, scale float64) geom.Geometry {
-	if scale == 0 || g == nil || g.IsEmpty() {
-		return g
-	}
-	snap := func(p geom.XY) geom.XY {
-		return geom.XY{
-			X: math.Round(p.X*scale) / scale,
-			Y: math.Round(p.Y*scale) / scale,
-		}
-	}
-	switch v := g.(type) {
-	case *geom.Point:
-		return geom.NewPoint(v.CRS(), snap(v.XY()))
-	case *geom.LineString:
-		pts := lineXY(v)
-		for i := range pts {
-			pts[i] = snap(pts[i])
-		}
-		flat := make([]float64, 0, len(pts)*2)
-		for _, p := range pts {
-			flat = append(flat, p.X, p.Y)
-		}
-		return geom.NewLineStringOwned(geom.LayoutXY, v.CRS(), flat)
-	case *geom.LinearRing:
-		pts := lineXY(v.AsLineString())
-		for i := range pts {
-			pts[i] = snap(pts[i])
-		}
-		flat := make([]float64, 0, len(pts)*2)
-		for _, p := range pts {
-			flat = append(flat, p.X, p.Y)
-		}
-		return geom.NewLinearRingOwned(geom.LayoutXY, v.CRS(), flat)
-	case *geom.Polygon:
-		rings := make([][]geom.XY, v.NumRings())
-		for i := 0; i < v.NumRings(); i++ {
-			r := append([]geom.XY(nil), v.Ring(i)...)
-			for j := range r {
-				r[j] = snap(r[j])
-			}
-			rings[i] = r
-		}
-		return geom.NewPolygon(v.CRS(), rings...)
-	case *geom.MultiPoint:
-		pts := make([]geom.XY, v.NumGeometries())
-		for i := range pts {
-			pts[i] = snap(v.PointAt(i))
-		}
-		return geom.NewMultiPoint(v.CRS(), pts)
-	case *geom.MultiLineString:
-		parts := make([]*geom.LineString, v.NumGeometries())
-		for i := 0; i < v.NumGeometries(); i++ {
-			parts[i] = reducePrecision(v.LineStringAt(i), scale).(*geom.LineString)
-		}
-		return geom.NewMultiLineString(v.CRS(), parts...)
-	case *geom.MultiPolygon:
-		parts := make([]*geom.Polygon, v.NumGeometries())
-		for i := 0; i < v.NumGeometries(); i++ {
-			parts[i] = reducePrecision(v.PolygonAt(i), scale).(*geom.Polygon)
-		}
-		return geom.NewMultiPolygon(v.CRS(), parts...)
-	case *geom.GeometryCollection:
-		members := make([]geom.Geometry, v.NumGeometries())
-		for i := 0; i < v.NumGeometries(); i++ {
-			members[i] = reducePrecision(v.GeometryAt(i), scale)
-		}
-		return geom.NewGeometryCollection(v.CRS(), members...)
-	}
-	return g
 }
 
 // isSimple reports whether g has no self-intersections (other than at
@@ -739,8 +472,8 @@ func mlsPairSimple(a, b []geom.XY, ea, eb map[geom.XY]struct{}) bool {
 			if !segmentsIntersectPlain(a[i], a[i+1], b[j], b[j+1]) {
 				continue
 			}
-			if orient2D(a[i], a[i+1], b[j]) == 0 &&
-				orient2D(a[i], a[i+1], b[j+1]) == 0 &&
+			if geomath.Orient(a[i], a[i+1], b[j]) == 0 &&
+				geomath.Orient(a[i], a[i+1], b[j+1]) == 0 &&
 				collinearSegmentsOverlap(a[i], a[i+1], b[j], b[j+1]) {
 				if !(a[i] == a[i+1] || b[j] == b[j+1]) {
 					return false
@@ -775,10 +508,10 @@ func mlsPairSimple(a, b []geom.XY, ea, eb map[geom.XY]struct{}) bool {
 // intersection test using sign-of-cross-product. Returns true if the
 // closed segments share any point (vertex or interior).
 func segmentsIntersectPlain(p1, p2, p3, p4 geom.XY) bool {
-	d1 := orient2D(p3, p4, p1)
-	d2 := orient2D(p3, p4, p2)
-	d3 := orient2D(p1, p2, p3)
-	d4 := orient2D(p1, p2, p4)
+	d1 := geomath.Orient(p3, p4, p1)
+	d2 := geomath.Orient(p3, p4, p2)
+	d3 := geomath.Orient(p1, p2, p3)
+	d4 := geomath.Orient(p1, p2, p4)
 	if ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
 		((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)) {
 		return true
@@ -789,16 +522,16 @@ func segmentsIntersectPlain(p1, p2, p3, p4 geom.XY) bool {
 	if d1 == 0 && d2 == 0 && d3 == 0 && d4 == 0 {
 		return collinearSegmentsOverlap(p1, p2, p3, p4)
 	}
-	if d1 == 0 && onSegment(p3, p4, p1) {
+	if d1 == 0 && geomath.OnSegment(p1, p3, p4) {
 		return true
 	}
-	if d2 == 0 && onSegment(p3, p4, p2) {
+	if d2 == 0 && geomath.OnSegment(p2, p3, p4) {
 		return true
 	}
-	if d3 == 0 && onSegment(p1, p2, p3) {
+	if d3 == 0 && geomath.OnSegment(p3, p1, p2) {
 		return true
 	}
-	if d4 == 0 && onSegment(p1, p2, p4) {
+	if d4 == 0 && geomath.OnSegment(p4, p1, p2) {
 		return true
 	}
 	return false
@@ -826,29 +559,6 @@ func collinearSegmentsOverlap(a1, a2, b1, b2 geom.XY) bool {
 	}
 	// Closed-interval overlap with [0,1].
 	return tb2 >= 0 && tb1 <= 1
-}
-
-func orient2D(a, b, c geom.XY) float64 {
-	return (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
-}
-
-func onSegment(a, b, p geom.XY) bool {
-	return min2(a.X, b.X) <= p.X && p.X <= max2(a.X, b.X) &&
-		min2(a.Y, b.Y) <= p.Y && p.Y <= max2(a.Y, b.Y)
-}
-
-func min2(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max2(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // geometryBoundary returns the topological boundary of g per OGC SFA.
@@ -948,375 +658,4 @@ func geometryBoundary(g geom.Geometry) geom.Geometry {
 		return geom.NewGeometryCollection(v.CRS(), members...)
 	}
 	return geom.NewGeometryCollection(g.CRS())
-}
-
-// unaryUnion returns the union of a single geometry with itself —
-// effectively deduplicating points and combining members. For pointal
-// inputs we deduplicate. For polygonal inputs we route through the
-// overlay engine, treating each polygon as both subject and clipper to
-// trigger the merge. Linear inputs are returned unchanged (proper
-// noding requires Phase 7 work).
-func unaryUnion(g geom.Geometry) geom.Geometry {
-	if g == nil || g.IsEmpty() {
-		return g
-	}
-	switch v := g.(type) {
-	case *geom.Point:
-		return v
-	case *geom.MultiPoint:
-		seen := map[geom.XY]struct{}{}
-		var pts []geom.XY
-		for i := 0; i < v.NumGeometries(); i++ {
-			p := v.PointAt(i)
-			if _, ok := seen[p]; ok {
-				continue
-			}
-			seen[p] = struct{}{}
-			pts = append(pts, p)
-		}
-		switch len(pts) {
-		case 0:
-			return geom.NewEmptyPoint(v.CRS(), geom.LayoutXY)
-		case 1:
-			return geom.NewPoint(v.CRS(), pts[0])
-		default:
-			return geom.NewMultiPoint(v.CRS(), pts)
-		}
-	case *geom.MultiPolygon:
-		// Pairwise union of members.
-		out, err := unionAll(v.CRS(), polysToGeoms(v))
-		if err != nil {
-			return v
-		}
-		return out
-	case *geom.GeometryCollection:
-		// Union polygonal members with each other; carry pointal +
-		// linear members through unchanged. JTS would also union
-		// linear members (noding), but we approximate.
-		var polys []geom.Geometry
-		var others []geom.Geometry
-		for i := 0; i < v.NumGeometries(); i++ {
-			m := v.GeometryAt(i)
-			if m.IsEmpty() {
-				continue
-			}
-			switch m.(type) {
-			case *geom.Polygon, *geom.MultiPolygon:
-				polys = append(polys, m)
-			default:
-				others = append(others, m)
-			}
-		}
-		var areal geom.Geometry
-		if len(polys) > 0 {
-			a, err := unionAll(v.CRS(), polys)
-			if err == nil {
-				areal = a
-			} else {
-				areal = polys[0]
-			}
-		}
-		if areal != nil && len(others) == 0 {
-			return areal
-		}
-		if areal == nil && len(others) == 1 {
-			return others[0]
-		}
-		var members []geom.Geometry
-		if areal != nil {
-			members = append(members, areal)
-		}
-		members = append(members, others...)
-		return geom.NewGeometryCollection(v.CRS(), members...)
-	}
-	return g
-}
-
-func polysToGeoms(mp *geom.MultiPolygon) []geom.Geometry {
-	out := make([]geom.Geometry, mp.NumGeometries())
-	for i := range out {
-		out[i] = mp.PolygonAt(i)
-	}
-	return out
-}
-
-// unionAll iteratively unions a slice of geometries.
-func unionAll(c *crs.CRS, gs []geom.Geometry) (geom.Geometry, error) {
-	if len(gs) == 0 {
-		return geom.NewEmptyPolygon(c, geom.LayoutXY), nil
-	}
-	acc := gs[0]
-	for i := 1; i < len(gs); i++ {
-		next, err := overlay.Union(acc, gs[i])
-		if err != nil {
-			return nil, err
-		}
-		acc = next
-	}
-	return acc, nil
-}
-
-// interiorPoint returns a point guaranteed to lie in g's interior. The
-// implementation matches JTS's InteriorPoint*** algorithms by
-// dimension:
-//   - Pointal: pick the input point closest to the centroid.
-//   - Lineal: pick the segment midpoint closest to the centroid.
-//   - Areal: use the centroid (approximation; full JTS scanline
-//     algorithm is substantially more complex).
-func interiorPoint(g geom.Geometry) *geom.Point {
-	if g == nil || g.IsEmpty() {
-		return geom.NewEmptyPoint(g.CRS(), geom.LayoutXY)
-	}
-	switch v := g.(type) {
-	case *geom.Point:
-		return geom.NewPoint(g.CRS(), v.XY())
-	case *geom.MultiPoint:
-		return interiorPointForPoints(v.CRS(), collectMultiPointXY(v))
-	case *geom.LineString:
-		return interiorPointForLines(v.CRS(), []*geom.LineString{v})
-	case *geom.LinearRing:
-		return interiorPointForLines(v.CRS(), []*geom.LineString{v.AsLineString()})
-	case *geom.MultiLineString:
-		lines := make([]*geom.LineString, v.NumGeometries())
-		for i := 0; i < v.NumGeometries(); i++ {
-			lines[i] = v.LineStringAt(i)
-		}
-		return interiorPointForLines(v.CRS(), lines)
-	case *geom.Polygon:
-		return interiorPointForPolygon(v)
-	case *geom.MultiPolygon:
-		return interiorPointForMultiPolygon(v)
-	case *geom.GeometryCollection:
-		// Pick the highest-dimension non-empty member's interior point.
-		var pts, lines, polys []geom.Geometry
-		for i := 0; i < v.NumGeometries(); i++ {
-			m := v.GeometryAt(i)
-			if m.IsEmpty() {
-				continue
-			}
-			switch m.(type) {
-			case *geom.Polygon, *geom.MultiPolygon:
-				polys = append(polys, m)
-			case *geom.LineString, *geom.MultiLineString, *geom.LinearRing:
-				lines = append(lines, m)
-			default:
-				pts = append(pts, m)
-			}
-		}
-		if len(polys) > 0 {
-			return interiorPoint(polys[0])
-		}
-		if len(lines) > 0 {
-			return interiorPoint(lines[0])
-		}
-		if len(pts) > 0 {
-			return interiorPoint(pts[0])
-		}
-	}
-	return geom.NewEmptyPoint(g.CRS(), geom.LayoutXY)
-}
-
-func collectMultiPointXY(mp *geom.MultiPoint) []geom.XY {
-	out := make([]geom.XY, mp.NumGeometries())
-	for i := range out {
-		out[i] = mp.PointAt(i)
-	}
-	return out
-}
-
-func interiorPointForPoints(c *crs.CRS, pts []geom.XY) *geom.Point {
-	if len(pts) == 0 {
-		return geom.NewEmptyPoint(c, geom.LayoutXY)
-	}
-	if len(pts) == 1 {
-		return geom.NewPoint(c, pts[0])
-	}
-	// Centroid of the multi-point set.
-	var sx, sy float64
-	for _, p := range pts {
-		sx += p.X
-		sy += p.Y
-	}
-	cx, cy := sx/float64(len(pts)), sy/float64(len(pts))
-	// Pick the input point closest to that centroid.
-	best := pts[0]
-	bestD := math.Hypot(best.X-cx, best.Y-cy)
-	for _, p := range pts[1:] {
-		d := math.Hypot(p.X-cx, p.Y-cy)
-		if d < bestD {
-			bestD = d
-			best = p
-		}
-	}
-	return geom.NewPoint(c, best)
-}
-
-func interiorPointForLines(c *crs.CRS, lines []*geom.LineString) *geom.Point {
-	type seg struct{ a, b geom.XY }
-	var segs []seg
-	var interior []geom.XY
-	var endpoints []geom.XY
-	for _, ls := range lines {
-		if ls == nil || ls.IsEmpty() {
-			continue
-		}
-		n := ls.NumPoints()
-		if n > 0 {
-			endpoints = append(endpoints, ls.PointAt(0))
-			if n > 1 {
-				endpoints = append(endpoints, ls.PointAt(n-1))
-			}
-		}
-		for i := 1; i+1 < n; i++ {
-			if ls.PointAt(i) != ls.PointAt(i-1) || ls.PointAt(i) != ls.PointAt(i+1) {
-				interior = append(interior, ls.PointAt(i))
-			}
-		}
-		for i := 0; i+1 < ls.NumPoints(); i++ {
-			a, b := ls.PointAt(i), ls.PointAt(i+1)
-			if a == b {
-				continue
-			}
-			segs = append(segs, seg{a, b})
-		}
-	}
-	if len(segs) == 0 {
-		// Zero-length lines: pick the first vertex.
-		for _, ls := range lines {
-			if ls != nil && !ls.IsEmpty() && ls.NumPoints() > 0 {
-				return geom.NewPoint(c, ls.PointAt(0))
-			}
-		}
-		return geom.NewEmptyPoint(c, geom.LayoutXY)
-	}
-	// Centroid of all segment midpoints, length-weighted.
-	var sx, sy, totalLen float64
-	for _, s := range segs {
-		mx, my := (s.a.X+s.b.X)/2, (s.a.Y+s.b.Y)/2
-		l := math.Hypot(s.b.X-s.a.X, s.b.Y-s.a.Y)
-		sx += mx * l
-		sy += my * l
-		totalLen += l
-	}
-	cx, cy := sx/totalLen, sy/totalLen
-	candidates := interior
-	if len(candidates) == 0 {
-		candidates = endpoints
-	}
-	if len(candidates) == 0 {
-		return geom.NewEmptyPoint(c, geom.LayoutXY)
-	}
-	best := candidates[0]
-	bestD := math.Inf(1)
-	for _, p := range candidates {
-		d := math.Hypot(p.X-cx, p.Y-cy)
-		if d < bestD {
-			bestD = d
-			best = p
-		}
-	}
-	return geom.NewPoint(c, best)
-}
-
-func interiorPointForMultiPolygon(mp *geom.MultiPolygon) *geom.Point {
-	var best geom.XY
-	bestWidth := -1.0
-	for i := 0; i < mp.NumGeometries(); i++ {
-		p, width := polygonInteriorScanPoint(mp.PolygonAt(i))
-		if width > bestWidth {
-			best = p
-			bestWidth = width
-		}
-	}
-	if bestWidth >= 0 {
-		return geom.NewPoint(mp.CRS(), best)
-	}
-	return geom.NewEmptyPoint(mp.CRS(), geom.LayoutXY)
-}
-
-func interiorPointForPolygon(p *geom.Polygon) *geom.Point {
-	q, width := polygonInteriorScanPoint(p)
-	if width >= 0 {
-		return geom.NewPoint(p.CRS(), q)
-	}
-	if c := measure.Centroid(p); !c.IsEmpty() {
-		return c
-	}
-	return geom.NewEmptyPoint(p.CRS(), geom.LayoutXY)
-}
-
-func polygonInteriorScanPoint(p *geom.Polygon) (geom.XY, float64) {
-	if p == nil || p.IsEmpty() || p.NumRings() == 0 {
-		return geom.XY{}, -1
-	}
-	env := p.Envelope()
-	y := interiorScanY(p, (env.MinY+env.MaxY)/2)
-	var xs []float64
-	for r := 0; r < p.NumRings(); r++ {
-		ring := p.Ring(r)
-		for i := 0; i+1 < len(ring); i++ {
-			a, b := ring[i], ring[i+1]
-			if (a.Y > y) == (b.Y > y) {
-				continue
-			}
-			t := (y - a.Y) / (b.Y - a.Y)
-			xs = append(xs, a.X+t*(b.X-a.X))
-		}
-	}
-	if len(xs) < 2 {
-		ring := p.Ring(0)
-		for _, q := range ring {
-			return q, 0
-		}
-		return geom.XY{}, -1
-	}
-	sort.Float64s(xs)
-	bestWidth := -1.0
-	bestX := xs[0]
-	for i := 0; i+1 < len(xs); i += 2 {
-		w := xs[i+1] - xs[i]
-		if w > bestWidth {
-			bestWidth = w
-			bestX = (xs[i] + xs[i+1]) / 2
-		}
-	}
-	return geom.XY{X: bestX, Y: y}, bestWidth
-}
-
-func interiorScanY(p *geom.Polygon, centre float64) float64 {
-	ys := make([]float64, 0)
-	for r := 0; r < p.NumRings(); r++ {
-		ring := p.Ring(r)
-		for _, q := range ring {
-			ys = append(ys, q.Y)
-		}
-	}
-	if len(ys) == 0 {
-		return centre
-	}
-	sort.Float64s(ys)
-	uniq := ys[:0]
-	for _, y := range ys {
-		if len(uniq) == 0 || y != uniq[len(uniq)-1] {
-			uniq = append(uniq, y)
-		}
-	}
-	if len(uniq) < 2 {
-		return uniq[0]
-	}
-	bestLo, bestHi := uniq[0], uniq[1]
-	bestDist := math.Inf(1)
-	for i := 0; i+1 < len(uniq); i++ {
-		lo, hi := uniq[i], uniq[i+1]
-		if lo == hi {
-			continue
-		}
-		mid := (lo + hi) / 2
-		dist := math.Abs(mid - centre)
-		if dist < bestDist || (dist == bestDist && mid > (bestLo+bestHi)/2) {
-			bestDist = dist
-			bestLo, bestHi = lo, hi
-		}
-	}
-	return (bestLo + bestHi) / 2
 }

@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 
 	"github.com/exergy-dev/go-topology-suite/buffer"
+	"github.com/exergy-dev/go-topology-suite/densify"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/hull"
 	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
@@ -469,7 +470,7 @@ func runDensify(c *xmlCase, op xmlOp) dispatchResult {
 	if !ok {
 		return res
 	}
-	got := densifyGeometry(a, tol)
+	got := densify.Densify(a, tol)
 	expected, err := parseWKT(op.Expected)
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
@@ -495,8 +496,8 @@ func runReducePrecision(c *xmlCase, op xmlOp) dispatchResult {
 	}
 	// Use the real library port: precision.Reduce handles the JTS
 	// negative-scale-means-grid-size convention and collapse removal,
-	// unlike the pointwise reducePrecision helper used for pre/post-op
-	// grid snapping elsewhere in this harness.
+	// unlike the pointwise precision.ReducePointwise snapping used for
+	// pre/post-op grid snapping elsewhere in this harness.
 	got := precision.Reduce(a, geom.NewFixedPrecision(scale))
 	expected, err := parseWKT(op.Expected)
 	if err != nil {
@@ -553,7 +554,12 @@ func runGetInteriorPoint(c *xmlCase, op xmlOp) dispatchResult {
 	if err != nil {
 		return dispatchResult{Detail: "parse arg1: " + err.Error()}
 	}
-	got := interiorPoint(a)
+	var got *geom.Point
+	if xy, ok := measure.InteriorPoint(a); ok {
+		got = geom.NewPoint(a.CRS(), xy)
+	} else {
+		got = geom.NewEmptyPoint(a.CRS(), geom.LayoutXY)
+	}
 	expected, err := parseWKT(op.Expected)
 	if err != nil {
 		return dispatchResult{Detail: "parse expected: " + err.Error()}
@@ -614,8 +620,9 @@ func runOverlayOpSR(c *xmlCase, op xmlOp, name string) dispatchResult {
 	// geometry needed for hot-pixel topology decisions. For polygonal
 	// operands, the existing pre-rounding remains.
 	if !isLinealOrPointal(a) || !isLinealOrPointal(b) {
-		a = reducePrecision(a, scale)
-		b = reducePrecision(b, scale)
+		pm := geom.NewFixedPrecision(scale)
+		a = precision.ReducePointwise(a, pm)
+		b = precision.ReducePointwise(b, pm)
 	}
 
 	// Tolerance for snap-rounding noder = grid cell width = 1/scale.
@@ -659,15 +666,15 @@ func overlayWithTolerance(a, b geom.Geometry, name string, tolerance float64) (g
 			if err != nil {
 				return nil, err
 			}
-			return reducePrecision(got, 1.0/tolerance), nil
+			return precision.ReducePointwise(got, geom.NewFixedPrecision(1.0/tolerance)), nil
 		}
 		// Mixed lineal/polygonal or other combinations: snap each
 		// operand to the precision grid first, dispatch through the
 		// float overlay path, snap the result.
 		if tolerance > 0 {
-			scale := 1.0 / tolerance
-			a = reducePrecision(a, scale)
-			b = reducePrecision(b, scale)
+			pm := geom.NewFixedPrecision(1.0 / tolerance)
+			a = precision.ReducePointwise(a, pm)
+			b = precision.ReducePointwise(b, pm)
 		}
 		var got geom.Geometry
 		var err error
@@ -687,7 +694,7 @@ func overlayWithTolerance(a, b geom.Geometry, name string, tolerance float64) (g
 			return nil, err
 		}
 		if tolerance > 0 {
-			got = reducePrecision(got, 1.0/tolerance)
+			got = precision.ReducePointwise(got, geom.NewFixedPrecision(1.0/tolerance))
 		}
 		return got, nil
 	}
@@ -709,7 +716,7 @@ func overlayWithTolerance(a, b geom.Geometry, name string, tolerance float64) (g
 		return nil, err
 	}
 	if tolerance > 0 {
-		got = reducePrecision(got, 1.0/tolerance)
+		got = precision.ReducePointwise(got, geom.NewFixedPrecision(1.0/tolerance))
 	}
 	return got, nil
 }
@@ -759,7 +766,10 @@ func runOverlayOp(c *xmlCase, op xmlOp, name string, tolerance float64) dispatch
 	// `union` op; we approximate by unioning members or returning the
 	// input unchanged for deduplicated pointal inputs.
 	if name == "union" && strings.TrimSpace(resolveOperand(c, op.Arg2)) == "" {
-		got := unaryUnion(a)
+		got, err := overlay.UnaryUnion(a)
+		if err != nil {
+			return fail("unaryUnion: " + err.Error())
+		}
 		return compareApproxGeometry("unaryUnion", got, op)
 	}
 	b, res, ok := parseOperand(c, op, "arg2", op.Arg2)
@@ -773,9 +783,9 @@ func runOverlayOp(c *xmlCase, op xmlOp, name string, tolerance float64) dispatch
 	// noder participates. This mirrors runOverlayOpSR but driven by
 	// the file-level precisionModel rather than per-op arg3.
 	if tolerance > 0 {
-		scale := 1.0 / tolerance
-		a = reducePrecision(a, scale)
-		b = reducePrecision(b, scale)
+		pm := geom.NewFixedPrecision(1.0 / tolerance)
+		a = precision.ReducePointwise(a, pm)
+		b = precision.ReducePointwise(b, pm)
 		got, err := overlayWithTolerance(a, b, name, tolerance)
 		if err != nil {
 			return dispatchResult{Detail: name + ": " + err.Error()}
