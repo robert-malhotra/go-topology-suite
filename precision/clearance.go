@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // MinimumClearance computes the minimum-clearance distance of g and the
@@ -143,7 +144,7 @@ func (s *SimpleMinimumClearance) compute() {
 				if q == a || q == b {
 					continue
 				}
-				d := pointToSegment(q, a, b)
+				d := geomath.SegmentDistance(q, a, b)
 				if d > 0 {
 					s.updateSegment(d, q, a, b)
 				}
@@ -258,26 +259,6 @@ func walkLeaves(g geom.Geometry, fn func(geom.Geometry)) {
 	default:
 		fn(g)
 	}
-}
-
-// pointToSegment returns the Euclidean distance from p to segment (a,b).
-// Mirrors JTS Distance.pointToSegment.
-func pointToSegment(p, a, b geom.XY) float64 {
-	if a.X == b.X && a.Y == b.Y {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	dx := b.X - a.X
-	dy := b.Y - a.Y
-	r := ((p.X-a.X)*dx + (p.Y-a.Y)*dy) / (dx*dx + dy*dy)
-	if r <= 0 {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	if r >= 1 {
-		return math.Hypot(p.X-b.X, p.Y-b.Y)
-	}
-	qx := a.X + r*dx
-	qy := a.Y + r*dy
-	return math.Hypot(p.X-qx, p.Y-qy)
 }
 
 // closestPointOnSegment returns the projection of p onto segment (a,b),

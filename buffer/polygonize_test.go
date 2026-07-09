@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/measure"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -361,7 +362,7 @@ func TestInscribedCircleRep_LShape(t *testing.T) {
 	d := signedDistToRing(rep, ring)
 	assert.Greater(t, d, 1.5, "rep is at least 1.5 inside (radius ~ 2)")
 	// Check rep is inside the L-shape.
-	assert.True(t, pointInRingPG(rep, ring), "rep is inside L-shape")
+	assert.True(t, geomath.PointInRing(rep, ring), "rep is inside L-shape")
 }
 
 // TestSignedDistToRing_BasicCases verifies signed distance sign and

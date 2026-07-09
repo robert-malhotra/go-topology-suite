@@ -65,7 +65,7 @@ func TestDelaunayOf_Random1000(t *testing.T) {
 
 func TestSubdivisionIsDelaunay(t *testing.T) {
 	pts := randomPoints(50, 4)
-	env := envelopeOf(pts)
+	env := geom.EnvelopeOfXY(pts)
 	subdiv := quadedge.NewSubdivision(env, 0.0)
 	tri := NewIncrementalDelaunayTriangulator(subdiv)
 	verts := make([]*quadedge.Vertex, len(pts))

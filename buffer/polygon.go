@@ -6,6 +6,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 	"github.com/exergy-dev/go-topology-suite/overlay"
 )
@@ -221,7 +222,7 @@ func bufferPolygonNegativeLegacy(
 		return geom.NewEmptyPolygon(p.CRS(), p.Layout()), nil
 	}
 	if cx, cy, ok := ringCentroid(shrunkOuter); ok {
-		if !pointInRingBuf(geom.XY{X: cx, Y: cy}, outer) {
+		if !geomath.PointInRing(geom.XY{X: cx, Y: cy}, outer) {
 			return geom.NewEmptyPolygon(p.CRS(), p.Layout()), nil
 		}
 	}
@@ -644,24 +645,6 @@ func ringCentroid(ring []geom.XY) (float64, float64, bool) {
 		return 0, 0, false
 	}
 	return sumX / (3 * sumA), sumY / (3 * sumA), true
-}
-
-// pointInRingBuf is the standard ray-cast test against a closed ring.
-func pointInRingBuf(p geom.XY, ring []geom.XY) bool {
-	if len(ring) < 4 {
-		return false
-	}
-	inside := false
-	for i := 0; i+1 < len(ring); i++ {
-		a, b := ring[i], ring[i+1]
-		if (a.Y > p.Y) != (b.Y > p.Y) {
-			xCross := a.X + (p.Y-a.Y)*(b.X-a.X)/(b.Y-a.Y)
-			if p.X < xCross {
-				inside = !inside
-			}
-		}
-	}
-	return inside
 }
 
 // bboxTooThinForInset reports whether the polygon's outer-ring bounding

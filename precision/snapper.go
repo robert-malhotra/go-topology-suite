@@ -169,10 +169,10 @@ func snapGeometry(g geom.Geometry, snapPts []geom.XY, tolerance float64, isSelfS
 	case *geom.Point:
 		return v
 	case *geom.LineString:
-		out := snapLine(coordsOfLineString(v), snapPts, tolerance, isSelfSnap)
+		out := snapLine(v.XYs(), snapPts, tolerance, isSelfSnap)
 		return geom.NewLineString(v.CRS(), out)
 	case *geom.LinearRing:
-		out := snapLine(coordsOfLineString(v.AsLineString()), snapPts, tolerance, isSelfSnap)
+		out := snapLine(v.AsLineString().XYs(), snapPts, tolerance, isSelfSnap)
 		return geom.NewLineString(v.CRS(), out)
 	case *geom.Polygon:
 		rings := make([][]geom.XY, 0, v.NumRings())
@@ -212,14 +212,6 @@ func snapGeometry(g geom.Geometry, snapPts []geom.XY, tolerance float64, isSelfS
 		return geom.NewGeometryCollection(v.CRS(), children...)
 	}
 	return g
-}
-
-func coordsOfLineString(ls *geom.LineString) []geom.XY {
-	out := make([]geom.XY, 0, ls.NumPoints())
-	for p := range ls.CoordsXY() {
-		out = append(out, p)
-	}
-	return out
 }
 
 // snapLine is the LineStringSnapper.snapTo behaviour:

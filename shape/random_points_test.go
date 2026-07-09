@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +42,7 @@ func TestRandomPointsInPolygon(t *testing.T) {
 	pts := RandomPointsInPolygon(40, p, WithSeed(99))
 	require.Equal(t, 40, len(pts))
 	for i, q := range pts {
-		require.Truef(t, pointInRing(q, shell), "pt[%d]=%v not in shell", i, q)
+		require.Truef(t, geomath.PointInRing(q, shell), "pt[%d]=%v not in shell", i, q)
 	}
 }
 
@@ -56,8 +57,8 @@ func TestRandomPointsInPolygonWithHole(t *testing.T) {
 	pts := RandomPointsInPolygon(30, p, WithSeed(123))
 	require.Equal(t, 30, len(pts))
 	for i, q := range pts {
-		require.Truef(t, pointInRing(q, shell), "pt[%d]=%v not in shell", i, q)
-		require.Falsef(t, pointInRing(q, hole), "pt[%d]=%v inside hole", i, q)
+		require.Truef(t, geomath.PointInRing(q, shell), "pt[%d]=%v not in shell", i, q)
+		require.Falsef(t, geomath.PointInRing(q, hole), "pt[%d]=%v inside hole", i, q)
 	}
 }
 

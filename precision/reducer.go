@@ -191,7 +191,7 @@ func (r *PrecisionReducer) reducePoint(p *geom.Point) *geom.Point {
 }
 
 func (r *PrecisionReducer) reduceLineString(ls *geom.LineString) *geom.LineString {
-	pts := snapAndDedup(linePoints(ls), r.pm)
+	pts := snapAndDedup(ls.XYs(), r.pm)
 	if r.RemoveCollapsed && len(pts) < 2 {
 		return geom.NewLineString(ls.CRS(), nil)
 	}
@@ -270,16 +270,6 @@ func (r *PrecisionReducer) reduceCollection(gc *geom.GeometryCollection) *geom.G
 		parts = append(parts, child)
 	}
 	return geom.NewGeometryCollection(gc.CRS(), parts...)
-}
-
-// linePoints extracts the XY vertices of a LineString.
-func linePoints(ls *geom.LineString) []geom.XY {
-	n := ls.NumPoints()
-	out := make([]geom.XY, n)
-	for i := 0; i < n; i++ {
-		out[i] = ls.PointAt(i)
-	}
-	return out
 }
 
 // snapAndDedup snaps every coordinate to pm and removes immediate

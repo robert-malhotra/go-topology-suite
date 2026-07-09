@@ -16,6 +16,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 const facetSequenceSize = 6
@@ -176,7 +177,7 @@ func segmentClearance(fs1, fs2 *facetSequence, bestDist float64, pts *[2]geom.XY
 			if p == s0 || p == s1 {
 				continue
 			}
-			d := pointToSegment(p, s0, s1)
+			d := geomath.SegmentDistance(p, s0, s1)
 			if d < bestDist {
 				bestDist = d
 				pts[0] = p

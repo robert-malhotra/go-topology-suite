@@ -235,7 +235,7 @@ func (l *PointLocator) locateOnLines(p geom.XY, isNode bool) int {
 
 func locateOnLineString(p geom.XY, line *geom.LineString) int {
 	env := line.Envelope()
-	if !envelopeContainsXY(env, p) {
+	if !env.ContainsXY(p) {
 		return LocExterior
 	}
 	n := line.NumPoints()
@@ -247,13 +247,6 @@ func locateOnLineString(p geom.XY, line *geom.LineString) int {
 		}
 	}
 	return LocExterior
-}
-
-func envelopeContainsXY(e geom.Envelope, p geom.XY) bool {
-	if e.IsEmpty() {
-		return false
-	}
-	return p.X >= e.MinX && p.X <= e.MaxX && p.Y >= e.MinY && p.Y <= e.MaxY
 }
 
 // isOnSegment reports whether p lies on the closed segment (a,b).

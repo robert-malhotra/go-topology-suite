@@ -25,5 +25,5 @@ func MapCollection(gc *GeometryCollection, fn func(Geometry) Geometry) *Geometry
 		}
 		mapped = append(mapped, out)
 	}
-	return &GeometryCollection{layout: gc.layout, crs: gc.crs, parts: mapped}
+	return newGeometryCollection(gc.layout, gc.crs, mapped)
 }

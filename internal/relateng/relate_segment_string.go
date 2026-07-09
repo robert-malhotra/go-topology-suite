@@ -1,6 +1,9 @@
 package relateng
 
-import "github.com/exergy-dev/go-topology-suite/geom"
+import (
+	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
+)
 
 // RelateSegmentString is a polyline edge of a RelateGeometry, carrying
 // the parent input flags (isA, dim, element id, ring id, parent polygon)
@@ -21,7 +24,7 @@ type RelateSegmentString struct {
 // NewRelateLineString builds a line-dim segment string from a coordinate
 // run. Repeated points are collapsed (matching JTS).
 func NewRelateLineString(pts []geom.XY, isA bool, elementID int) *RelateSegmentString {
-	pts = removeRepeatedPoints(pts)
+	pts = xybuf.DedupeConsecutive(pts)
 	return &RelateSegmentString{
 		Coords:   pts,
 		IsA:      isA,
@@ -36,7 +39,7 @@ func NewRelateLineString(pts []geom.XY, isA bool, elementID int) *RelateSegmentS
 // already be oriented CW for shells, CCW for holes (caller's
 // responsibility — see PolygonNodeConverter and RelateGeometry.orient).
 func NewRelateRing(pts []geom.XY, isA bool, elementID, ringID int, parentPoly geom.Geometry) *RelateSegmentString {
-	pts = removeRepeatedPoints(pts)
+	pts = xybuf.DedupeConsecutive(pts)
 	return &RelateSegmentString{
 		Coords:          pts,
 		IsA:             isA,
@@ -123,30 +126,6 @@ func (s *RelateSegmentString) IsContainingSegment(segIdx int, pt geom.XY) bool {
 		return true
 	}
 	return true
-}
-
-func removeRepeatedPoints(pts []geom.XY) []geom.XY {
-	if len(pts) < 2 {
-		return pts
-	}
-	hasRepeat := false
-	for i := 1; i < len(pts); i++ {
-		if pts[i] == pts[i-1] {
-			hasRepeat = true
-			break
-		}
-	}
-	if !hasRepeat {
-		return pts
-	}
-	out := make([]geom.XY, 0, len(pts))
-	out = append(out, pts[0])
-	for i := 1; i < len(pts); i++ {
-		if pts[i] != pts[i-1] {
-			out = append(out, pts[i])
-		}
-	}
-	return out
 }
 
 func isClosedRun(pts []geom.XY) bool {

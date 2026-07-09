@@ -7,7 +7,9 @@ import (
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 	"github.com/exergy-dev/go-topology-suite/measure"
 )
 
@@ -31,7 +33,7 @@ import (
 // stabilises the noding while leaving the geometry's macro-shape
 // indistinguishable from the float result at the harness comparator's
 // (1e-6) tolerance.
-func tryOverlayNG(subj, clip []*geom.Polygon, op overlayng.Op, c *crs.CRS) (geom.Geometry, bool) {
+func tryOverlayNG(subj, clip []*geom.Polygon, op overlayng.Op) (geom.Geometry, bool) {
 	g, err := overlayng.OverlayPolygonalMixedDim(subj, clip, op, 0)
 	if err == nil && g != nil {
 		// Drop noder-failure phantom holes (slivers between near-
@@ -414,25 +416,16 @@ func ringHasUniqueInteriorVertices(ring []geom.XY) bool {
 
 // segmentsCrossProper returns true iff segments (a1,a2) and (b1,b2)
 // share a strictly interior point — endpoints touching are not a
-// proper crossing. Uses sign-of-cross-product orientation tests.
+// proper crossing. Uses sign-of-cross-product orientation tests
+// (int signs, unlike geomath.SegmentsCrossProper's float products,
+// so tiny orientation values cannot underflow to zero).
 func segmentsCrossProper(a1, a2, b1, b2 geom.XY) bool {
-	o1 := orientationSign(a1, a2, b1)
-	o2 := orientationSign(a1, a2, b2)
-	o3 := orientationSign(b1, b2, a1)
-	o4 := orientationSign(b1, b2, a2)
+	o1 := geomath.Orient(a1, a2, b1)
+	o2 := geomath.Orient(a1, a2, b2)
+	o3 := geomath.Orient(b1, b2, a1)
+	o4 := geomath.Orient(b1, b2, a2)
 	return o1 != 0 && o2 != 0 && o3 != 0 && o4 != 0 &&
 		o1 != o2 && o3 != o4
-}
-
-func orientationSign(a, b, c geom.XY) int {
-	v := (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
-	if v > 0 {
-		return 1
-	}
-	if v < 0 {
-		return -1
-	}
-	return 0
 }
 
 // overlayCollapsedToLineal reports whether the overlay result has lost
@@ -594,7 +587,7 @@ func intersectionGeneral(subject, clipper geom.Geometry) (geom.Geometry, error) 
 	if subj == nil || clip == nil {
 		return emptyOfDim(subject.CRS(), minDim(subject, clipper)), nil
 	}
-	if g, ok := tryOverlayNG(subj, clip, overlayng.OpIntersection, subject.CRS()); ok {
+	if g, ok := tryOverlayNG(subj, clip, overlayng.OpIntersection); ok {
 		return g, nil
 	}
 	// Greiner-Hormann fallback only handles single-polygon inputs.
@@ -642,7 +635,7 @@ func Union(subject, other geom.Geometry) (geom.Geometry, error) {
 		// One side empty: result equals the other side.
 		return nonEmptyOf(subj, oth, subject.CRS()), nil
 	}
-	if g, ok := tryOverlayNG(subj, oth, overlayng.OpUnion, subject.CRS()); ok {
+	if g, ok := tryOverlayNG(subj, oth, overlayng.OpUnion); ok {
 		return g, nil
 	}
 	if len(subj) != 1 || len(oth) != 1 {
@@ -693,7 +686,7 @@ func Difference(subject, other geom.Geometry) (geom.Geometry, error) {
 		// Nothing to subtract.
 		return polygonsToGeometry(subject.CRS(), subj), nil
 	}
-	if g, ok := tryOverlayNG(subj, oth, overlayng.OpDifference, subject.CRS()); ok {
+	if g, ok := tryOverlayNG(subj, oth, overlayng.OpDifference); ok {
 		return g, nil
 	}
 	if len(subj) != 1 || len(oth) != 1 {
@@ -708,7 +701,7 @@ func Difference(subject, other geom.Geometry) (geom.Geometry, error) {
 	case ringContainsRing(outerRing(op), outerRing(sp)):
 		return geom.NewEmptyPolygon(subject.CRS(), geom.LayoutXY), nil
 	case ringContainsRing(outerRing(sp), outerRing(op)):
-		return geom.NewPolygon(subject.CRS(), outerRing(sp), reverseRing(outerRing(op))), nil
+		return geom.NewPolygon(subject.CRS(), outerRing(sp), xybuf.ReverseCopy(outerRing(op))), nil
 	}
 	return geom.NewPolygon(subject.CRS(), outerRing(sp)), nil
 }
@@ -914,19 +907,11 @@ func ringsToGeometry(c *crs.CRS, rings [][]geom.XY) (geom.Geometry, error) {
 // fallbacks; assumes outer is simple and non-self-intersecting.
 func ringContainsRing(outer, inner []geom.XY) bool {
 	for _, p := range inner {
-		if !pointInRingXY(p, outer) {
+		if !geomath.PointInRing(p, outer) {
 			return false
 		}
 	}
 	return true
-}
-
-func reverseRing(r []geom.XY) []geom.XY {
-	out := make([]geom.XY, len(r))
-	for i := range r {
-		out[i] = r[len(r)-1-i]
-	}
-	return out
 }
 
 func collectAsMultiPolygon(c *crs.CRS, geoms ...geom.Geometry) geom.Geometry {

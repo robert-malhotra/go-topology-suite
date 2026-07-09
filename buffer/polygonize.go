@@ -7,6 +7,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/noding"
 	"github.com/exergy-dev/go-topology-suite/internal/snaprounding"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
@@ -372,10 +373,7 @@ func polygonizeBufferRings(segs []offsetSegment, tolerance float64) ([][]geom.XY
 	if len(segs) == 0 {
 		return nil, nil
 	}
-	noded, err := snapRoundOffsets(segs, tolerance)
-	if err != nil {
-		return nil, err
-	}
+	noded := snapRoundOffsets(segs, tolerance)
 	if len(noded) == 0 {
 		return nil, nil
 	}
@@ -468,7 +466,7 @@ func faceValidatorFor(orig *geom.Polygon, d, frac float64) func(geom.XY) bool {
 	}
 	threshold := d * frac
 	return func(p geom.XY) bool {
-		if !pointInPolygonRings(p, rings) {
+		if !geomath.PointInPolygonRings(p, rings) {
 			return false
 		}
 		if minDistToBoundary(p, rings) < threshold {
@@ -683,25 +681,6 @@ func positiveBufferWindingValidator(orig *geom.Polygon) func(geom.XY) bool {
 	}
 }
 
-// pointInPolygonRings reports whether p lies inside the polygon defined
-// by the given rings (rings[0] = outer, rings[1:] = holes). Standard
-// ray-cast: a point is inside iff it is inside the outer ring and not
-// inside any hole.
-func pointInPolygonRings(p geom.XY, rings [][]geom.XY) bool {
-	if len(rings) == 0 {
-		return false
-	}
-	if !pointInRingPG(p, rings[0]) {
-		return false
-	}
-	for i := 1; i < len(rings); i++ {
-		if pointInRingPG(p, rings[i]) {
-			return false
-		}
-	}
-	return true
-}
-
 // minDistToBoundary returns the minimum perpendicular distance from p
 // to any segment of any ring. Used by the inset face-validity filter
 // to reject rings whose interior representative is too close to the
@@ -744,7 +723,7 @@ func segmentPointDist(p, a, b geom.XY) float64 {
 // The noder emits SegmentStrings whose Tag carries depthDelta+128 so
 // the [-127, +127] depth range fits in a uint8. Output segments
 // inherit their parent string's Tag.
-func snapRoundOffsets(segs []offsetSegment, tolerance float64) ([]offsetSegment, error) {
+func snapRoundOffsets(segs []offsetSegment, tolerance float64) []offsetSegment {
 	// Group consecutive segments with the same depthDelta into chains
 	// (common case: every segment of one offset ring has the same
 	// depth, so the chain ends up being the entire ring).
@@ -772,7 +751,7 @@ func snapRoundOffsets(segs []offsetSegment, tolerance float64) ([]offsetSegment,
 	flush(cur)
 
 	if len(chains) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	strings := make([]*noding.SegmentString, 0, len(chains))
@@ -789,13 +768,13 @@ func snapRoundOffsets(segs []offsetSegment, tolerance float64) ([]offsetSegment,
 			// Best-effort: noder couldn't converge; use the un-rounded
 			// chains directly. The DCEL build below will still attempt
 			// to construct a valid subdivision.
-			return flattenChains(strings), nil
+			return flattenChains(strings)
 		}
-		return flattenChains(out), nil
+		return flattenChains(out)
 	}
 
 	out := noding.IndexedNoder{}.Node(strings)
-	return flattenChains(out), nil
+	return flattenChains(out)
 }
 
 // flattenChains turns SegmentStrings back into individual offsetSegments,
@@ -1468,7 +1447,7 @@ func assemblePolygonizeRings(c *crs.CRS, rings [][]geom.XY) geom.Geometry {
 			if i == j {
 				continue
 			}
-			if pointInRingPG(reps[i], rings[j]) {
+			if geomath.PointInRing(reps[i], rings[j]) {
 				depths[i]++
 			}
 		}
@@ -1487,7 +1466,7 @@ func assemblePolygonizeRings(c *crs.CRS, rings [][]geom.XY) geom.Geometry {
 			if i == j || depths[j] != depths[i]+1 {
 				continue
 			}
-			if !pointInRingPG(reps[j], rings[i]) {
+			if !geomath.PointInRing(reps[j], rings[i]) {
 				continue
 			}
 			deeper := false
@@ -1495,7 +1474,7 @@ func assemblePolygonizeRings(c *crs.CRS, rings [][]geom.XY) geom.Geometry {
 				if k == i || depths[k] >= depths[i]+1 {
 					continue
 				}
-				if !pointInRingPG(reps[j], rings[k]) {
+				if !geomath.PointInRing(reps[j], rings[k]) {
 					continue
 				}
 				if depths[k] > depths[i] {
@@ -1696,25 +1675,8 @@ func signedDistToRing(p geom.XY, ring []geom.XY) float64 {
 			best = d
 		}
 	}
-	if pointInRingPG(p, ring) {
+	if geomath.PointInRing(p, ring) {
 		return best
 	}
 	return -best
-}
-
-func pointInRingPG(p geom.XY, ring []geom.XY) bool {
-	if len(ring) < 4 {
-		return false
-	}
-	inside := false
-	for i := 0; i+1 < len(ring); i++ {
-		a, b := ring[i], ring[i+1]
-		if (a.Y > p.Y) != (b.Y > p.Y) {
-			xCross := a.X + (p.Y-a.Y)*(b.X-a.X)/(b.Y-a.Y)
-			if p.X < xCross {
-				inside = !inside
-			}
-		}
-	}
-	return inside
 }

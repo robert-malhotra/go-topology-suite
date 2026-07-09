@@ -135,7 +135,7 @@ func DelaunayOf(points []geom.XY) ([]Triangle, error) {
 	if len(pts) < 3 {
 		return nil, nil
 	}
-	env := envelopeOf(pts)
+	env := geom.EnvelopeOfXY(pts)
 	subdiv := quadedge.NewSubdivision(env, 0.0)
 	tri := NewIncrementalDelaunayTriangulator(subdiv)
 	verts := make([]*quadedge.Vertex, len(pts))
@@ -182,12 +182,4 @@ func dedupPoints(pts []geom.XY) []geom.XY {
 		out = append(out, p)
 	}
 	return out
-}
-
-func envelopeOf(pts []geom.XY) geom.Envelope {
-	env := geom.EmptyEnvelope()
-	for _, p := range pts {
-		env = env.ExpandToIncludeXY(p)
-	}
-	return env
 }

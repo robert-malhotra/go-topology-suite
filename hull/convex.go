@@ -5,6 +5,8 @@ import (
 	"slices"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 )
 
 // ConvexHull returns the convex hull of g as a Polygon (or Point /
@@ -88,14 +90,14 @@ func monotoneChain(in []geom.XY) []geom.XY {
 		}
 		return cmp.Compare(a.Y, b.Y)
 	})
-	pts = dedupe(pts)
+	pts = xybuf.DedupeConsecutive(pts)
 	if len(pts) <= 2 {
 		return pts
 	}
 
 	lower := []geom.XY{}
 	for _, p := range pts {
-		for len(lower) >= 2 && cross(lower[len(lower)-2], lower[len(lower)-1], p) <= 0 {
+		for len(lower) >= 2 && geomath.Cross(lower[len(lower)-2], lower[len(lower)-1], p) <= 0 {
 			lower = lower[:len(lower)-1]
 		}
 		lower = append(lower, p)
@@ -104,7 +106,7 @@ func monotoneChain(in []geom.XY) []geom.XY {
 	upper := []geom.XY{}
 	for i := len(pts) - 1; i >= 0; i-- {
 		p := pts[i]
-		for len(upper) >= 2 && cross(upper[len(upper)-2], upper[len(upper)-1], p) <= 0 {
+		for len(upper) >= 2 && geomath.Cross(upper[len(upper)-2], upper[len(upper)-1], p) <= 0 {
 			upper = upper[:len(upper)-1]
 		}
 		upper = append(upper, p)
@@ -112,21 +114,4 @@ func monotoneChain(in []geom.XY) []geom.XY {
 
 	hull := append(lower[:len(lower)-1], upper[:len(upper)-1]...)
 	return hull
-}
-
-func dedupe(pts []geom.XY) []geom.XY {
-	if len(pts) <= 1 {
-		return pts
-	}
-	out := pts[:1]
-	for _, p := range pts[1:] {
-		if p != out[len(out)-1] {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-func cross(o, a, b geom.XY) float64 {
-	return (a.X-o.X)*(b.Y-o.Y) - (a.Y-o.Y)*(b.X-o.X)
 }

@@ -39,19 +39,19 @@ func WithCRS(g Geometry, c *crs.CRS) Geometry {
 		for i, p := range v.parts {
 			parts[i] = WithCRS(p, c).(*LineString)
 		}
-		return &MultiLineString{layout: v.layout, crs: c, parts: parts}
+		return newMultiLineString(v.layout, c, parts)
 	case *MultiPolygon:
 		parts := make([]*Polygon, len(v.parts))
 		for i, p := range v.parts {
 			parts[i] = WithCRS(p, c).(*Polygon)
 		}
-		return &MultiPolygon{layout: v.layout, crs: c, parts: parts}
+		return newMultiPolygon(v.layout, c, parts)
 	case *GeometryCollection:
 		parts := make([]Geometry, len(v.parts))
 		for i, child := range v.parts {
 			parts[i] = WithCRS(child, c)
 		}
-		return &GeometryCollection{layout: v.layout, crs: c, parts: parts}
+		return newGeometryCollection(v.layout, c, parts)
 	}
 	return g
 }

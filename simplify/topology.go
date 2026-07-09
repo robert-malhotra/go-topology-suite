@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 )
 
@@ -53,16 +54,16 @@ func collectChains(g geom.Geometry) []chain {
 func collectChainsInto(out *[]chain, g geom.Geometry) {
 	switch v := g.(type) {
 	case *geom.LineString:
-		*out = append(*out, chain{pts: lineToXY(v), closed: false})
+		*out = append(*out, chain{pts: v.XYs(), closed: false})
 	case *geom.LinearRing:
-		*out = append(*out, chain{pts: lineToXY(v.AsLineString()), closed: true})
+		*out = append(*out, chain{pts: v.AsLineString().XYs(), closed: true})
 	case *geom.Polygon:
 		for r := 0; r < v.NumRings(); r++ {
 			*out = append(*out, chain{pts: append([]geom.XY(nil), v.Ring(r)...), closed: true})
 		}
 	case *geom.MultiLineString:
 		for i := 0; i < v.NumGeometries(); i++ {
-			*out = append(*out, chain{pts: lineToXY(v.LineStringAt(i)), closed: false})
+			*out = append(*out, chain{pts: v.LineStringAt(i).XYs(), closed: false})
 		}
 	case *geom.MultiPolygon:
 		for i := 0; i < v.NumGeometries(); i++ {
@@ -205,7 +206,7 @@ func simplifyRingEndpoint(ln *taggedLine, all []*taggedLine, tol float64) {
 	last := ln.result[len(ln.result)-1]
 	simpA, simpB := last[0], first[1]
 	endPt := first[0]
-	if segmentDistance(endPt, simpA, simpB) > tol {
+	if geomath.SegmentDistance(endPt, simpA, simpB) > tol {
 		return
 	}
 	if !ringEndpointTopologyValid(ln, all, endPt, simpA, simpB) {
@@ -240,31 +241,13 @@ func findFurthestPoint(pts []geom.XY, i, j int) (int, float64) {
 	maxDist := -1.0
 	maxIndex := i
 	for k := i + 1; k < j; k++ {
-		d := segmentDistance(pts[k], pts[i], pts[j])
+		d := geomath.SegmentDistance(pts[k], pts[i], pts[j])
 		if d > maxDist {
 			maxDist = d
 			maxIndex = k
 		}
 	}
 	return maxIndex, maxDist
-}
-
-// segmentDistance returns the distance from p to segment (a, b),
-// mirroring JTS LineSegment.distance.
-func segmentDistance(p, a, b geom.XY) float64 {
-	dx := b.X - a.X
-	dy := b.Y - a.Y
-	if dx == 0 && dy == 0 {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	t := ((p.X-a.X)*dx + (p.Y-a.Y)*dy) / (dx*dx + dy*dy)
-	switch {
-	case t <= 0:
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	case t >= 1:
-		return math.Hypot(p.X-b.X, p.Y-b.Y)
-	}
-	return math.Hypot(p.X-(a.X+t*dx), p.Y-(a.Y+t*dy))
 }
 
 // sectionTopologyValid is the port of isTopologyValid(line, start, end,
@@ -291,7 +274,7 @@ func sectionTopologyValid(ln *taggedLine, all []*taggedLine, lo, hi int, a, b ge
 // ringEndpointTopologyValid ports the isTopologyValid overload used by
 // simplifyRingEndpoint. A collinear endpoint is trivially removable.
 func ringEndpointTopologyValid(ln *taggedLine, all []*taggedLine, endPt, a, b geom.XY) bool {
-	if orient(a, b, endPt) == 0 {
+	if geomath.Orient(a, b, endPt) == 0 {
 		return true
 	}
 	if hasOutputIntersection(all, a, b) {
@@ -307,7 +290,7 @@ func ringEndpointTopologyValid(ln *taggedLine, all []*taggedLine, endPt, a, b ge
 func hasOutputIntersection(all []*taggedLine, a, b geom.XY) bool {
 	for _, m := range all {
 		for _, s := range m.result {
-			if segmentsProperlyCross(a, b, s[0], s[1]) {
+			if geomath.SegmentsCrossOrTouch(a, b, s[0], s[1]) {
 				return true
 			}
 		}
@@ -327,7 +310,7 @@ func hasInputIntersection(all []*taggedLine, ln *taggedLine, lo, hi int, a, b ge
 			if m == ln && k >= lo && k < hi {
 				continue
 			}
-			if segmentsProperlyCross(a, b, m.pts[k], m.pts[k+1]) {
+			if geomath.SegmentsCrossOrTouch(a, b, m.pts[k], m.pts[k+1]) {
 				return true
 			}
 		}
@@ -367,34 +350,20 @@ func pointStrictlyInLoop(p geom.XY, loop []geom.XY) bool {
 	for i := 0; i < n; i++ {
 		a := loop[i]
 		b := loop[i+1]
-		if onSegment(p, a, b) {
+		if geomath.OnSegment(p, a, b) {
 			return false
 		}
 		if a.Y <= p.Y {
-			if b.Y > p.Y && orient(a, b, p) > 0 {
+			if b.Y > p.Y && geomath.Orient(a, b, p) > 0 {
 				w++
 			}
 		} else {
-			if b.Y <= p.Y && orient(a, b, p) < 0 {
+			if b.Y <= p.Y && geomath.Orient(a, b, p) < 0 {
 				w--
 			}
 		}
 	}
 	return w != 0
-}
-
-// onSegment reports whether p lies on segment (a, b).
-func onSegment(p, a, b geom.XY) bool {
-	if orient(a, b, p) != 0 {
-		return false
-	}
-	if p.X < math.Min(a.X, b.X) || p.X > math.Max(a.X, b.X) {
-		return false
-	}
-	if p.Y < math.Min(a.Y, b.Y) || p.Y > math.Max(a.Y, b.Y) {
-		return false
-	}
-	return true
 }
 
 // rebuildGeometry reconstructs the input geometry's shape using the
@@ -429,7 +398,7 @@ func rebuild(g geom.Geometry, results [][]geom.XY, idx *int) (geom.Geometry, boo
 		for r := 0; r < v.NumRings(); r++ {
 			pts := results[*idx]
 			*idx++
-			if len(pts) < 4 || math.Abs(ringArea2(pts)) == 0 {
+			if len(pts) < 4 || math.Abs(geomath.RingArea2(pts)) == 0 {
 				if r == 0 {
 					outerOK = false
 				}
@@ -478,52 +447,4 @@ func rebuild(g geom.Geometry, results [][]geom.XY, idx *int) (geom.Geometry, boo
 		return geom.NewGeometryCollection(v.CRS(), parts...), true
 	}
 	return g, true
-}
-
-// segmentsProperlyCross reports whether segments (a,b) and (c,d) cross
-// in their interiors. T-junctions (an endpoint of one segment landing
-// strictly inside the other) count as crossings. Shared endpoints
-// (a == c, etc.) are allowed and return false.
-func segmentsProperlyCross(a, b, c, d geom.XY) bool {
-	if a == c || a == d || b == c || b == d {
-		return false
-	}
-	o1 := orient(a, b, c)
-	o2 := orient(a, b, d)
-	o3 := orient(c, d, a)
-	o4 := orient(c, d, b)
-	if o1 != o2 && o3 != o4 {
-		// T-junction: a zero orientation means an endpoint lies on the
-		// other segment's line. Confirm it's actually on the segment
-		// (not the extended line).
-		if o1 == 0 && onSegment(c, a, b) {
-			return true
-		}
-		if o2 == 0 && onSegment(d, a, b) {
-			return true
-		}
-		if o3 == 0 && onSegment(a, c, d) {
-			return true
-		}
-		if o4 == 0 && onSegment(b, c, d) {
-			return true
-		}
-		if o1 != 0 && o2 != 0 && o3 != 0 && o4 != 0 {
-			return true
-		}
-	}
-	return false
-}
-
-// orient returns the sign of the cross product (b-a) × (c-a):
-// +1 = CCW, -1 = CW, 0 = collinear.
-func orient(a, b, c geom.XY) int {
-	v := (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
-	switch {
-	case v > 0:
-		return 1
-	case v < 0:
-		return -1
-	}
-	return 0
 }

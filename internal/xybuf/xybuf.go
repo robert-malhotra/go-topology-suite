@@ -46,3 +46,35 @@ func Release(p *[]geom.XY) {
 	*p = (*p)[:0]
 	pool.Put(p)
 }
+
+// Reverse reverses pts in place.
+func Reverse(pts []geom.XY) {
+	for i, j := 0, len(pts)-1; i < j; i, j = i+1, j-1 {
+		pts[i], pts[j] = pts[j], pts[i]
+	}
+}
+
+// ReverseCopy returns a reversed copy of pts.
+func ReverseCopy(pts []geom.XY) []geom.XY {
+	out := make([]geom.XY, len(pts))
+	for i, p := range pts {
+		out[len(pts)-1-i] = p
+	}
+	return out
+}
+
+// DedupeConsecutive removes runs of equal consecutive vertices from
+// pts. The result aliases (and compacts) the input slice — callers
+// must not rely on the original contents afterwards.
+func DedupeConsecutive(pts []geom.XY) []geom.XY {
+	if len(pts) <= 1 {
+		return pts
+	}
+	out := pts[:1]
+	for i := 1; i < len(pts); i++ {
+		if pts[i] != pts[i-1] {
+			out = append(out, pts[i])
+		}
+	}
+	return out
+}

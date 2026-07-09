@@ -3,6 +3,7 @@ package overlayng
 import (
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // ringRepresentativePoint returns a point strictly inside ring's
@@ -87,7 +88,7 @@ func assembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*ge
 			if i == j {
 				continue
 			}
-			if pointInRing(reps[i], rings[j]) {
+			if geomath.PointInRing(reps[i], rings[j]) {
 				depths[i]++
 			}
 		}
@@ -111,7 +112,7 @@ func assembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*ge
 			if i == j || depths[j] != depths[i]+1 {
 				continue
 			}
-			if !pointInRing(reps[j], rings[i]) {
+			if !geomath.PointInRing(reps[j], rings[i]) {
 				continue
 			}
 			// Confirm this is the IMMEDIATE outer: no other even-depth
@@ -122,7 +123,7 @@ func assembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*ge
 				if k == i || depths[k] >= depths[i]+1 {
 					continue
 				}
-				if !pointInRing(reps[j], rings[k]) {
+				if !geomath.PointInRing(reps[j], rings[k]) {
 					continue
 				}
 				if depths[k] > depths[i] {

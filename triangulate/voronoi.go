@@ -31,7 +31,7 @@ func Voronoi(points []geom.XY, clipBox *geom.Envelope) []*geom.Polygon {
 	if clipBox != nil && !clipBox.IsEmpty() {
 		diagEnv = *clipBox
 	} else {
-		diagEnv = envelopeOf(pts)
+		diagEnv = geom.EnvelopeOfXY(pts)
 		dx := diagEnv.MaxX - diagEnv.MinX
 		dy := diagEnv.MaxY - diagEnv.MinY
 		diameter := math.Hypot(dx, dy)

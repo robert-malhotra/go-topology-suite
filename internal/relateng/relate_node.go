@@ -71,8 +71,8 @@ func (n *RelateNode) AddEdgesFromSections(nss []*NodeSection) {
 	}
 }
 
-func (n *RelateNode) addLineEdge(isA bool, dirPt geom.XY) *RelateEdge {
-	return n.addEdge(isA, dirPt, DimL, false)
+func (n *RelateNode) addLineEdge(isA bool, dirPt geom.XY) {
+	n.addEdge(isA, dirPt, DimL, false)
 }
 
 func (n *RelateNode) addAreaEdge(isA bool, dirPt geom.XY, isForward bool) *RelateEdge {
@@ -88,7 +88,7 @@ func (n *RelateNode) addEdge(isA bool, dirPt geom.XY, dim int, isForward bool) *
 	for i, e := range n.edges {
 		comp := e.compareToEdge(dirPt)
 		if comp == 0 {
-			e.merge(isA, dirPt, dim, isForward)
+			e.merge(isA, dim, isForward)
 			return e
 		}
 		if comp == 1 {

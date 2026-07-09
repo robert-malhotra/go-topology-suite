@@ -204,6 +204,16 @@ func SegmentEnvelope(a, b XY) Envelope {
 	return env
 }
 
+// EnvelopeOfXY returns the bounding envelope of pts. Empty input yields
+// the canonical empty envelope.
+func EnvelopeOfXY(pts []XY) Envelope {
+	env := EmptyEnvelope()
+	for _, p := range pts {
+		env = env.ExpandToIncludeXY(p)
+	}
+	return env
+}
+
 // envelopeOfFlat builds an envelope from a flat coordinate slice with the
 // given stride. It is the routine baseGeom uses to populate its envelope
 // cache; exposed at package scope so format decoders can build envelopes

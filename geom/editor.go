@@ -114,7 +114,7 @@ func editMultiLineString(m *MultiLineString, fn func(XY) XY) *MultiLineString {
 	for _, ls := range m.parts {
 		parts = append(parts, editLineString(ls, fn))
 	}
-	return &MultiLineString{layout: m.layout, crs: m.crs, parts: parts}
+	return newMultiLineString(m.layout, m.crs, parts)
 }
 
 func editMultiPolygon(m *MultiPolygon, fn func(XY) XY) *MultiPolygon {
@@ -122,7 +122,7 @@ func editMultiPolygon(m *MultiPolygon, fn func(XY) XY) *MultiPolygon {
 	for _, p := range m.parts {
 		parts = append(parts, editPolygon(p, fn))
 	}
-	return &MultiPolygon{layout: m.layout, crs: m.crs, parts: parts}
+	return newMultiPolygon(m.layout, m.crs, parts)
 }
 
 func editGeometryCollection(gc *GeometryCollection, fn func(XY) XY) *GeometryCollection {
@@ -132,5 +132,5 @@ func editGeometryCollection(gc *GeometryCollection, fn func(XY) XY) *GeometryCol
 			parts = append(parts, edited)
 		}
 	}
-	return &GeometryCollection{layout: gc.layout, crs: gc.crs, parts: parts}
+	return newGeometryCollection(gc.layout, gc.crs, parts)
 }

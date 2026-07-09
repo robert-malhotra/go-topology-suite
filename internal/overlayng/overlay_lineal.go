@@ -10,6 +10,7 @@ import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/noding"
 	"github.com/exergy-dev/go-topology-suite/internal/snap"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 )
 
 // OverlayLinealWithTolerance computes a boolean overlay between two
@@ -442,7 +443,7 @@ func snapRoundSegments(segs []*noding.SegmentString, hp *snap.HotPixelSet, rd *s
 		}
 		// Drop consecutive duplicates that may have arisen when an
 		// endpoint coincided with a hot pixel.
-		newCoords = dedupeConsecutiveXY(newCoords)
+		newCoords = xybuf.DedupeConsecutive(newCoords)
 		if len(newCoords) < 2 {
 			continue
 		}
@@ -460,21 +461,8 @@ func snapNodedToGrid(segs []*noding.SegmentString, rd *snap.Rounder) {
 		for i, v := range s.Coords {
 			s.Coords[i] = rd.SnapVertex(v)
 		}
-		s.Coords = dedupeConsecutiveXY(s.Coords)
+		s.Coords = xybuf.DedupeConsecutive(s.Coords)
 	}
-}
-
-func dedupeConsecutiveXY(pts []geom.XY) []geom.XY {
-	if len(pts) <= 1 {
-		return pts
-	}
-	out := pts[:1]
-	for i := 1; i < len(pts); i++ {
-		if pts[i] != pts[i-1] {
-			out = append(out, pts[i])
-		}
-	}
-	return out
 }
 
 func addPointsToHP(hp *snap.HotPixelSet, pts []geom.XY) {

@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 )
 
@@ -79,7 +80,7 @@ func Visvalingam(g geom.Geometry, tolerance float64) geom.Geometry {
 
 // vwLineString simplifies an open polyline using VW.
 func vwLineString(ls *geom.LineString, areaTol float64) *geom.LineString {
-	pts := lineToXY(ls)
+	pts := ls.XYs()
 	out := vwSimplify(pts, areaTol, 2)
 	return geom.NewLineString(ls.CRS(), out)
 }
@@ -105,7 +106,7 @@ func vwPolygonRaw(p *geom.Polygon, areaTol float64) *geom.Polygon {
 	for r := 0; r < p.NumRings(); r++ {
 		ring := append([]geom.XY(nil), p.Ring(r)...)
 		simplified := vwSimplifyRing(ring, areaTol)
-		if len(simplified) < 4 || math.Abs(ringArea2(simplified)) == 0 {
+		if len(simplified) < 4 || math.Abs(geomath.RingArea2(simplified)) == 0 {
 			if r == 0 {
 				return nil
 			}

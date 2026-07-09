@@ -3,6 +3,7 @@ package overlay
 import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // Greiner-Hormann polygon clipping.
@@ -215,29 +216,6 @@ func computeIntersectionsIndexed(subjEdges, clipEdges []ghEdge) int {
 	return count
 }
 
-// pointInRingXY runs a ray-cast test against a ring expressed as []geom.XY.
-// The ring is assumed closed (first == last) or open; both are handled.
-func pointInRingXY(p geom.XY, ring []geom.XY) bool {
-	if len(ring) < 3 {
-		return false
-	}
-	r := ring
-	if r[0] != r[len(r)-1] {
-		r = append(append([]geom.XY(nil), r...), r[0])
-	}
-	inside := false
-	for i := 0; i+1 < len(r); i++ {
-		a, b := r[i], r[i+1]
-		if (a.Y > p.Y) != (b.Y > p.Y) {
-			xCross := a.X + (p.Y-a.Y)*(b.X-a.X)/(b.Y-a.Y)
-			if p.X < xCross {
-				inside = !inside
-			}
-		}
-	}
-	return inside
-}
-
 // markEntryExit walks subj and clip in their CURRENT chain direction
 // (which may have been reversed by the caller for Union/Difference) and
 // labels each intersection as entry/exit relative to the OTHER polygon.
@@ -250,8 +228,8 @@ func markEntryExit(subj, clip *ghVertex, subjRing, clipRing []geom.XY) {
 	if subjStart == nil || clipStart == nil {
 		return
 	}
-	subjEntry := !pointInRingXY(subjStart.p, clipRing)
-	clipEntry := !pointInRingXY(clipStart.p, subjRing)
+	subjEntry := !geomath.PointInRing(subjStart.p, clipRing)
+	clipEntry := !geomath.PointInRing(clipStart.p, subjRing)
 	v := subjStart
 	for {
 		v = v.next

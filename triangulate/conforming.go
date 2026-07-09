@@ -35,7 +35,7 @@ var ErrConformingDelaunayDidNotConverge = errors.New(
 // The KdTree is used to query Gabriel-circle encroachment efficiently.
 func ConformingDelaunayOf(points []geom.XY, segments [][2]geom.XY) ([]Triangle, error) {
 	// Combine points + segment endpoints into the bounding box.
-	allEnv := envelopeOf(points)
+	allEnv := geom.EnvelopeOfXY(points)
 	for _, s := range segments {
 		allEnv = allEnv.ExpandToIncludeXY(s[0]).ExpandToIncludeXY(s[1])
 	}

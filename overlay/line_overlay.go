@@ -9,6 +9,7 @@ import (
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/noding"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
@@ -188,7 +189,7 @@ func lineLineOverlay(a, b geom.Geometry, op overlayOp) (geom.Geometry, error) {
 		})
 	}
 
-	return assembleLinealResult(c, lines, extraPoints, op), nil
+	return assembleLinealResult(c, lines, extraPoints), nil
 }
 
 // stitchEdges greedily concatenates a set of edges into LineStrings by
@@ -269,7 +270,7 @@ func stitchEdges(edges []canonicalEdge, c *crs.CRS) []*geom.LineString {
 	return lines
 }
 
-func assembleLinealResult(c *crs.CRS, lines []*geom.LineString, points []geom.XY, op overlayOp) geom.Geometry {
+func assembleLinealResult(c *crs.CRS, lines []*geom.LineString, points []geom.XY) geom.Geometry {
 	if len(lines) == 0 && len(points) == 0 {
 		return emptyOfDim(c, 1)
 	}
@@ -478,7 +479,7 @@ func linePolygonOverlay(a, b geom.Geometry, op overlayOp) (geom.Geometry, error)
 		})
 	}
 
-	return assembleLinealResult(c, lines, extraPoints, op), nil
+	return assembleLinealResult(c, lines, extraPoints), nil
 }
 
 // polygonalSegments converts a Polygon or MultiPolygon to a list of
@@ -1114,7 +1115,7 @@ func faceToPolygonWithHoles(c *crs.CRS, f *faceLA, snap func(geom.XY) geom.XY) *
 	outer := infos[outerIdx].pts
 	// Outer must be CCW (positive area). Reverse if needed.
 	if infos[outerIdx].area < 0 {
-		reverseInPlace(outer)
+		xybuf.Reverse(outer)
 	}
 	allRings := [][]geom.XY{outer}
 	for i, info := range infos {
@@ -1124,15 +1125,9 @@ func faceToPolygonWithHoles(c *crs.CRS, f *faceLA, snap func(geom.XY) geom.XY) *
 		hole := info.pts
 		// Holes must be CW (negative area). Reverse if positive.
 		if info.area > 0 {
-			reverseInPlace(hole)
+			xybuf.Reverse(hole)
 		}
 		allRings = append(allRings, hole)
 	}
 	return geom.NewPolygon(c, allRings...)
-}
-
-func reverseInPlace(r []geom.XY) {
-	for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
-		r[i], r[j] = r[j], r[i]
-	}
 }

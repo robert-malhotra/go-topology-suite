@@ -3,6 +3,7 @@ package prepare
 import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
@@ -89,7 +90,7 @@ func (pl *PreparedLineString) IntersectsPoint(p geom.XY) bool {
 	pl.tree.Search(q, func(it index.Item[segmentRef]) bool {
 		vi := int(it.Value.vertex)
 		a, b := pl.pts[vi], pl.pts[vi+1]
-		if onSegment(p, a, b) {
+		if geomath.OnSegment(p, a, b) {
 			hit = true
 			return false
 		}

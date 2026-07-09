@@ -30,8 +30,7 @@ func Relate(a, b geom.Geometry, opts ...Option) (DE9IM, error) {
 	if !cfg.bnrSet {
 		bnr = Mod2BoundaryNodeRule
 	}
-	im, _ := relateViaNG(a, b, bnr)
-	return im, nil
+	return relateViaNG(a, b, bnr), nil
 }
 
 // unwrapLinearRing routes a LinearRing through the LineString code paths.

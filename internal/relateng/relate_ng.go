@@ -250,7 +250,7 @@ func (r *RelateNG) computeLineEnds(g *Geometry, isA bool, target *Geometry, tc *
 	}
 	hasExt := false
 	walkLineStrings(g.Geometry(), func(line *geom.LineString) bool {
-		if hasExt && envelopeDisjoint(line.Envelope(), target.Envelope()) {
+		if hasExt && line.Envelope().Disjoint(target.Envelope()) {
 			return true
 		}
 		e0 := line.PointAt(0)
@@ -295,7 +295,7 @@ func (r *RelateNG) computeAreaVertex(g *Geometry, isA bool, target *Geometry, tc
 	}
 	hasExt := false
 	walkPolygons(g.Geometry(), func(poly *geom.Polygon) bool {
-		if hasExt && envelopeDisjoint(poly.Envelope(), target.Envelope()) {
+		if hasExt && poly.Envelope().Disjoint(target.Envelope()) {
 			return true
 		}
 		ringPts := append([][]geom.XY{poly.ExteriorRing()}, poly.InteriorRings()...)
@@ -308,7 +308,7 @@ func (r *RelateNG) computeAreaVertex(g *Geometry, isA bool, target *Geometry, tc
 			locDimTarget := target.LocateWithDim(pt)
 			locTarget := Location(locDimTarget)
 			dimTarget := DimensionExt(locDimTarget, tc.GetDimension(!isA))
-			tc.AddAreaVertex(isA, locArea, locTarget, dimTarget, pt)
+			tc.AddAreaVertex(isA, locArea, locTarget, dimTarget)
 			if locTarget == LocExterior {
 				hasExt = true
 			}
@@ -477,11 +477,4 @@ func lineIsClosed(ls *geom.LineString) bool {
 		return false
 	}
 	return ls.PointAt(0) == ls.PointAt(n-1)
-}
-
-func envelopeDisjoint(a, b geom.Envelope) bool {
-	if a.IsEmpty() || b.IsEmpty() {
-		return true
-	}
-	return !a.Intersects(b)
 }

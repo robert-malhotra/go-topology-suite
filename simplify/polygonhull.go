@@ -7,6 +7,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
 
@@ -237,12 +238,12 @@ func newRingHull(ring []geom.XY, isOuter bool) *ringHull {
 	// hull -> CCW.
 	wantCW := isOuter
 	if wantCW != isRingCW(pts) {
-		reverseXY(pts)
+		xybuf.Reverse(pts)
 	}
 	n := len(pts)
 	rh := &ringHull{
 		pts:             pts,
-		env:             envelopeOf(pts),
+		env:             geom.EnvelopeOfXY(pts),
 		targetVertexNum: -1,
 		targetAreaDelta: -1,
 		prev:            make([]int, n),
@@ -463,7 +464,7 @@ func (i *ringHullIndex) add(rh *ringHull) { i.hulls = append(i.hulls, rh) }
 func (i *ringHullIndex) query(env geom.Envelope) []*ringHull {
 	out := make([]*ringHull, 0, len(i.hulls))
 	for _, h := range i.hulls {
-		if envelopesIntersect(env, h.env) {
+		if env.Intersects(h.env) {
 			out = append(out, h)
 		}
 	}
@@ -504,34 +505,6 @@ func isRingCW(pts []geom.XY) bool {
 	return a < 0
 }
 
-func reverseXY(pts []geom.XY) {
-	for i, j := 0, len(pts)-1; i < j; i, j = i+1, j-1 {
-		pts[i], pts[j] = pts[j], pts[i]
-	}
-}
-
-func envelopeOf(pts []geom.XY) geom.Envelope {
-	if len(pts) == 0 {
-		return geom.Envelope{}
-	}
-	e := geom.Envelope{MinX: pts[0].X, MaxX: pts[0].X, MinY: pts[0].Y, MaxY: pts[0].Y}
-	for _, p := range pts[1:] {
-		if p.X < e.MinX {
-			e.MinX = p.X
-		}
-		if p.X > e.MaxX {
-			e.MaxX = p.X
-		}
-		if p.Y < e.MinY {
-			e.MinY = p.Y
-		}
-		if p.Y > e.MaxY {
-			e.MaxY = p.Y
-		}
-	}
-	return e
-}
-
 func triangleEnvelope(a, b, c geom.XY) geom.Envelope {
 	e := geom.Envelope{MinX: a.X, MaxX: a.X, MinY: a.Y, MaxY: a.Y}
 	for _, p := range [2]geom.XY{b, c} {
@@ -549,16 +522,6 @@ func triangleEnvelope(a, b, c geom.XY) geom.Envelope {
 		}
 	}
 	return e
-}
-
-func envelopesIntersect(a, b geom.Envelope) bool {
-	if a.MaxX < b.MinX || a.MinX > b.MaxX {
-		return false
-	}
-	if a.MaxY < b.MinY || a.MinY > b.MaxY {
-		return false
-	}
-	return true
 }
 
 // isStrictlyClockwise reports whether triple (a,b,c) makes a strictly CW

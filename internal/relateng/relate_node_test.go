@@ -31,8 +31,8 @@ func TestRelateNode_AddLineEdges_CCWOrder(t *testing.T) {
 func TestRelateNode_DegenerateEdge_Skipped(t *testing.T) {
 	pt := geom.XY{X: 1, Y: 1}
 	n := NewRelateNode(pt)
-	assert.Nil(t, n.addLineEdge(true, pt), "zero-length edge should return nil")
-	assert.Equal(t, 0, len(n.edges), "edges should be empty")
+	n.addLineEdge(true, pt)
+	assert.Equal(t, 0, len(n.edges), "zero-length edge should be skipped")
 }
 
 func TestRelateNode_LineCrossing_FinishPropagates(t *testing.T) {

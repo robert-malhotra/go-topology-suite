@@ -6,6 +6,7 @@ import (
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 	"github.com/exergy-dev/go-topology-suite/overlay"
@@ -309,7 +310,7 @@ func classifyHole(hole, shell []geom.XY, k kernel.Kernel) holeClassification {
 // require CW orientation when shells are CCW.
 func orientCW(ring []geom.XY) []geom.XY {
 	if planar.Default().RingArea(ring) > 0 {
-		return reverseRing(ring)
+		return xybuf.ReverseCopy(ring)
 	}
 	return ring
 }
@@ -331,17 +332,9 @@ func closeRing(ring []geom.XY) []geom.XY {
 // is the reverse — see orientCW.
 func orientCCW(ring []geom.XY) []geom.XY {
 	if planar.Default().RingArea(ring) < 0 {
-		return reverseRing(ring)
+		return xybuf.ReverseCopy(ring)
 	}
 	return ring
-}
-
-func reverseRing(r []geom.XY) []geom.XY {
-	out := make([]geom.XY, len(r))
-	for i := range r {
-		out[i] = r[len(r)-1-i]
-	}
-	return out
 }
 
 // reorientResult walks a Polygon/MultiPolygon result and forces every
@@ -445,7 +438,7 @@ func makeValidMultiPolygon(m *geom.MultiPolygon) geom.Geometry {
 	// cascaded union over the parts; if it succeeds we adopt the
 	// result, otherwise we fall back to the un-unioned multi-polygon
 	// (best-effort, matches JTS overlay-failure handling).
-	merged := unionMultiPolygonParts(m.CRS(), parts)
+	merged := unionMultiPolygonParts(parts)
 	if merged == nil {
 		return geom.NewMultiPolygon(m.CRS(), parts...)
 	}
@@ -461,7 +454,7 @@ func makeValidMultiPolygon(m *geom.MultiPolygon) geom.Geometry {
 // unionMultiPolygonParts unions a slice of polygons left-to-right via
 // overlay.Union. Returns nil on the first overlay error (caller falls
 // back to un-unioned input).
-func unionMultiPolygonParts(c *crs.CRS, parts []*geom.Polygon) geom.Geometry {
+func unionMultiPolygonParts(parts []*geom.Polygon) geom.Geometry {
 	if len(parts) == 0 {
 		return nil
 	}

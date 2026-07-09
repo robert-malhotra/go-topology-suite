@@ -5,6 +5,8 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 )
 
 // Simplify simplifies the boundaries of a polygonal coverage while
@@ -128,14 +130,14 @@ func Simplify(polygons []*geom.Polygon, tolerance float64) []*geom.Polygon {
 				if !ok {
 					canon := chain
 					if rev {
-						canon = reversedXY(chain)
+						canon = xybuf.ReverseCopy(chain)
 					}
 					simp = dpSimplifyChain(canon, tolerance)
 					chainCache[key] = simp
 				}
 				oriented := simp
 				if rev {
-					oriented = reversedXY(simp)
+					oriented = xybuf.ReverseCopy(simp)
 				}
 				// Append without the trailing vertex (it'll be the
 				// lead of the next chain).
@@ -195,15 +197,6 @@ func canonicalChainKey(chain []geom.XY) (string, bool) {
 		}
 	}
 	return string(buf), rev
-}
-
-// reversedXY returns a reversed copy of pts.
-func reversedXY(pts []geom.XY) []geom.XY {
-	out := make([]geom.XY, len(pts))
-	for i, p := range pts {
-		out[len(pts)-1-i] = p
-	}
-	return out
 }
 
 // dpSimplifyChain runs Douglas-Peucker on an open chain, preserving
@@ -279,7 +272,7 @@ func dpRecurse(pts []geom.XY, lo, hi int, tol float64, keep []bool) {
 	maxD := -1.0
 	idx := lo
 	for i := lo + 1; i < hi; i++ {
-		d := perpDistance(pts[i], pts[lo], pts[hi])
+		d := geomath.PerpDistance(pts[i], pts[lo], pts[hi])
 		if d > maxD {
 			maxD = d
 			idx = i
@@ -290,17 +283,4 @@ func dpRecurse(pts []geom.XY, lo, hi int, tol float64, keep []bool) {
 		dpRecurse(pts, lo, idx, tol, keep)
 		dpRecurse(pts, idx, hi, tol, keep)
 	}
-}
-
-func perpDistance(p, a, b geom.XY) float64 {
-	dx := b.X - a.X
-	dy := b.Y - a.Y
-	if dx == 0 && dy == 0 {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	num := dy*p.X - dx*p.Y + b.X*a.Y - b.Y*a.X
-	if num < 0 {
-		num = -num
-	}
-	return num / math.Hypot(dx, dy)
 }

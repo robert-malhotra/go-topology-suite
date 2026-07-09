@@ -5,6 +5,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/hull"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 )
 
 // MinimumAreaRectangle returns the smallest-area rectangle (in any
@@ -29,7 +30,7 @@ func MinimumAreaRectangle(g geom.Geometry) (rectangle *geom.Polygon, ok bool) {
 	ring := append(pts, pts[0])
 	// JTS expects CW orientation; convex hull here is CCW. Reverse.
 	if !isRingCW(ring) {
-		reverseRing(ring)
+		xybuf.Reverse(ring)
 	}
 	if len(ring) < 4 {
 		return nil, false
@@ -44,12 +45,6 @@ func isRingCW(ring []geom.XY) bool {
 		twiceArea += (ring[i+1].X - ring[i].X) * (ring[i+1].Y + ring[i].Y)
 	}
 	return twiceArea > 0
-}
-
-func reverseRing(ring []geom.XY) {
-	for i, j := 0, len(ring)-1; i < j; i, j = i+1, j-1 {
-		ring[i], ring[j] = ring[j], ring[i]
-	}
 }
 
 // computeMARConvexRing — dual rotating calipers. ring is closed (last==first).

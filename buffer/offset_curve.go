@@ -140,7 +140,7 @@ func offsetLineString(ls *geom.LineString, distance float64, cfg config) *geom.L
 // JTS sign convention (positive=left of forward direction) is the
 // inward offset for a CCW ring and the outward offset for a CW ring.
 func offsetRing(ls *geom.LineString, distance float64, cfg config) *geom.LineString {
-	pts := dedupeRing(linePoints(ls))
+	pts := dedupeRing(ls.XYs())
 	if len(pts) < 3 {
 		return nil
 	}
@@ -160,14 +160,6 @@ func offsetRing(ls *geom.LineString, distance float64, cfg config) *geom.LineStr
 		return nil
 	}
 	return geom.NewLineString(ls.CRS(), out)
-}
-
-func linePoints(ls *geom.LineString) []geom.XY {
-	pts := make([]geom.XY, ls.NumPoints())
-	for i := 0; i < ls.NumPoints(); i++ {
-		pts[i] = ls.PointAt(i)
-	}
-	return pts
 }
 
 func offsetPolygonRings(p *geom.Polygon, distance float64, cfg config) []*geom.LineString {

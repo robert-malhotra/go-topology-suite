@@ -22,6 +22,7 @@ package linemerge
 
 import (
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 )
 
 // Merge runs the line-merging algorithm and returns the maximal
@@ -293,17 +294,10 @@ func walkChain(e *edge, from *node) *geom.LineString {
 	// it, reverse the merged polyline so its overall direction
 	// matches the majority of inputs.
 	if reverse > forward {
-		reverseXY(coords)
+		xybuf.Reverse(coords)
 	}
 	// CRS taken from first input edge.
 	return geom.NewLineString(e.line.CRS(), coords)
-}
-
-// reverseXY reverses a coordinate slice in place.
-func reverseXY(c []geom.XY) {
-	for i, j := 0, len(c)-1; i < j; i, j = i+1, j-1 {
-		c[i], c[j] = c[j], c[i]
-	}
 }
 
 // appendChainCoords copies the vertex sequence of `e.line` into

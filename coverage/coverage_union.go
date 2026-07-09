@@ -16,6 +16,7 @@ package coverage
 import (
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 	"github.com/exergy-dev/go-topology-suite/overlay"
 )
@@ -215,7 +216,7 @@ func assembleCoverage(c *crs.CRS, rings [][]geom.XY) (*geom.MultiPolygon, error)
 		bestShell := -1
 		bestArea := 0.0
 		for si, s := range shells {
-			if !pointInRing(pt, s.coords) {
+			if !geomath.PointInRing(pt, s.coords) {
 				continue
 			}
 			absA := s.area
@@ -248,27 +249,6 @@ type coverageError string
 func (e coverageError) Error() string { return string(e) }
 
 const errInvalidCoverage = coverageError("coverage: invalid coverage (boundary trace did not produce a valid ring nesting)")
-
-// pointInRing is a standard ray-cast test, sufficient for ring-in-shell
-// classification at exact vertex coordinates.
-func pointInRing(p geom.XY, ring []geom.XY) bool {
-	inside := false
-	n := len(ring)
-	if n < 3 {
-		return false
-	}
-	for i, j := 0, n-1; i < n; j, i = i, i+1 {
-		yi, yj := ring[i].Y, ring[j].Y
-		xi, xj := ring[i].X, ring[j].X
-		if (yi > p.Y) != (yj > p.Y) {
-			xIntersect := (xj-xi)*(p.Y-yi)/(yj-yi) + xi
-			if p.X < xIntersect {
-				inside = !inside
-			}
-		}
-	}
-	return inside
-}
 
 // unionInput packages the polygons as a MultiPolygon for the
 // overlay.UnaryUnion fallback path.

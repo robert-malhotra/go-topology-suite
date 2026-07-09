@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
 )
 
@@ -67,7 +68,7 @@ func Simplify(g geom.Geometry, tolerance float64) geom.Geometry {
 }
 
 func simplifyLineString(ls *geom.LineString, tol float64) *geom.LineString {
-	pts := lineToXY(ls)
+	pts := ls.XYs()
 	out := douglasPeucker(pts, tol)
 	return geom.NewLineString(ls.CRS(), out)
 }
@@ -86,7 +87,7 @@ func simplifyPolygon(p *geom.Polygon, tol float64) geom.Geometry {
 		simplified := douglasPeucker(ring, tol)
 		// A polygon ring needs at least 4 distinct vertices (closed). If
 		// simplification collapses below that, drop the ring.
-		if len(simplified) >= 4 && math.Abs(ringArea2(simplified)) > 0 {
+		if len(simplified) >= 4 && math.Abs(geomath.RingArea2(simplified)) > 0 {
 			rings = append(rings, simplified)
 		} else if r == 0 {
 			return geom.NewEmptyPolygon(p.CRS(), p.Layout())
@@ -137,22 +138,6 @@ func ringEnvelopeMinDim(ring []geom.XY) float64 {
 	return h
 }
 
-func ringArea2(ring []geom.XY) float64 {
-	var a float64
-	for i := 0; i+1 < len(ring); i++ {
-		a += ring[i].X*ring[i+1].Y - ring[i+1].X*ring[i].Y
-	}
-	return a
-}
-
-func lineToXY(ls *geom.LineString) []geom.XY {
-	out := make([]geom.XY, ls.NumPoints())
-	for i := range out {
-		out[i] = ls.PointAt(i)
-	}
-	return out
-}
-
 // douglasPeucker is the classic recursive simplification.
 func douglasPeucker(pts []geom.XY, tol float64) []geom.XY {
 	if len(pts) <= 2 {
@@ -180,7 +165,7 @@ func dpRecurse(pts []geom.XY, lo, hi int, tol float64, keep []bool) {
 	maxD := -1.0
 	maxI := -1
 	for i := lo + 1; i < hi; i++ {
-		d := perpDistance(pts[i], a, b)
+		d := geomath.PerpDistance(pts[i], a, b)
 		if d > maxD {
 			maxD = d
 			maxI = i
@@ -191,15 +176,4 @@ func dpRecurse(pts []geom.XY, lo, hi int, tol float64, keep []bool) {
 		dpRecurse(pts, lo, maxI, tol, keep)
 		dpRecurse(pts, maxI, hi, tol, keep)
 	}
-}
-
-func perpDistance(p, a, b geom.XY) float64 {
-	dx := b.X - a.X
-	dy := b.Y - a.Y
-	if dx == 0 && dy == 0 {
-		return math.Hypot(p.X-a.X, p.Y-a.Y)
-	}
-	num := math.Abs(dy*p.X - dx*p.Y + b.X*a.Y - b.Y*a.X)
-	den := math.Hypot(dx, dy)
-	return num / den
 }

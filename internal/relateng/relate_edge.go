@@ -118,7 +118,7 @@ func (e *RelateEdge) compareToEdge(edgeDirPt geom.XY) int {
 
 // merge folds in another edge that's collinear with this one (same
 // angle around the node). Mirrors RelateEdge.merge.
-func (e *RelateEdge) merge(isA bool, dirPt geom.XY, dim int, isForward bool) {
+func (e *RelateEdge) merge(isA bool, dim int, isForward bool) {
 	locEdge := LocInterior
 	locLeft := LocExterior
 	locRight := LocExterior

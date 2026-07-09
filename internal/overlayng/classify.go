@@ -1,6 +1,9 @@
 package overlayng
 
-import "github.com/exergy-dev/go-topology-suite/geom"
+import (
+	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
+)
 
 // classifyFacesByPolygons is the multi-aware classifier: it tags each
 // face with whether its interior lies inside any subj polygon (resp.
@@ -208,27 +211,12 @@ func pointInAnyPolygon(p geom.XY, rings [][]geom.XY, perPoly []int) bool {
 			off += n
 			continue
 		}
-		if pointInPolygonRings(p, rings[off:off+n]) {
+		if geomath.PointInPolygonRings(p, rings[off:off+n]) {
 			return true
 		}
 		off += n
 	}
 	return false
-}
-
-func pointInPolygonRings(p geom.XY, rings [][]geom.XY) bool {
-	if len(rings) == 0 {
-		return false
-	}
-	if !pointInRing(p, rings[0]) {
-		return false
-	}
-	for i := 1; i < len(rings); i++ {
-		if pointInRing(p, rings[i]) {
-			return false
-		}
-	}
-	return true
 }
 
 // interiorPoint returns a point guaranteed to be strictly inside the
@@ -260,24 +248,4 @@ func interiorPoint(f *face) geom.XY {
 		bestIdx = 0
 	}
 	return edgeNudgePoint(f.edges[bestIdx])
-}
-
-// pointInRing is the standard ray-cast (crossing-number) test against
-// a closed ring. Returns true iff p is strictly interior. Boundary
-// classification is handled separately by callers that need it.
-func pointInRing(p geom.XY, ring []geom.XY) bool {
-	if len(ring) < 4 {
-		return false
-	}
-	inside := false
-	for i := 0; i+1 < len(ring); i++ {
-		a, b := ring[i], ring[i+1]
-		if (a.Y > p.Y) != (b.Y > p.Y) {
-			xCross := a.X + (p.Y-a.Y)*(b.X-a.X)/(b.Y-a.Y)
-			if p.X < xCross {
-				inside = !inside
-			}
-		}
-	}
-	return inside
 }

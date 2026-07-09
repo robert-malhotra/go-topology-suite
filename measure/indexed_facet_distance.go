@@ -5,6 +5,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // IndexedFacetDistance pre-builds an R-tree over the facets (segments and
@@ -162,10 +163,10 @@ func facetFacetDistance(qa, qb geom.XY, qSeg bool, fa, fb geom.XY, fSeg bool) (f
 	case qSeg && fSeg:
 		return segmentSegmentNearest(qa, qb, fa, fb)
 	case qSeg && !fSeg:
-		d, q := pointSegmentNearest(fa, qa, qb)
+		d, q := geomath.SegmentNearestPoint(fa, qa, qb)
 		return d, q, fa
 	case !qSeg && fSeg:
-		d, q := pointSegmentNearest(qa, fa, fb)
+		d, q := geomath.SegmentNearestPoint(qa, fa, fb)
 		return d, qa, q
 	default:
 		return euclid(qa, fa), qa, fa

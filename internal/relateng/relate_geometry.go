@@ -353,12 +353,12 @@ func (g *Geometry) extractAtomic(isA bool, env geom.Envelope, gg geom.Geometry, 
 	elementID := *id
 	switch v := gg.(type) {
 	case *geom.LineString:
-		pts := lineStringCoords(v)
+		pts := v.XYs()
 		if len(pts) >= 2 {
 			*out = append(*out, NewRelateLineString(pts, isA, elementID))
 		}
 	case *geom.LinearRing:
-		pts := lineStringCoords(v.AsLineString())
+		pts := v.AsLineString().XYs()
 		if len(pts) >= 2 {
 			*out = append(*out, NewRelateLineString(pts, isA, elementID))
 		}
@@ -381,17 +381,6 @@ func (g *Geometry) extractAtomic(isA bool, env geom.Envelope, gg geom.Geometry, 
 			*out = append(*out, NewRelateRing(h, isA, elementID, i+1, parent))
 		}
 	}
-}
-
-// lineStringCoords copies the coordinate sequence from a LineString
-// into a fresh slice.
-func lineStringCoords(ls *geom.LineString) []geom.XY {
-	n := ls.NumPoints()
-	out := make([]geom.XY, n)
-	for i := 0; i < n; i++ {
-		out[i] = ls.PointAt(i)
-	}
-	return out
 }
 
 // orientRing returns a copy of pts oriented CW (requireCW=true) or CCW.

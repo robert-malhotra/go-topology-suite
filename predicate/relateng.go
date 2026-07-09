@@ -82,13 +82,10 @@ func (r *RelateNG) Relate(b geom.Geometry) (DE9IM, error) {
 }
 
 // relateViaNG computes the DE-9IM matrix via the RelateNG driver.
-// The bool result is vestigial (always true) — kept so future
-// "delegate to legacy on degenerate inputs" hooks could be added
-// without a signature change.
-func relateViaNG(a, b geom.Geometry, rule BoundaryNodeRule) (DE9IM, bool) {
+func relateViaNG(a, b geom.Geometry, rule BoundaryNodeRule) DE9IM {
 	rng := relateng.NewRelateNG(a, adaptBNR(rule))
 	im := rng.EvaluateMatrix(b)
-	return DE9IM(im.String()), true
+	return DE9IM(im.String())
 }
 
 // adaptBNR converts a predicate.BoundaryNodeRule to the

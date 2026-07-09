@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
@@ -91,7 +92,7 @@ func distanceOpWithLocations(a, b geom.Geometry, terminate float64) (float64, ge
 	if !done() {
 		visitPointalVertices(a, func(p geom.XY) {
 			visitSegments(b, func(s1, s2 geom.XY) {
-				d, pb := pointSegmentNearest(p, s1, s2)
+				d, pb := geomath.SegmentNearestPoint(p, s1, s2)
 				if d < min {
 					min = d
 					bestA = p
@@ -103,7 +104,7 @@ func distanceOpWithLocations(a, b geom.Geometry, terminate float64) (float64, ge
 	if !done() {
 		visitPointalVertices(b, func(p geom.XY) {
 			visitSegments(a, func(s1, s2 geom.XY) {
-				d, pa := pointSegmentNearest(p, s1, s2)
+				d, pa := geomath.SegmentNearestPoint(p, s1, s2)
 				if d < min {
 					min = d
 					bestA = pa
@@ -233,35 +234,16 @@ func visitSegmentsWithEnv(g geom.Geometry, fn func(a, b geom.XY, env segmentEnve
 	})
 }
 
-// pointSegmentNearest returns the distance from p to segment (a,b) and
-// the closest point on that segment.
-func pointSegmentNearest(p, a, b geom.XY) (float64, geom.XY) {
-	if a.X == b.X && a.Y == b.Y {
-		return euclid(p, a), a
-	}
-	dx := b.X - a.X
-	dy := b.Y - a.Y
-	r := ((p.X-a.X)*dx + (p.Y-a.Y)*dy) / (dx*dx + dy*dy)
-	if r <= 0 {
-		return euclid(p, a), a
-	}
-	if r >= 1 {
-		return euclid(p, b), b
-	}
-	q := geom.XY{X: a.X + r*dx, Y: a.Y + r*dy}
-	return euclid(p, q), q
-}
-
 // segmentSegmentNearest returns the distance between two segments and a
 // pair of closest points (one on each). Mirrors JTS LineSegment.closestPoints.
 func segmentSegmentNearest(a1, a2, b1, b2 geom.XY) (float64, geom.XY, geom.XY) {
 	// Handle degenerate (zero-length) segments by collapsing to point-to-segment.
 	if a1.X == a2.X && a1.Y == a2.Y {
-		d, q := pointSegmentNearest(a1, b1, b2)
+		d, q := geomath.SegmentNearestPoint(a1, b1, b2)
 		return d, a1, q
 	}
 	if b1.X == b2.X && b1.Y == b2.Y {
-		d, q := pointSegmentNearest(b1, a1, a2)
+		d, q := geomath.SegmentNearestPoint(b1, a1, a2)
 		return d, q, b1
 	}
 	// If they cross, distance is zero at the intersection.
@@ -283,7 +265,7 @@ func segmentSegmentNearest(a1, a2, b1, b2 geom.XY) (float64, geom.XY, geom.XY) {
 		{b2, a1, a2, true},
 	}
 	for _, c := range cases {
-		d, q := pointSegmentNearest(c.p, c.sA, c.sB)
+		d, q := geomath.SegmentNearestPoint(c.p, c.sA, c.sB)
 		if d < min {
 			min = d
 			if c.flip {

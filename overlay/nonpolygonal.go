@@ -5,8 +5,6 @@ import (
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
-	"github.com/exergy-dev/go-topology-suite/kernel"
-	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 	"github.com/exergy-dev/go-topology-suite/predicate"
 )
 
@@ -104,7 +102,7 @@ func pointsToGeometry(c *crs.CRS, pts []geom.XY) geom.Geometry {
 
 // pointCoveredBy reports whether p lies in the closure (interior+boundary)
 // of g. Used by Point-vs-X overlay branches.
-func pointCoveredBy(p geom.XY, g geom.Geometry, k kernel.Kernel) bool {
+func pointCoveredBy(p geom.XY, g geom.Geometry) bool {
 	pt := geom.NewPoint(g.CRS(), p)
 	ok, err := predicate.Covers(g, pt)
 	if err != nil {
@@ -127,12 +125,11 @@ func intersectionNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	if as, bs, ok := simplifyGCPair(a, b); ok {
 		return Intersection(as, bs)
 	}
-	k := planar.Default()
 	if isPointal(a) {
 		pts := extractPoints(a)
 		out := pts[:0]
 		for _, p := range pts {
-			if pointCoveredBy(p, b, k) {
+			if pointCoveredBy(p, b) {
 				out = append(out, p)
 			}
 		}
@@ -165,7 +162,6 @@ func unionNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	if as, bs, ok := simplifyGCPair(a, b); ok {
 		return Union(as, bs)
 	}
-	k := planar.Default()
 	if isPointal(a) && isPointal(b) {
 		seen := map[geom.XY]struct{}{}
 		var out []geom.XY
@@ -205,7 +201,7 @@ func unionNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	pts := extractPoints(pointsSide)
 	uncovered := pts[:0]
 	for _, p := range pts {
-		if !pointCoveredBy(p, otherSide, k) {
+		if !pointCoveredBy(p, otherSide) {
 			uncovered = append(uncovered, p)
 		}
 	}
@@ -228,12 +224,11 @@ func differenceNonPolygonal(a, b geom.Geometry) (geom.Geometry, error) {
 	if as, bs, ok := simplifyGCPair(a, b); ok {
 		return Difference(as, bs)
 	}
-	k := planar.Default()
 	if isPointal(a) {
 		pts := extractPoints(a)
 		out := pts[:0]
 		for _, p := range pts {
-			if !pointCoveredBy(p, b, k) {
+			if !pointCoveredBy(p, b) {
 				out = append(out, p)
 			}
 		}

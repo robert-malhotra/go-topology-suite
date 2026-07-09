@@ -189,7 +189,7 @@ func (g *offsetSegmentGenerator) addNextSegment(p geom.XY, addStartPoint bool) {
 	case outsideTurn:
 		g.addOutsideTurn(orientation, addStartPoint)
 	default:
-		g.addInsideTurn(orientation, addStartPoint)
+		g.addInsideTurn()
 	}
 }
 
@@ -263,7 +263,7 @@ func (g *offsetSegmentGenerator) addOutsideTurn(orientation kernel.Orientation, 
 // short interior segments. The closing segment never appears in the
 // final buffer outline (it sits inside the buffer's interior) but is
 // essential for the noder to correctly classify the corner geometry.
-func (g *offsetSegmentGenerator) addInsideTurn(orientation kernel.Orientation, addStartPoint bool) {
+func (g *offsetSegmentGenerator) addInsideTurn() {
 	if pt, ok := planar.Default().SegmentIntersection(
 		g.offset0.p0, g.offset0.p1, g.offset1.p0, g.offset1.p1); ok {
 		g.segList.addPt(pt)

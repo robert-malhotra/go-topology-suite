@@ -3,6 +3,7 @@ package prepare
 import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
@@ -408,7 +409,7 @@ func pointInGeometryCovers(p geom.XY, g geom.Geometry) bool {
 	case *geom.LineString:
 		n := v.NumPoints()
 		for i := 0; i+1 < n; i++ {
-			if onSegment(p, v.PointAt(i), v.PointAt(i+1)) {
+			if geomath.OnSegment(p, v.PointAt(i), v.PointAt(i+1)) {
 				return true
 			}
 		}
@@ -441,7 +442,7 @@ func onAnyRingBoundary(p geom.XY, poly *geom.Polygon) bool {
 	for r := 0; r < poly.NumRings(); r++ {
 		ring := poly.Ring(r)
 		for i := 0; i+1 < len(ring); i++ {
-			if onSegment(p, ring[i], ring[i+1]) {
+			if geomath.OnSegment(p, ring[i], ring[i+1]) {
 				return true
 			}
 		}

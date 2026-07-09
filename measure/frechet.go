@@ -37,18 +37,9 @@ func DiscreteFrechet(a, b *geom.LineString) float64 {
 	if a.IsEmpty() || b.IsEmpty() {
 		return math.Inf(+1)
 	}
-	pa := lineStringCoords(a)
-	pb := lineStringCoords(b)
+	pa := a.XYs()
+	pb := b.XYs()
 	return discreteFrechetCoords(pa, pb)
-}
-
-func lineStringCoords(ls *geom.LineString) []geom.XY {
-	n := ls.NumPoints()
-	out := make([]geom.XY, n)
-	for i := 0; i < n; i++ {
-		out[i] = ls.PointAt(i)
-	}
-	return out
 }
 
 // discreteFrechetCoords runs the standard DP. ca[i][j] is the coupling

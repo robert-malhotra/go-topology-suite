@@ -41,12 +41,58 @@ func (mp *MultiPoint) PointAt(i int) XY {
 	return XY{mp.coords[off], mp.coords[off+1]}
 }
 
-// MultiLineString is a collection of LineStrings.
-type MultiLineString struct {
+// multiBase carries the state and trivial accessors shared by the
+// part-slice collection types (MultiLineString, MultiPolygon,
+// GeometryCollection). MultiPoint uses flat baseGeom storage instead.
+type multiBase[T Geometry] struct {
 	layout Layout
 	crs    *crs.CRS
-	parts  []*LineString
+	parts  []T
 	env    atomic.Pointer[Envelope]
+}
+
+func (m *multiBase[T]) Layout() Layout     { return m.layout }
+func (m *multiBase[T]) CRS() *crs.CRS      { return m.crs }
+func (m *multiBase[T]) IsEmpty() bool      { return len(m.parts) == 0 }
+func (m *multiBase[T]) NumGeometries() int { return len(m.parts) }
+
+// Envelope returns the union of member envelopes (cached).
+func (m *multiBase[T]) Envelope() Envelope {
+	return cachedUnionEnvelope(&m.env, func(yield func(Envelope) bool) {
+		for _, p := range m.parts {
+			if !yield(p.Envelope()) {
+				return
+			}
+		}
+	})
+}
+
+// validatePartLayouts returns an error wrapping ErrLayoutMismatch when any
+// part's layout differs from the first part's.
+func validatePartLayouts[T Geometry](typeName string, parts []T) error {
+	layout := parts[0].Layout()
+	for i := 1; i < len(parts); i++ {
+		if parts[i].Layout() != layout {
+			return fmt.Errorf(
+				"%s child %d has layout %v, expected %v: %w",
+				typeName, i, parts[i].Layout(), layout, ErrLayoutMismatch)
+		}
+	}
+	return nil
+}
+
+// partsLayout returns the layout collections inherit from their first
+// member (LayoutXY when empty).
+func partsLayout[T Geometry](parts []T) Layout {
+	if len(parts) > 0 {
+		return parts[0].Layout()
+	}
+	return LayoutXY
+}
+
+// MultiLineString is a collection of LineStrings.
+type MultiLineString struct {
+	multiBase[*LineString]
 }
 
 // NewMultiLineString constructs from a slice of LineStrings. CRS and layout
@@ -55,11 +101,7 @@ type MultiLineString struct {
 // child whose layout differs from the first — prefer NewMultiLineStringStrict
 // for input from external or heterogeneous sources.
 func NewMultiLineString(c *crs.CRS, parts ...*LineString) *MultiLineString {
-	layout := LayoutXY
-	if len(parts) > 0 {
-		layout = parts[0].Layout()
-	}
-	return &MultiLineString{layout: layout, crs: c, parts: parts}
+	return newMultiLineString(partsLayout(parts), c, parts)
 }
 
 // NewMultiLineStringStrict is NewMultiLineString that validates every
@@ -68,53 +110,34 @@ func NewMultiLineString(c *crs.CRS, parts ...*LineString) *MultiLineString {
 // layout.
 func NewMultiLineStringStrict(c *crs.CRS, parts ...*LineString) (*MultiLineString, error) {
 	if len(parts) == 0 {
-		return &MultiLineString{layout: LayoutXY, crs: c}, nil
+		return newMultiLineString(LayoutXY, c, nil), nil
 	}
-	layout := parts[0].Layout()
-	for i := 1; i < len(parts); i++ {
-		if parts[i].Layout() != layout {
-			return nil, fmt.Errorf(
-				"MultiLineString child %d has layout %v, expected %v: %w",
-				i, parts[i].Layout(), layout, ErrLayoutMismatch)
-		}
+	if err := validatePartLayouts("MultiLineString", parts); err != nil {
+		return nil, err
 	}
-	return &MultiLineString{layout: layout, crs: c, parts: parts}, nil
+	return newMultiLineString(parts[0].Layout(), c, parts), nil
 }
 
 // NewEmptyMultiLineString returns an empty MultiLineString carrying the
 // given layout.
 func NewEmptyMultiLineString(c *crs.CRS, layout Layout) *MultiLineString {
-	return &MultiLineString{layout: layout, crs: c}
+	return newMultiLineString(layout, c, nil)
 }
 
-func (m *MultiLineString) isGeometry()        {}
-func (m *MultiLineString) Type() Type         { return MultiLineStringType }
-func (m *MultiLineString) Layout() Layout     { return m.layout }
-func (m *MultiLineString) CRS() *crs.CRS      { return m.crs }
-func (m *MultiLineString) IsEmpty() bool      { return len(m.parts) == 0 }
-func (m *MultiLineString) NumGeometries() int { return len(m.parts) }
+func newMultiLineString(layout Layout, c *crs.CRS, parts []*LineString) *MultiLineString {
+	return &MultiLineString{multiBase[*LineString]{layout: layout, crs: c, parts: parts}}
+}
+
+func (m *MultiLineString) isGeometry() {}
+func (m *MultiLineString) Type() Type  { return MultiLineStringType }
 
 // LineStringAt returns the i-th member. An out-of-range index is
 // programmer error and panics.
 func (m *MultiLineString) LineStringAt(i int) *LineString { return m.parts[i] }
 
-// Envelope returns the union of member envelopes (cached).
-func (m *MultiLineString) Envelope() Envelope {
-	return cachedUnionEnvelope(&m.env, func(yield func(Envelope) bool) {
-		for _, p := range m.parts {
-			if !yield(p.Envelope()) {
-				return
-			}
-		}
-	})
-}
-
 // MultiPolygon is a collection of Polygons.
 type MultiPolygon struct {
-	layout Layout
-	crs    *crs.CRS
-	parts  []*Polygon
-	env    atomic.Pointer[Envelope]
+	multiBase[*Polygon]
 }
 
 // NewMultiPolygon constructs from a slice of Polygons. Layout is taken
@@ -122,11 +145,7 @@ type MultiPolygon struct {
 // Z/M from any child whose layout differs. Prefer NewMultiPolygonStrict
 // for input from external or heterogeneous sources.
 func NewMultiPolygon(c *crs.CRS, parts ...*Polygon) *MultiPolygon {
-	layout := LayoutXY
-	if len(parts) > 0 {
-		layout = parts[0].Layout()
-	}
-	return &MultiPolygon{layout: layout, crs: c, parts: parts}
+	return newMultiPolygon(partsLayout(parts), c, parts)
 }
 
 // NewMultiPolygonStrict is NewMultiPolygon that validates every child has
@@ -134,52 +153,34 @@ func NewMultiPolygon(c *crs.CRS, parts ...*Polygon) *MultiPolygon {
 // on mismatch.
 func NewMultiPolygonStrict(c *crs.CRS, parts ...*Polygon) (*MultiPolygon, error) {
 	if len(parts) == 0 {
-		return &MultiPolygon{layout: LayoutXY, crs: c}, nil
+		return newMultiPolygon(LayoutXY, c, nil), nil
 	}
-	layout := parts[0].Layout()
-	for i := 1; i < len(parts); i++ {
-		if parts[i].Layout() != layout {
-			return nil, fmt.Errorf(
-				"MultiPolygon child %d has layout %v, expected %v: %w",
-				i, parts[i].Layout(), layout, ErrLayoutMismatch)
-		}
+	if err := validatePartLayouts("MultiPolygon", parts); err != nil {
+		return nil, err
 	}
-	return &MultiPolygon{layout: layout, crs: c, parts: parts}, nil
+	return newMultiPolygon(parts[0].Layout(), c, parts), nil
 }
 
 // NewEmptyMultiPolygon returns an empty MultiPolygon carrying the given
 // layout.
 func NewEmptyMultiPolygon(c *crs.CRS, layout Layout) *MultiPolygon {
-	return &MultiPolygon{layout: layout, crs: c}
+	return newMultiPolygon(layout, c, nil)
 }
 
-func (m *MultiPolygon) isGeometry()        {}
-func (m *MultiPolygon) Type() Type         { return MultiPolygonType }
-func (m *MultiPolygon) Layout() Layout     { return m.layout }
-func (m *MultiPolygon) CRS() *crs.CRS      { return m.crs }
-func (m *MultiPolygon) IsEmpty() bool      { return len(m.parts) == 0 }
-func (m *MultiPolygon) NumGeometries() int { return len(m.parts) }
+func newMultiPolygon(layout Layout, c *crs.CRS, parts []*Polygon) *MultiPolygon {
+	return &MultiPolygon{multiBase[*Polygon]{layout: layout, crs: c, parts: parts}}
+}
+
+func (m *MultiPolygon) isGeometry() {}
+func (m *MultiPolygon) Type() Type  { return MultiPolygonType }
 
 // PolygonAt returns the i-th member. An out-of-range index is programmer
 // error and panics.
 func (m *MultiPolygon) PolygonAt(i int) *Polygon { return m.parts[i] }
 
-func (m *MultiPolygon) Envelope() Envelope {
-	return cachedUnionEnvelope(&m.env, func(yield func(Envelope) bool) {
-		for _, p := range m.parts {
-			if !yield(p.Envelope()) {
-				return
-			}
-		}
-	})
-}
-
 // GeometryCollection is a heterogeneous collection of geometries.
 type GeometryCollection struct {
-	layout Layout
-	crs    *crs.CRS
-	parts  []Geometry
-	env    atomic.Pointer[Envelope]
+	multiBase[Geometry]
 }
 
 // NewGeometryCollection constructs from a slice of arbitrary geometries.
@@ -188,11 +189,7 @@ type GeometryCollection struct {
 // NewGeometryCollectionStrict for input from external or heterogeneous
 // sources.
 func NewGeometryCollection(c *crs.CRS, parts ...Geometry) *GeometryCollection {
-	layout := LayoutXY
-	if len(parts) > 0 {
-		layout = parts[0].Layout()
-	}
-	return &GeometryCollection{layout: layout, crs: c, parts: parts}
+	return newGeometryCollection(partsLayout(parts), c, parts)
 }
 
 // NewGeometryCollectionStrict is NewGeometryCollection that validates
@@ -200,45 +197,30 @@ func NewGeometryCollection(c *crs.CRS, parts ...Geometry) *GeometryCollection {
 // ErrLayoutMismatch on mismatch.
 func NewGeometryCollectionStrict(c *crs.CRS, parts ...Geometry) (*GeometryCollection, error) {
 	if len(parts) == 0 {
-		return &GeometryCollection{layout: LayoutXY, crs: c}, nil
+		return newGeometryCollection(LayoutXY, c, nil), nil
 	}
-	layout := parts[0].Layout()
-	for i := 1; i < len(parts); i++ {
-		if parts[i].Layout() != layout {
-			return nil, fmt.Errorf(
-				"GeometryCollection child %d has layout %v, expected %v: %w",
-				i, parts[i].Layout(), layout, ErrLayoutMismatch)
-		}
+	if err := validatePartLayouts("GeometryCollection", parts); err != nil {
+		return nil, err
 	}
-	return &GeometryCollection{layout: layout, crs: c, parts: parts}, nil
+	return newGeometryCollection(parts[0].Layout(), c, parts), nil
 }
 
 // NewEmptyGeometryCollection returns an empty GeometryCollection carrying
 // the given layout.
 func NewEmptyGeometryCollection(c *crs.CRS, layout Layout) *GeometryCollection {
-	return &GeometryCollection{layout: layout, crs: c}
+	return newGeometryCollection(layout, c, nil)
 }
 
-func (g *GeometryCollection) isGeometry()        {}
-func (g *GeometryCollection) Type() Type         { return GeometryCollectionType }
-func (g *GeometryCollection) Layout() Layout     { return g.layout }
-func (g *GeometryCollection) CRS() *crs.CRS      { return g.crs }
-func (g *GeometryCollection) IsEmpty() bool      { return len(g.parts) == 0 }
-func (g *GeometryCollection) NumGeometries() int { return len(g.parts) }
+func newGeometryCollection(layout Layout, c *crs.CRS, parts []Geometry) *GeometryCollection {
+	return &GeometryCollection{multiBase[Geometry]{layout: layout, crs: c, parts: parts}}
+}
+
+func (g *GeometryCollection) isGeometry() {}
+func (g *GeometryCollection) Type() Type  { return GeometryCollectionType }
 
 // GeometryAt returns the i-th member. An out-of-range index is programmer
 // error and panics.
 func (g *GeometryCollection) GeometryAt(i int) Geometry { return g.parts[i] }
-
-func (g *GeometryCollection) Envelope() Envelope {
-	return cachedUnionEnvelope(&g.env, func(yield func(Envelope) bool) {
-		for _, p := range g.parts {
-			if !yield(p.Envelope()) {
-				return
-			}
-		}
-	})
-}
 
 // cachedUnionEnvelope is the shared lazy-init helper for collection types.
 // It mirrors baseGeom.envelope() but accepts an iterator over child

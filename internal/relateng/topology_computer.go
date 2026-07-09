@@ -202,7 +202,7 @@ func (tc *TopologyComputer) AddLineEndOnGeometry(isLineA bool, locLineEnd, locTa
 
 // AddAreaVertex records an area vertex interaction with a target
 // element.
-func (tc *TopologyComputer) AddAreaVertex(isAreaA bool, locArea, locTarget, dimTarget int, p geom.XY) {
+func (tc *TopologyComputer) AddAreaVertex(isAreaA bool, locArea, locTarget, dimTarget int) {
 	if locTarget == LocExterior {
 		tc.updateDimAB(isAreaA, LocInterior, LocExterior, DimA)
 		if locArea == LocBoundary {
@@ -213,15 +213,15 @@ func (tc *TopologyComputer) AddAreaVertex(isAreaA bool, locArea, locTarget, dimT
 	}
 	switch dimTarget {
 	case DimP:
-		tc.addAreaVertexOnPoint(isAreaA, locArea, p)
+		tc.addAreaVertexOnPoint(isAreaA, locArea)
 	case DimL:
-		tc.addAreaVertexOnLine(isAreaA, locArea, locTarget, p)
+		tc.addAreaVertexOnLine(isAreaA, locArea, locTarget)
 	case DimA:
-		tc.addAreaVertexOnArea(isAreaA, locArea, locTarget, p)
+		tc.addAreaVertexOnArea(isAreaA, locArea, locTarget)
 	}
 }
 
-func (tc *TopologyComputer) addAreaVertexOnPoint(isAreaA bool, locArea int, p geom.XY) {
+func (tc *TopologyComputer) addAreaVertexOnPoint(isAreaA bool, locArea int) {
 	tc.updateDimAB(isAreaA, locArea, LocInterior, DimP)
 	tc.updateDimAB(isAreaA, LocInterior, LocExterior, DimA)
 	if locArea == LocBoundary {
@@ -230,14 +230,14 @@ func (tc *TopologyComputer) addAreaVertexOnPoint(isAreaA bool, locArea int, p ge
 	}
 }
 
-func (tc *TopologyComputer) addAreaVertexOnLine(isAreaA bool, locArea, locTarget int, p geom.XY) {
+func (tc *TopologyComputer) addAreaVertexOnLine(isAreaA bool, locArea, locTarget int) {
 	tc.updateDimAB(isAreaA, locArea, locTarget, DimP)
 	if locArea == LocInterior {
 		tc.updateDimAB(isAreaA, LocInterior, LocExterior, DimA)
 	}
 }
 
-func (tc *TopologyComputer) addAreaVertexOnArea(isAreaA bool, locArea, locTarget int, p geom.XY) {
+func (tc *TopologyComputer) addAreaVertexOnArea(isAreaA bool, locArea, locTarget int) {
 	if locTarget == LocBoundary {
 		if locArea == LocBoundary {
 			tc.updateDimAB(isAreaA, LocBoundary, LocBoundary, DimP)

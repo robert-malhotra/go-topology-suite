@@ -69,7 +69,7 @@ func (c *CentroidBuilder) Add(g geom.Geometry) {
 	case *geom.LineString:
 		c.addLineSegments(v.XYs())
 	case *geom.LinearRing:
-		c.addLineSegments(ringCoords(v))
+		c.addLineSegments(v.AsLineString().XYs())
 	case *geom.MultiLineString:
 		for i := 0; i < v.NumGeometries(); i++ {
 			c.Add(v.LineStringAt(i))
@@ -201,13 +201,4 @@ func ringIsCCW(pts []geom.XY) bool {
 		area2 += pts[i].X*pts[i+1].Y - pts[i+1].X*pts[i].Y
 	}
 	return area2 > 0
-}
-
-func ringCoords(lr *geom.LinearRing) []geom.XY {
-	n := lr.NumPoints()
-	out := make([]geom.XY, n)
-	for i := 0; i < n; i++ {
-		out[i] = lr.PointAt(i)
-	}
-	return out
 }

@@ -3,6 +3,7 @@ package overlayng
 import (
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // overlayDisjointPolygonal handles the multi-polygon disjoint case:
@@ -35,7 +36,7 @@ func polygonContainedIn(a, b *geom.Polygon) bool {
 	for i := 0; i < b.NumRings(); i++ {
 		rings[i] = b.Ring(i)
 	}
-	return pointInPolygonRings(tp, rings)
+	return geomath.PointInPolygonRings(tp, rings)
 }
 
 func disjointIntersection(c *crs.CRS, subj, clip []*geom.Polygon) (*geom.Polygon, []*geom.Polygon, error) {

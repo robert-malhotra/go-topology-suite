@@ -4,6 +4,7 @@ import (
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/noding"
 	"github.com/exergy-dev/go-topology-suite/internal/snap"
 )
@@ -562,27 +563,13 @@ func polygonHoleCrossesOuter(p *geom.Polygon) bool {
 			a, b := hole[i], hole[i+1]
 			for j := 0; j+1 < len(outer); j++ {
 				c, d := outer[j], outer[j+1]
-				if segmentsCrossProper2D(a, b, c, d) {
+				if geomath.SegmentsCrossProper(a, b, c, d) {
 					return true
 				}
 			}
 		}
 	}
 	return false
-}
-
-// segmentsCrossProper2D reports whether segments (a,b) and (c,d) cross
-// strictly in their interiors (no shared endpoints, no T-junctions).
-func segmentsCrossProper2D(a, b, c, d geom.XY) bool {
-	o1 := orient2D(a, b, c)
-	o2 := orient2D(a, b, d)
-	o3 := orient2D(c, d, a)
-	o4 := orient2D(c, d, b)
-	return o1*o2 < 0 && o3*o4 < 0
-}
-
-func orient2D(a, b, c geom.XY) float64 {
-	return (b.X-a.X)*(c.Y-a.Y) - (b.Y-a.Y)*(c.X-a.X)
 }
 
 // ringHasRepeatedInteriorVertex returns true when the closed ring

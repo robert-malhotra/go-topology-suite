@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // Option configures a generator. Options are accepted as variadic
@@ -94,12 +95,12 @@ func RandomPointsInPolygon(n int, p *geom.Polygon, opts ...Option) []geom.XY {
 			X: env.MinX + w*cfg.random64(),
 			Y: env.MinY + h*cfg.random64(),
 		}
-		if !pointInRing(c, shell) {
+		if !geomath.PointInRing(c, shell) {
 			continue
 		}
 		inHole := false
 		for _, h := range holes {
-			if pointInRing(c, h) {
+			if geomath.PointInRing(c, h) {
 				inHole = true
 				break
 			}
@@ -110,25 +111,4 @@ func RandomPointsInPolygon(n int, p *geom.Polygon, opts ...Option) []geom.XY {
 		pts = append(pts, c)
 	}
 	return pts
-}
-
-// pointInRing performs a ray-cast point-in-ring test. ring is expected to
-// be closed (first == last). Boundary points are counted as inside.
-func pointInRing(p geom.XY, ring []geom.XY) bool {
-	if len(ring) < 4 {
-		return false
-	}
-	inside := false
-	n := len(ring) - 1
-	for i := 0; i < n; i++ {
-		a := ring[i]
-		b := ring[i+1]
-		if (a.Y > p.Y) != (b.Y > p.Y) {
-			xint := a.X + (p.Y-a.Y)*(b.X-a.X)/(b.Y-a.Y)
-			if p.X < xint {
-				inside = !inside
-			}
-		}
-	}
-	return inside
 }

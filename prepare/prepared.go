@@ -5,6 +5,7 @@ import (
 
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
+	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 )
 
@@ -131,7 +132,7 @@ func (pp *PreparedPolygon) ContainsPoint(p geom.XY) kernel.Containment {
 		b := ring[vi+1]
 
 		// Boundary coincidence first; this is a hard "OnBoundary" answer.
-		if onSegment(p, a, b) {
+		if geomath.OnSegment(p, a, b) {
 			onBoundary = true
 			return false // stop traversal
 		}
@@ -203,19 +204,4 @@ func (pp *PreparedPolygon) IntersectsEnvelope(e geom.Envelope) bool {
 		}
 	}
 	return false
-}
-
-// onSegment reports whether p lies exactly on the closed segment [a,b].
-// Mirrors planar.onSegment, which is unexported.
-func onSegment(p, a, b geom.XY) bool {
-	if (b.X-a.X)*(p.Y-a.Y)-(b.Y-a.Y)*(p.X-a.X) != 0 {
-		return false
-	}
-	if p.X < math.Min(a.X, b.X) || p.X > math.Max(a.X, b.X) {
-		return false
-	}
-	if p.Y < math.Min(a.Y, b.Y) || p.Y > math.Max(a.Y, b.Y) {
-		return false
-	}
-	return true
 }
