@@ -4,9 +4,9 @@ import (
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
-	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/noding"
 	"github.com/exergy-dev/go-topology-suite/internal/snap"
+	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
 
 // Op identifies which boolean polygon operation to perform.
@@ -563,7 +563,7 @@ func polygonHoleCrossesOuter(p *geom.Polygon) bool {
 			a, b := hole[i], hole[i+1]
 			for j := 0; j+1 < len(outer); j++ {
 				c, d := outer[j], outer[j+1]
-				if geomath.SegmentsCrossProper(a, b, c, d) {
+				if segmentsCrossProperRobust(a, b, c, d) {
 					return true
 				}
 			}
@@ -1064,4 +1064,17 @@ func flattenNoded(strings []*noding.SegmentString) []taggedSegment {
 		}
 	}
 	return out
+}
+
+// segmentsCrossProperRobust reports whether segments (a,b) and (c,d)
+// cross strictly in their interiors, using the adaptive/exact planar
+// kernel so near-collinear configurations are classified correctly
+// (mirrors JTS, which uses robust orientation here).
+func segmentsCrossProperRobust(a, b, c, d geom.XY) bool {
+	k := planar.Default()
+	o1 := k.Orient(a, b, c)
+	o2 := k.Orient(a, b, d)
+	o3 := k.Orient(c, d, a)
+	o4 := k.Orient(c, d, b)
+	return o1 != 0 && o2 != 0 && o3 != 0 && o4 != 0 && o1 != o2 && o3 != o4
 }

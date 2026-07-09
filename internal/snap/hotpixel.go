@@ -355,26 +355,14 @@ func (s *HotPixelSet) segmentIntersectsPixel(a, b, centre geom.XY) bool {
 	return false
 }
 
-// orientOf returns the sign of the cross product (b-a) × (c-a) for
-// segment endpoints (ax,ay)-(bx,by) and test point (cx,cy). Mirrors
-// JTS CGAlgorithmsDD.orientationIndex but uses plain double arithmetic
-// — sufficient for the snap-round hot-pixel test, where coordinates
-// are already grid-aligned and the differences fit comfortably in
-// float64 precision.
+// orientOf returns the orientation sign of test point (cx,cy) relative
+// to segment (ax,ay)-(bx,by). Mirrors JTS CGAlgorithmsDD.orientationIndex
+// including its robustness: the adaptive/exact planar kernel resolves
+// near-collinear corner-grazing cases that plain double arithmetic
+// misclassifies.
 func orientOf(ax, ay, bx, by, cx, cy float64) int {
-	dx1 := bx - ax
-	dy1 := by - ay
-	dx2 := cx - ax
-	dy2 := cy - ay
-	det := dx1*dy2 - dy1*dx2
-	switch {
-	case det > 0:
-		return 1
-	case det < 0:
-		return -1
-	default:
-		return 0
-	}
+	return int(planar.Default().Orient(
+		geom.XY{X: ax, Y: ay}, geom.XY{X: bx, Y: by}, geom.XY{X: cx, Y: cy}))
 }
 
 // projectedSegmentParam returns the parameter t such that
