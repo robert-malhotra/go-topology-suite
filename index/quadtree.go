@@ -195,7 +195,7 @@ func (n *qtNodeBase[T]) remove(searchEnv geom.Envelope, value T, isMatch func(ge
 }
 
 func (n *qtNode[T]) removeNode(searchEnv geom.Envelope, value T) bool {
-	return n.qtNodeBase.remove(searchEnv, value, n.isSearchMatch)
+	return n.remove(searchEnv, value, n.isSearchMatch)
 }
 
 func (r *qtRoot[T]) remove(searchEnv geom.Envelope, value T) bool {
@@ -246,7 +246,7 @@ func (n *qtNodeBase[T]) visit(search geom.Envelope, isMatch func(geom.Envelope) 
 }
 
 func (n *qtNode[T]) visitNode(search geom.Envelope, fn func(Item[T]) bool) bool {
-	return n.qtNodeBase.visit(search, n.isSearchMatch, fn)
+	return n.visit(search, n.isSearchMatch, fn)
 }
 
 func (r *qtRoot[T]) visit(search geom.Envelope, fn func(Item[T]) bool) bool {

@@ -117,7 +117,7 @@ func (v *FastNodingValidator) Validate(input []*SegmentString) error {
 		// JTS skips adjacent segments of the same string for this check
 		// (their shared vertex is by-construction noded).
 		isInteriorVertex := false
-		if !(i1 == i2 && (j1 == j2+1 || j2 == j1+1 || j1 == j2)) {
+		if i1 != i2 || (j1 != j2+1 && j2 != j1+1 && j1 != j2) {
 			m1 := segMetaFor(i1, j1)
 			m2 := segMetaFor(i2, j2)
 			isInteriorVertex = isInteriorVertexHit(a1, a2, b1, b2,

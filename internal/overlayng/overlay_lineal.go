@@ -657,11 +657,12 @@ func pointOnOriginalLine(v geom.XY, ptMask int, aPts []geom.XY, aSegs []*noding.
 ) bool {
 	var origPts []geom.XY
 	var otherSegs []*noding.SegmentString
-	if ptMask == 1 {
+	switch ptMask {
+	case 1:
 		origPts, otherSegs = aPts, bSegs
-	} else if ptMask == 2 {
+	case 2:
 		origPts, otherSegs = bPts, aSegs
-	} else {
+	default:
 		return false
 	}
 	// Find original Point(s) that snap to v.

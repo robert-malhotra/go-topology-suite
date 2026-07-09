@@ -157,7 +157,7 @@ func pointInTriangle(a, b, c, p geom.XY) bool {
 	o3 := o.Orient(c, a, p)
 	hasCW := o1 == kernel.Clockwise || o2 == kernel.Clockwise || o3 == kernel.Clockwise
 	hasCCW := o1 == kernel.CounterClockwise || o2 == kernel.CounterClockwise || o3 == kernel.CounterClockwise
-	return !(hasCW && hasCCW)
+	return !hasCW || !hasCCW
 }
 
 // validEarScan handles the rare case of a duplicate-apex vertex in the

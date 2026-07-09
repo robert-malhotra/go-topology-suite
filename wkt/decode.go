@@ -405,15 +405,6 @@ func (p *parser) parsePolygon() (geom.Geometry, error) {
 	}
 }
 
-func flatToXY(flat []float64, stride int) []geom.XY {
-	n := len(flat) / stride
-	out := make([]geom.XY, n)
-	for i := 0; i < n; i++ {
-		out[i] = geom.XY{X: flat[i*stride], Y: flat[i*stride+1]}
-	}
-	return out
-}
-
 func (p *parser) parseMultiPoint() (geom.Geometry, error) {
 	layout, empty := p.parseEmptyOrLayout()
 	if empty {

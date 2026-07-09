@@ -136,9 +136,7 @@ func collectCoords(g geom.Geometry, out *[]geom.XY) {
 		}
 	case *geom.Polygon:
 		for r := 0; r < v.NumRings(); r++ {
-			for _, p := range v.Ring(r) {
-				*out = append(*out, p)
-			}
+			*out = append(*out, v.Ring(r)...)
 		}
 	case *geom.MultiPoint:
 		for i := 0; i < v.NumGeometries(); i++ {

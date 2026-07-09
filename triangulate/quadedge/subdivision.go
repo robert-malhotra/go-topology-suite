@@ -12,10 +12,10 @@ const (
 	edgeCoincidenceTolFactor = 1000.0
 )
 
-// LocateFailureError is returned when point location in a Subdivision
+// ErrLocateFailure is returned when point location in a Subdivision
 // fails to converge. JTS throws LocateFailureException; we surface a
 // sentinel error instead.
-var LocateFailureError = errors.New("quadedge: locate failure")
+var ErrLocateFailure = errors.New("quadedge: locate failure")
 
 // Subdivision contains the QuadEdges representing a planar subdivision.
 //
@@ -134,7 +134,7 @@ func (s *Subdivision) Delete(e *QuadEdge) {
 
 // LocateFromEdge runs the standard Guibas–Stolfi point-location walk
 // starting at startEdge. It returns an edge whose left triangle contains
-// v (or which has v as an endpoint). Returns LocateFailureError if the
+// v (or which has v as an endpoint). Returns ErrLocateFailure if the
 // walk does not converge in O(N) iterations.
 func (s *Subdivision) LocateFromEdge(v *Vertex, startEdge *QuadEdge) (*QuadEdge, error) {
 	maxIter := len(s.quadEdges) + 1
@@ -144,7 +144,7 @@ func (s *Subdivision) LocateFromEdge(v *Vertex, startEdge *QuadEdge) (*QuadEdge,
 	e := startEdge
 	for iter := 0; ; iter++ {
 		if iter > maxIter {
-			return nil, LocateFailureError
+			return nil, ErrLocateFailure
 		}
 		switch {
 		case v.Equal(e.Orig()), v.Equal(e.Dest()):

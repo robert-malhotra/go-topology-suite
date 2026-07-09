@@ -204,7 +204,7 @@ func rectangleFromBase(hullPts []geom.XY, p0, p1 geom.XY, g geom.Geometry) (*geo
 	q1, ok1 := lineIntersection(minParaLine, maxPerpLine)
 	q2, ok2 := lineIntersection(minParaLine, minPerpLine)
 	q3, ok3 := lineIntersection(maxParaLine, minPerpLine)
-	if !(ok0 && ok1 && ok2 && ok3) {
+	if !ok0 || !ok1 || !ok2 || !ok3 {
 		return nil, false
 	}
 	ring := []geom.XY{q0, q1, q2, q3, q0}

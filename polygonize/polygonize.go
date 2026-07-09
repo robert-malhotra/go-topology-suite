@@ -356,10 +356,7 @@ func (g *graph) traceFace(start *dirEdge) *traceRing {
 	var coords []geom.XY
 	var edges []*dirEdge
 	cur := start
-	for {
-		if cur.visited {
-			break
-		}
+	for !cur.visited {
 		cur.visited = true
 		edges = append(edges, cur)
 		// Append vertices of cur.line in walk direction, skipping the

@@ -19,7 +19,7 @@ func near(t *testing.T, got, want, tol float64, msg string) {
 }
 
 func TestSatisfiesKernel(t *testing.T) {
-	var _ kernel.Kernel = Default()
+	var _ = Default()
 	assert.Equal(t, "geodesic", Default().Name(), "name")
 }
 

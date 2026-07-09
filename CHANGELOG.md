@@ -17,6 +17,7 @@ First stable release. Every exported symbol outside `internal/` is now covered b
 - **`geom.ErrLayoutMismatch` added**; the `NewMulti*Strict` / `NewGeometryCollectionStrict` constructors wrap it so mixed-layout errors are matchable.
 - **Java-ism renames**: `linearref.GetLength/GetLocation/GetLocationResolve` → `Length/Location/LocationResolve`; `linearref.LinearLocation.GetCoordinate` → `Coordinate`; `dissolve.LineDissolver` → `dissolve.Lines`; `quadedge.Subdivision.GetTriangleVertices/GetPrimaryEdges` → `TriangleVertices/PrimaryEdges`; `wkb.EncodeHex/DecodeHex` → `wkb.MarshalHex/UnmarshalHex`.
 - **`geom.NewLinearRingFlatNoClone` → `geom.NewLinearRingOwned`**, aligning with `NewLineStringOwned`/`NewPolygonOwned`.
+- **`quadedge.LocateFailureError` → `quadedge.ErrLocateFailure`** (idiomatic Go error naming).
 - **`geom.XY.EqualOrBothNaN` removed** (was deprecated; `Equal` has identical NaN semantics).
 - **Similarity measures moved from `measure` to `measure/match`.** `HausdorffSimilarity`, `AreaSimilarity`, `FrechetSimilarity`, `CombineSimilarities`, `CombineMin` now live in `measure/match` and call `overlay` directly. The `measure.IntersectionFunc`/`measure.UnionFunc` global hooks are gone — previously `AreaSimilarity` silently returned NaN unless `measure/match` was blank-imported.
 - **`predicate.SetUnaryUnion` removed** (exported no-op stub).

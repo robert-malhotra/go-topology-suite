@@ -100,8 +100,11 @@ func assertEmptyCircumcircle(t *testing.T, pts []geom.XY, tris []Triangle) {
 			if approxEq(p, a) || approxEq(p, b) || approxEq(p, c) {
 				continue
 			}
-			require.Falsef(t, inCircleStrict(a, b, c, p, eps),
-				"empty-circumcircle property violated:\n  tri = %v %v %v\n  pt  = %v", a, b, c, p)
+			// Plain check: this loop runs millions of times, so avoid
+			// per-iteration testify/t.Helper overhead.
+			if inCircleStrict(a, b, c, p, eps) {
+				t.Fatalf("empty-circumcircle property violated:\n  tri = %v %v %v\n  pt  = %v", a, b, c, p)
+			}
 		}
 	}
 }

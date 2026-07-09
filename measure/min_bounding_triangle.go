@@ -205,9 +205,6 @@ func (st *mbtState) triangleForIndex(c, a, b int) (va, vb, vc geom.XY, aOut, bOu
 		}
 		sideB = newMBTSide(iCB, iAB)
 		sideA = tempSideA
-		if sideB.distance(sideB.midpoint()) < 0 {
-			// unreachable; placeholder
-		}
 		// JTS: if dist(sideB.midpoint(), sideC) < dist(a-1, sideC) - tol → recompute sideA via gamma
 		if sideC.distance(sideB.midpoint()) < st.distIdx(am1, sideC)-st.tol {
 			gammaA, gaOK := st.gamma(st.points[am1], sideB, sideC)

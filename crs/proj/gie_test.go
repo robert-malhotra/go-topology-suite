@@ -40,9 +40,8 @@ func TestGieFixtures(t *testing.T) {
 					skipped++
 					continue
 				}
-				if !runBlock(t, b, p, params) {
-					// failures already reported via t.Errorf
-				}
+				// runBlock reports failures via t.Errorf itself.
+				runBlock(t, b, p, params)
 				runs++
 			}
 			t.Logf("%s: %d blocks run, %d skipped", f, runs, skipped)

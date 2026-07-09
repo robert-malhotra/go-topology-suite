@@ -322,7 +322,7 @@ func recordSelfTouches(r *polygonRing) {
 	n := len(ring) - 1 // skip closing dup
 	for i := 0; i < n; i++ {
 		if prev, ok := idx[ring[i]]; ok {
-			if i-prev > 1 && !(prev == 0 && i == n-1) {
+			if i-prev > 1 && (prev != 0 || i != n-1) {
 				e00 := ring[(prev-1+n)%n]
 				e01 := ring[(prev+1)%n]
 				e10 := ring[(i-1+n)%n]

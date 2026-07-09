@@ -259,7 +259,7 @@ func repairSelfIntersectingPolygon(p *geom.Polygon, outer []geom.XY) geom.Geomet
 		// Apply holes to each shell of the multi-polygon. This is a
 		// best-effort approximation: a hole that intersects two
 		// shells will be subtracted from each.
-		var result geom.Geometry = cleaned
+		result := cleaned
 		for _, hole := range holes {
 			holePoly := geom.NewPolygon(r.CRS(), orientCCW(hole))
 			if diff, err := overlay.Difference(result, holePoly); err == nil && diff != nil && !diff.IsEmpty() {

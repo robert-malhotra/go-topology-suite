@@ -414,7 +414,9 @@ func karneyInverse(lon1, lat1, lon2, lat2 float64) (s, alpha1, alpha2 float64) {
 		s12x = s12x_
 		if sig12 < karneyTol2 || m12b >= 0 {
 			if sig12 < 3*tiny {
-				sig12, s12x = 0, 0
+				// The C original also zeroes sig12/m12x here; this
+				// port only carries s12x forward.
+				s12x = 0
 			}
 			s12x *= b
 		} else {

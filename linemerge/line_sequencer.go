@@ -174,7 +174,7 @@ func findSequence(comp []*node) []*directedEdge {
 	startDESym := startDE.sym()
 
 	seq := list.New()
-	addReverseSubpath(startDESym, seq, seq.Front(), false)
+	addReverseSubpath(startDESym, seq, seq.Front())
 
 	// Walk backwards through the list, looking for unvisited
 	// out-edges to splice in (closed subpaths).
@@ -182,7 +182,7 @@ func findSequence(comp []*node) []*directedEdge {
 		prev := elem.Value.(*directedEdge)
 		out := findUnvisitedBestOrientedOut(prev.fromNode())
 		if out != nil {
-			addReverseSubpath(out.sym(), seq, elem, true)
+			addReverseSubpath(out.sym(), seq, elem)
 		}
 	}
 
@@ -200,8 +200,10 @@ func findSequence(comp []*node) []*directedEdge {
 //
 // JTS uses a ListIterator with .add() which inserts before the
 // current cursor. We emulate by inserting before `at` in `seq`.
-func addReverseSubpath(de *directedEdge, seq *list.List, at *list.Element, expectedClosed bool) {
-	endNode := de.toNode()
+// JTS also asserts the path closes back on the start node when a
+// closed subpath is expected; we silently accept instead — a broken
+// sequence fails the line-count check in Sequence.
+func addReverseSubpath(de *directedEdge, seq *list.List, at *list.Element) {
 	var fromNode *node
 	for {
 		// Insert de.sym() into the sequence before `at` (or at back
@@ -219,10 +221,6 @@ func addReverseSubpath(de *directedEdge, seq *list.List, at *list.Element, expec
 			break
 		}
 		de = out.sym()
-	}
-	if expectedClosed && fromNode != endNode {
-		// JTS asserts here; we silently accept — the resulting
-		// sequence will fail the line-count check in Sequence.
 	}
 }
 

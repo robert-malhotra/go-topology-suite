@@ -223,21 +223,14 @@ func (e segmentEnvelope) distance(o segmentEnvelope) float64 {
 // callback can return true to abort the iteration early.
 func visitSegmentsWithEnv(g geom.Geometry, fn func(a, b geom.XY, env segmentEnvelope) bool) {
 	abort := false
-	var visit func(g geom.Geometry)
-	visit = func(g geom.Geometry) {
+	visitSegments(g, func(a, b geom.XY) {
 		if abort {
 			return
 		}
-		visitSegments(g, func(a, b geom.XY) {
-			if abort {
-				return
-			}
-			if fn(a, b, newSegEnv(a, b)) {
-				abort = true
-			}
-		})
-	}
-	visit(g)
+		if fn(a, b, newSegEnv(a, b)) {
+			abort = true
+		}
+	})
 }
 
 // pointSegmentNearest returns the distance from p to segment (a,b) and

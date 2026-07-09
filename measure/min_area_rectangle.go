@@ -196,7 +196,7 @@ func rectangleFromSidePts(baseRight, baseLeft, opposite, leftSide, rightSide geo
 	} else {
 		p3, ok3 = lineLineIntersection(oppLine, rightLine)
 	}
-	if !(ok0 && ok1 && ok2 && ok3) {
+	if !ok0 || !ok1 || !ok2 || !ok3 {
 		return nil, false
 	}
 	ring := []geom.XY{p0, p1, p2, p3, p0}

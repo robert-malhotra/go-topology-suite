@@ -77,11 +77,10 @@ func (k Kernel) SegmentIntersection(a1, a2, b1, b2 geom.XY) (geom.XY, bool) {
 // between the endpoints).
 func pointOnArc(p, va, vb vec3) bool {
 	const eps = 1e-9
-	// On great circle: (va × vb) · p ≈ 0.
+	// A strict on-great-circle test would require (va × vb) · p ≈ 0,
+	// but the normalize step leaves a residual we deliberately
+	// tolerate, so no rejection happens here.
 	n := va.cross(vb)
-	if math.Abs(n.dot(p)) > eps {
-		// Tolerate the non-zero residual from the normalize step.
-	}
 	d1 := va.cross(p).dot(n)
 	d2 := p.cross(vb).dot(n)
 	return d1 >= -eps && d2 >= -eps

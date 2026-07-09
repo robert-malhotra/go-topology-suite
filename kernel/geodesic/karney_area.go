@@ -164,7 +164,6 @@ func sinCosSeriesSin(sinx, cosx float64, c []float64) float64 {
 	// algorithm we set: if ((n+1)&1) y0 = c[n]; else y0 = 0; n_used = (n+1)/2.
 	// Easier: directly pre-strip c[0].
 	// Equivalent restatement: compute SinCosSeries(TRUE) on c[1..n-1].
-	idx = n
 	if (idx & 1) == 0 {
 		idx--
 		y0 = c[idx]

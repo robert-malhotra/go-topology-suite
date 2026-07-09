@@ -20,7 +20,7 @@ func pointInsideTriangle(p, a, b, c geom.XY) bool {
 	d3 := (p.X-a.X)*(c.Y-a.Y) - (c.X-a.X)*(p.Y-a.Y)
 	hasNeg := d1 < -1e-7 || d2 < -1e-7 || d3 < -1e-7
 	hasPos := d1 > 1e-7 || d2 > 1e-7 || d3 > 1e-7
-	return !(hasNeg && hasPos)
+	return !hasNeg || !hasPos
 }
 
 func TestMinimumBoundingTriangle_Empty(t *testing.T) {

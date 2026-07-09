@@ -241,10 +241,7 @@ func walkChain(e *edge, from *node) *geom.LineString {
 	current := e
 	at := from
 	forward, reverse := 0, 0
-	for {
-		if current.mark {
-			break
-		}
+	for !current.mark {
 		current.mark = true
 		// Append coordinates of `current` in the direction
 		// dictated by `at`: traverse `current.line` so it starts

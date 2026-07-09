@@ -65,7 +65,7 @@ func (i *EdgeSegmentIntersector) handleIntersectionPt(ssA *RelateSegmentString, 
 		// Vertex-incident: only emit if the point is canonically owned
 		// by both segments. This avoids double-counting vertex
 		// intersections that two adjacent segments share.
-		if !(ssA.IsContainingSegment(segA, intPt) && ssB.IsContainingSegment(segB, intPt)) {
+		if !ssA.IsContainingSegment(segA, intPt) || !ssB.IsContainingSegment(segB, intPt) {
 			return
 		}
 	}
