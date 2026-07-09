@@ -9,7 +9,6 @@ import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/internal/overlayng"
-	"github.com/exergy-dev/go-topology-suite/internal/xybuf"
 	"github.com/exergy-dev/go-topology-suite/measure"
 )
 
@@ -565,9 +564,8 @@ func unwrapLinearRing(g geom.Geometry) geom.Geometry {
 }
 
 // intersectionGeneral returns subject ∩ clipper for arbitrary polygons
-// or multipolygons. Falls back to the v0.1 Greiner-Hormann path on
-// inputs the overlay-NG path can't handle (currently only single-polygon
-// inputs go through GH; multi-polygon inputs always use overlay-NG).
+// or multipolygons via the overlay-NG pipeline (including its
+// snap-rounding tolerance ladder).
 func intersectionGeneral(subject, clipper geom.Geometry) (geom.Geometry, error) {
 	if err := requireSameCRS(subject, clipper); err != nil {
 		return nil, err
@@ -590,22 +588,7 @@ func intersectionGeneral(subject, clipper geom.Geometry) (geom.Geometry, error) 
 	if g, ok := tryOverlayNG(subj, clip, overlayng.OpIntersection); ok {
 		return g, nil
 	}
-	// Greiner-Hormann fallback only handles single-polygon inputs.
-	if len(subj) != 1 || len(clip) != 1 {
-		return nil, fmt.Errorf("overlay: Intersection fallback handles only single-polygon operands: %w", gts.ErrUnsupported)
-	}
-	sp, cp := subj[0], clip[0]
-	rings, hadIx := runGreinerHormann(outerRing(sp), outerRing(cp), string(opIntersection))
-	if hadIx {
-		return ringsToGeometry(subject.CRS(), rings)
-	}
-	switch {
-	case ringContainsRing(outerRing(cp), outerRing(sp)):
-		return geom.NewPolygon(subject.CRS(), outerRing(sp)), nil
-	case ringContainsRing(outerRing(sp), outerRing(cp)):
-		return geom.NewPolygon(subject.CRS(), outerRing(cp)), nil
-	}
-	return geom.NewEmptyPolygon(subject.CRS(), geom.LayoutXY), nil
+	return nil, fmt.Errorf("overlay: Intersection did not converge: %w", gts.ErrUnsupported)
 }
 
 // Union returns subject ∪ other for arbitrary polygons or multipolygons.
@@ -638,24 +621,7 @@ func Union(subject, other geom.Geometry) (geom.Geometry, error) {
 	if g, ok := tryOverlayNG(subj, oth, overlayng.OpUnion); ok {
 		return g, nil
 	}
-	if len(subj) != 1 || len(oth) != 1 {
-		return nil, fmt.Errorf("overlay: Union fallback handles only single-polygon operands: %w", gts.ErrUnsupported)
-	}
-	sp, op := subj[0], oth[0]
-	rings, hadIx := runGreinerHormann(outerRing(sp), outerRing(op), string(opUnion))
-	if hadIx {
-		return ringsToGeometry(subject.CRS(), rings)
-	}
-	switch {
-	case ringContainsRing(outerRing(op), outerRing(sp)):
-		return geom.NewPolygon(subject.CRS(), outerRing(op)), nil
-	case ringContainsRing(outerRing(sp), outerRing(op)):
-		return geom.NewPolygon(subject.CRS(), outerRing(sp)), nil
-	}
-	return geom.NewMultiPolygon(subject.CRS(),
-		geom.NewPolygon(subject.CRS(), outerRing(sp)),
-		geom.NewPolygon(subject.CRS(), outerRing(op)),
-	), nil
+	return nil, fmt.Errorf("overlay: Union did not converge: %w", gts.ErrUnsupported)
 }
 
 // Difference returns subject \ other for arbitrary polygons or
@@ -689,21 +655,7 @@ func Difference(subject, other geom.Geometry) (geom.Geometry, error) {
 	if g, ok := tryOverlayNG(subj, oth, overlayng.OpDifference); ok {
 		return g, nil
 	}
-	if len(subj) != 1 || len(oth) != 1 {
-		return nil, fmt.Errorf("overlay: Difference fallback handles only single-polygon operands: %w", gts.ErrUnsupported)
-	}
-	sp, op := subj[0], oth[0]
-	rings, hadIx := runGreinerHormann(outerRing(sp), outerRing(op), string(opDifference))
-	if hadIx {
-		return ringsToGeometry(subject.CRS(), rings)
-	}
-	switch {
-	case ringContainsRing(outerRing(op), outerRing(sp)):
-		return geom.NewEmptyPolygon(subject.CRS(), geom.LayoutXY), nil
-	case ringContainsRing(outerRing(sp), outerRing(op)):
-		return geom.NewPolygon(subject.CRS(), outerRing(sp), xybuf.ReverseCopy(outerRing(op))), nil
-	}
-	return geom.NewPolygon(subject.CRS(), outerRing(sp)), nil
+	return nil, fmt.Errorf("overlay: Difference did not converge: %w", gts.ErrUnsupported)
 }
 
 // SymmetricDifference returns (a \ b) ∪ (b \ a). For polygons without
@@ -882,36 +834,6 @@ func nonEmptyOf(subj, oth []*geom.Polygon, c *crs.CRS) geom.Geometry {
 		return polygonsToGeometry(c, oth)
 	}
 	return polygonsToGeometry(c, subj)
-}
-
-// ringsToGeometry converts a slice of result rings into a Polygon (one
-// ring) or MultiPolygon (multiple disjoint rings). v0.1 does not detect
-// holes inside the result; every output ring is treated as outer.
-func ringsToGeometry(c *crs.CRS, rings [][]geom.XY) (geom.Geometry, error) {
-	switch len(rings) {
-	case 0:
-		return geom.NewEmptyPolygon(c, geom.LayoutXY), nil
-	case 1:
-		return geom.NewPolygon(c, rings[0]), nil
-	default:
-		polys := make([]*geom.Polygon, 0, len(rings))
-		for _, r := range rings {
-			polys = append(polys, geom.NewPolygon(c, r))
-		}
-		return geom.NewMultiPolygon(c, polys...), nil
-	}
-}
-
-// ringContainsRing reports whether outer fully contains inner (every
-// vertex of inner lies inside outer's ring). Used in no-intersection
-// fallbacks; assumes outer is simple and non-self-intersecting.
-func ringContainsRing(outer, inner []geom.XY) bool {
-	for _, p := range inner {
-		if !geomath.PointInRing(p, outer) {
-			return false
-		}
-	}
-	return true
 }
 
 func collectAsMultiPolygon(c *crs.CRS, geoms ...geom.Geometry) geom.Geometry {

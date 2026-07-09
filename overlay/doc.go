@@ -6,10 +6,9 @@
 // JTS overlay-NG design, in internal/overlayng): offset-free noding with
 // snap-rounding retries, a half-edge DCEL planar subdivision, per-face
 // classification against the original inputs, and boundary extraction.
-// A Greiner-Hormann clipper remains as a fallback for single-polygon
-// operands when snap-rounding does not converge, and a Sutherland-Hodgman
-// fast path handles convex clippers. Lineal and pointal operands route
-// to dedicated line-overlay and point-membership engines.
+// A Sutherland-Hodgman fast path handles convex clippers. Lineal and
+// pointal operands route to dedicated line-overlay and point-membership
+// engines.
 //
 // Operands must share a CRS (compared with crs.Equal); mixing returns
 // gts.ErrCRSMismatch. Combinations the engines cannot handle return an
