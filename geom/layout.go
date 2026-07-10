@@ -55,7 +55,10 @@ func (l Layout) String() string {
 	}
 }
 
-// Type identifies which of the seven OGC geometry types a Geometry is.
+// Type identifies which of the seven OGC geometry types a Geometry is,
+// plus LinearRingType — LinearRing is an eighth concrete Geometry type.
+// Type switches over Geometry must handle *LinearRing or normalize it away
+// with UnwrapLinearRing.
 type Type uint8
 
 const (

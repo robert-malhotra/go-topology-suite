@@ -21,7 +21,10 @@ type Geometry interface {
 	CRS() *crs.CRS
 
 	// Envelope returns the 2D bounding box. Z and M are ignored.
-	// Envelope is cached after the first call (lock-free via atomic).
+	// Implementations either cache the result after the first call
+	// (lock-free, via an atomic pointer) or compute it inline when that is
+	// cheaper than the cache allocation (Point). Either way repeated calls
+	// are cheap and safe for concurrent use.
 	Envelope() Envelope
 
 	// IsEmpty reports whether the geometry has no coordinates.

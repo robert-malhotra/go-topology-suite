@@ -564,12 +564,7 @@ func requireSameCRS(a, b geom.Geometry) error {
 
 // unwrapLinearRing routes a LinearRing through LineString code paths.
 // Overlay operations treat the closed ring as a 1-D curve.
-func unwrapLinearRing(g geom.Geometry) geom.Geometry {
-	if lr, ok := g.(*geom.LinearRing); ok {
-		return lr.AsLineString()
-	}
-	return g
-}
+var unwrapLinearRing = geom.UnwrapLinearRing
 
 // intersectionGeneral returns subject ∩ clipper for arbitrary polygons
 // or multipolygons via the overlay-NG pipeline (including its

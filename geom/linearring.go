@@ -11,6 +11,14 @@ import (
 // not at construction). Distinct from LineString primarily so isValid can
 // reject self-intersecting closed rings (per OGC SFA / JTS); operationally
 // most code can treat it as a LineString.
+//
+// LinearRing is an eighth concrete Geometry type beyond the seven OGC
+// Simple Features types (Point, LineString, Polygon, and the four
+// collections). Code that type-switches over Geometry must therefore
+// handle *LinearRing explicitly, or normalize it away first with
+// UnwrapLinearRing — otherwise a ring silently falls through to the
+// default case. Most operations treat it as a 1-D curve (its
+// AsLineString view), which is exactly what UnwrapLinearRing yields.
 type LinearRing struct {
 	baseGeom
 }
@@ -79,4 +87,18 @@ func (lr *LinearRing) CoordsXY() iter.Seq[XY] {
 // must not mutate.
 func (lr *LinearRing) AsLineString() *LineString {
 	return &LineString{baseGeom{layout: lr.layout, coords: lr.coords, crs: lr.crs}}
+}
+
+// UnwrapLinearRing normalizes a *LinearRing to its LineString view and
+// returns every other Geometry unchanged (nil stays nil). LinearRing is an
+// eighth concrete Geometry type beyond the seven OGC Simple Features types;
+// call this before type-switching over a Geometry unless the switch handles
+// *LinearRing explicitly, so a ring does not silently fall through the
+// default case. The returned LineString shares the ring's coordinate buffer
+// (see AsLineString) and preserves its CRS and layout.
+func UnwrapLinearRing(g Geometry) Geometry {
+	if lr, ok := g.(*LinearRing); ok {
+		return lr.AsLineString()
+	}
+	return g
 }

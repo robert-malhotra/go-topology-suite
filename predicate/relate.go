@@ -33,12 +33,7 @@ func Relate(a, b geom.Geometry, opts ...Option) (DE9IM, error) {
 // unwrapLinearRing routes a LinearRing through the LineString code paths.
 // LinearRing exists primarily for OGC validity (rejecting self-intersecting
 // closed rings); operationally relate/intersect/etc treat it as a 1-D curve.
-func unwrapLinearRing(g geom.Geometry) geom.Geometry {
-	if lr, ok := g.(*geom.LinearRing); ok {
-		return lr.AsLineString()
-	}
-	return g
-}
+var unwrapLinearRing = geom.UnwrapLinearRing
 
 // isMulti reports whether g is a Multi* or GeometryCollection.
 func isMulti(g geom.Geometry) bool {
