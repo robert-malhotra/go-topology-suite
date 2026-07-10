@@ -218,7 +218,7 @@ func collectLineworkInto(g geom.Geometry, out *[]*geom.LineString) {
 // an empty LineString carrying the input CRS.
 func packOffsetResult(input geom.Geometry, lines []*geom.LineString) geom.Geometry {
 	if len(lines) == 0 {
-		return geom.NewLineString(input.CRS(), nil)
+		return geom.NewEmptyLineString(input.CRS(), input.Layout())
 	}
 	if len(lines) == 1 {
 		return lines[0]

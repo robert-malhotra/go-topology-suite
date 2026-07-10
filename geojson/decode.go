@@ -200,15 +200,13 @@ func relayoutFlat(src []float64, from, to geom.Layout) []float64 {
 }
 
 func decodeMultiPoint(coords json.RawMessage, c *crs.CRS) (geom.Geometry, error) {
-	flat, _, err := decodeFlatLine(coords)
+	flat, layout, err := decodeFlatLine(coords)
 	if err != nil {
 		return nil, err
 	}
-	pts := make([]geom.XY, 0, len(flat)/2)
-	for i := 0; i+1 < len(flat); i += 2 {
-		pts = append(pts, geom.XY{X: flat[i], Y: flat[i+1]})
-	}
-	return geom.NewMultiPoint(c, pts), nil
+	// decodeFlatLine already returns the full-stride flat buffer, so Z/M
+	// values survive instead of being truncated to XY.
+	return geom.NewMultiPointOwned(layout, c, flat), nil
 }
 
 func decodeMultiLineString(coords json.RawMessage, c *crs.CRS) (geom.Geometry, error) {

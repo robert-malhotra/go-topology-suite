@@ -4,7 +4,20 @@ import (
 	"sync/atomic"
 
 	"github.com/exergy-dev/go-topology-suite/crs"
+	"github.com/exergy-dev/go-topology-suite/internal/flatref"
 )
+
+// init wires the internal zero-copy bridge used by in-module encoders. The
+// interface assertion targets the unexported flatCoords method so only geom
+// geometries satisfy it — external types can never trigger the alias.
+func init() {
+	flatref.Coords = func(g any) []float64 {
+		if fc, ok := g.(interface{ flatCoords() []float64 }); ok {
+			return fc.flatCoords()
+		}
+		return nil
+	}
+}
 
 // baseGeom is embedded by every concrete geometry type. It owns the flat
 // coordinate buffer, the CRS pointer, and the envelope cache.
@@ -22,10 +35,24 @@ type baseGeom struct {
 
 func (b *baseGeom) Layout() Layout { return b.layout }
 func (b *baseGeom) CRS() *crs.CRS  { return b.crs }
-func (b *baseGeom) FlatCoords() []float64 {
-	// Returns the underlying buffer. Callers MUST treat as read-only;
-	// mutating it bypasses the envelope cache invariant.
+
+// flatCoords returns the underlying coordinate buffer without copying. It is
+// unexported: in-module callers reach it through internal/flatref, and MUST
+// treat the result as read-only — mutating it bypasses the envelope cache
+// invariant. External code uses AppendFlatCoords for a caller-owned copy.
+func (b *baseGeom) flatCoords() []float64 {
 	return b.coords
+}
+
+// AppendFlatCoords appends this geometry's coordinates — in layout order and
+// at the geometry's stride — to dst and returns the extended slice. Pass nil
+// to allocate a fresh slice. The result is owned by the caller; mutating it
+// does not affect the geometry (append-into idiom matching Polygon.RingInto).
+//
+// This is the supported way for external code to read the Z/M ordinates of
+// non-Point vertices, which the typed accessors otherwise project away to XY.
+func (b *baseGeom) AppendFlatCoords(dst []float64) []float64 {
+	return append(dst, b.coords...)
 }
 
 // stride returns the number of float64 values per coordinate.
@@ -53,16 +80,4 @@ func (b *baseGeom) envelope() Envelope {
 		return *e
 	}
 	return computed
-}
-
-// cloneFloats returns a defensive copy of in. Constructors clone inputs by
-// default so callers retain ownership of their own slices — the same rule
-// the v2 codebase used.
-func cloneFloats(in []float64) []float64 {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]float64, len(in))
-	copy(out, in)
-	return out
 }

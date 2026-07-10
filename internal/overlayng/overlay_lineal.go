@@ -816,7 +816,7 @@ func stitchEdgesXYAtNodes(edges []canonicalEdgeXY, globalDeg map[geom.XY]int, c 
 // MultiLineString / MultiPoint, mixed → GeometryCollection.
 func assembleLinealMixed(c *crs.CRS, lines []*geom.LineString, points []geom.XY) geom.Geometry {
 	if len(lines) == 0 && len(points) == 0 {
-		return geom.NewLineString(c, nil)
+		return geom.NewEmptyLineString(c, geom.LayoutXY)
 	}
 	if len(lines) == 0 {
 		if len(points) == 1 {

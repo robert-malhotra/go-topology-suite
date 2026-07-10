@@ -13,7 +13,7 @@ func TestLineStringIsClosed(t *testing.T) {
 	open := NewLineString(nil, []XY{{0, 0}, {1, 0}, {1, 1}})
 	assert.False(t, open.IsClosed(), "open line string")
 
-	empty := NewLineString(nil, nil)
+	empty := NewLineString(nil, []XY(nil))
 	assert.False(t, empty.IsClosed(), "empty line string is not closed")
 
 	// Single-point degenerate: not closed (n<2).
@@ -30,6 +30,6 @@ func TestLinearRingIsClosed(t *testing.T) {
 	assert.False(t, open.IsClosed(), "ill-formed ring is not closed")
 
 	// Empty ring is treated as closed (vacuously) per JTS.
-	empty := NewLinearRing(nil, nil)
+	empty := NewLinearRing(nil, []XY(nil))
 	assert.True(t, empty.IsClosed(), "empty ring is closed")
 }

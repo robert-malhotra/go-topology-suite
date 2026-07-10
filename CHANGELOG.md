@@ -6,12 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **`geom.NewLineString`, `NewLinearRing`, `NewPolygon`, and `NewMultiPoint` are now generic over the coordinate element type** (`[C geom.Coord]`, the closed union `XY | XYZ | XYM | XYZM`). The layout is inferred from the element type, so a single call constructs Z/M geometries — `geom.NewLineString(crs, []geom.XYZ{...})` — instead of the twelve named variants that would otherwise be needed. Existing `[]geom.XY` call sites compile unchanged. The one incompatibility: sites that passed an untyped `nil` can no longer infer the type parameter; use the layout-carrying `NewEmpty*` constructor (or a typed nil such as `[]geom.XY(nil)`) instead.
+- **`geom.NewLinearRingFlat` removed.** The clone-variant was inconsistent with the `*Owned` family. Its sole caller — the WKT decoder — now uses `geom.NewLinearRingOwned`, which has identical semantics for the nil buffer it passed.
+- **`FlatCoords()` removed from every geometry type; read coordinates with `AppendFlatCoords(dst []float64) []float64`.** `FlatCoords` handed out the geometry's internal, mutable coordinate buffer — mutating it silently corrupted the lazily-cached envelope. The new append-into accessor (matching `Polygon.RingInto`) copies into a caller-owned slice; pass `nil` for a fresh one. It is the supported way for external code to read the Z/M ordinates of non-Point vertices, which the typed accessors otherwise project away to XY. In-module encoders (`wkb`, `wkt`, `geojson`, `predicate`) read the buffer zero-copy through the new internal `flatref` bridge, so encoder output is byte-identical.
+
+### Added
+
+- **`geom.NewMultiPointOwned(layout, crs, flat)`** — donate-ownership MultiPoint constructor that completes the `*Owned` family (parallels `NewLineStringOwned`). Format decoders use it to build MultiPoints at full stride.
+
 ### Removed
 
 - **GEOS/PostGIS cross-implementation conformance stubs** (`bench/conformance/geos_impl.go`, `bench/conformance/postgis_impl.go`) and their `cgo`/`postgis` build-tag documentation. The stubs were never wired to a real backend — `newDefaultImpls()` only ever compared go-topology-suite against simplefeatures, and no CI job used the tags. Bench-module-only cleanup; not part of the v1 public API surface. Drops the `github.com/twpayne/go-geos` dev-only dependency from `bench/`.
 
 ### Fixed
 
+- **`MULTIPOINT` silently dropped Z and M ordinates on decode in all three formats.** The WKB, WKT, and GeoJSON decoders truncated every MultiPoint member to XY, because the old `NewMultiPoint` only accepted `[]geom.XY`. They now route full-stride coordinates through `geom.NewMultiPointOwned`, so `MULTIPOINT Z` / `M` / `ZM` round-trips preserve every ordinate.
 - **`crs.Equal` now recognises structurally identical ad-hoc CRSes.** Two CRSes built with `crs.NewWithDefinition` that carry no authority code and no WKT2 text — but have the same `Kind` and a deep-equal `*Definition` (datum, axis order, projection) — now compare equal instead of only by pointer. Comparison is layered in four tiers: pointer identity, authority code, WKT2 text, then this structural fallback. Definition remains payload rather than identity for authority-identified CRSes, so `crs.WGS84` still equals its `epsg`-registry counterpart; definition-less ad-hoc CRSes remain pointer-equal-only. Custom `crs.Projection` implementations must be `reflect.DeepEqual`-comparable value types to participate in the structural tier.
 
 ## [1.0.0] - 2026-07-08

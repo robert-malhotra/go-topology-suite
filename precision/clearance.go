@@ -82,7 +82,7 @@ func (s *SimpleMinimumClearance) Distance() float64 {
 func (s *SimpleMinimumClearance) Line() *geom.LineString {
 	s.compute()
 	if math.IsInf(s.minClearance, +1) {
-		return geom.NewLineString(nil, nil)
+		return geom.NewEmptyLineString(nil, geom.LayoutXY)
 	}
 	return geom.NewLineString(nil, []geom.XY{s.minClearancePts[0], s.minClearancePts[1]})
 }

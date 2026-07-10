@@ -15,21 +15,14 @@ type LinearRing struct {
 	baseGeom
 }
 
-// NewLinearRing constructs a LinearRing from a slice of XY coordinates.
-// The input is cloned; the caller retains ownership. The constructor does
-// NOT verify ring validity — use validate.Validate to check.
-func NewLinearRing(c *crs.CRS, pts []XY) *LinearRing {
-	flat := make([]float64, 0, 2*len(pts))
-	for _, p := range pts {
-		flat = append(flat, p.X, p.Y)
-	}
-	return &LinearRing{baseGeom{layout: LayoutXY, coords: flat, crs: c}}
-}
-
-// NewLinearRingFlat constructs a LinearRing directly from a flat coordinate
-// buffer. The buffer is cloned.
-func NewLinearRingFlat(layout Layout, c *crs.CRS, flat []float64) *LinearRing {
-	return &LinearRing{baseGeom{layout: layout, coords: cloneFloats(flat), crs: c}}
+// NewLinearRing constructs a LinearRing from a slice of coordinate values.
+// It is generic over the four coordinate types (XY, XYZ, XYM, XYZM); the
+// layout is inferred from the element type. The input is cloned; the caller
+// retains ownership. The constructor does NOT verify ring validity — use
+// validate.Validate to check.
+func NewLinearRing[C Coord](c *crs.CRS, pts []C) *LinearRing {
+	layout, flat := flattenCoords(pts)
+	return &LinearRing{baseGeom{layout: layout, coords: flat, crs: c}}
 }
 
 // NewLinearRingOwned takes ownership of flat without copying, matching

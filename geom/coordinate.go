@@ -27,8 +27,9 @@ type XYZM struct {
 }
 
 // Coord is the union of all four coordinate value types. It is the type
-// parameter constraint used by generic coordinate-transform helpers like
-// geom.Apply.
+// parameter constraint used by the generic geometry constructors
+// NewLineString, NewLinearRing, NewPolygon, and NewMultiPoint, which infer
+// a geometry's Layout from the coordinate element type.
 type Coord interface {
 	XY | XYZ | XYM | XYZM
 }

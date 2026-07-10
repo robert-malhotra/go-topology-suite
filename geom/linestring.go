@@ -12,14 +12,13 @@ type LineString struct {
 	baseGeom
 }
 
-// NewLineString constructs a LineString from a slice of XY coordinates.
-// The input is cloned; the caller retains ownership.
-func NewLineString(c *crs.CRS, pts []XY) *LineString {
-	flat := make([]float64, 0, 2*len(pts))
-	for _, p := range pts {
-		flat = append(flat, p.X, p.Y)
-	}
-	return &LineString{baseGeom{layout: LayoutXY, coords: flat, crs: c}}
+// NewLineString constructs a LineString from a slice of coordinate values.
+// It is generic over the four coordinate types (XY, XYZ, XYM, XYZM); the
+// layout is inferred from the element type. The input is cloned; the caller
+// retains ownership.
+func NewLineString[C Coord](c *crs.CRS, pts []C) *LineString {
+	layout, flat := flattenCoords(pts)
+	return &LineString{baseGeom{layout: layout, coords: flat, crs: c}}
 }
 
 // NewLineStringOwned constructs a LineString that takes ownership of

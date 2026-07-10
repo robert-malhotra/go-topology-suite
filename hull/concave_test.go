@@ -11,7 +11,7 @@ import (
 )
 
 func TestConcaveHull_Empty(t *testing.T) {
-	g := geom.NewMultiPoint(nil, nil)
+	g := geom.NewMultiPoint(nil, []geom.XY(nil))
 	got, err := ConcaveHull(g, 0)
 	require.NoError(t, err)
 	require.NotNil(t, got, "nil result")

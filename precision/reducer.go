@@ -106,7 +106,7 @@ func (r *PrecisionReducer) reduce(g geom.Geometry) geom.Geometry {
 		ls := r.reduceLineString(v.AsLineString())
 		// Re-promote to LinearRing if it remained closed and valid.
 		if ls.IsEmpty() || ls.NumPoints() < 4 {
-			return geom.NewLineString(v.CRS(), nil)
+			return geom.NewEmptyLineString(v.CRS(), v.Layout())
 		}
 		return ls
 	case *geom.Polygon:
@@ -193,7 +193,7 @@ func (r *PrecisionReducer) reducePoint(p *geom.Point) *geom.Point {
 func (r *PrecisionReducer) reduceLineString(ls *geom.LineString) *geom.LineString {
 	pts := snapAndDedup(ls.XYs(), r.pm)
 	if r.RemoveCollapsed && len(pts) < 2 {
-		return geom.NewLineString(ls.CRS(), nil)
+		return geom.NewEmptyLineString(ls.CRS(), ls.Layout())
 	}
 	if len(pts) < 2 {
 		// Pad a duplicate to avoid panicking constructors that
@@ -201,7 +201,7 @@ func (r *PrecisionReducer) reduceLineString(ls *geom.LineString) *geom.LineStrin
 		if len(pts) == 1 {
 			pts = append(pts, pts[0])
 		} else {
-			return geom.NewLineString(ls.CRS(), nil)
+			return geom.NewEmptyLineString(ls.CRS(), ls.Layout())
 		}
 	}
 	return geom.NewLineString(ls.CRS(), pts)

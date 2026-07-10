@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/flatref"
 )
 
 // Option configures the GeoJSON writer.
@@ -129,7 +130,7 @@ func writePoint(b *strings.Builder, p *geom.Point, c *config) error {
 		b.WriteString("[]}")
 		return nil
 	}
-	writeVertex(b, p.FlatCoords(), 0, p.Layout(), c)
+	writeVertex(b, flatref.Coords(p), 0, p.Layout(), c)
 	b.WriteByte('}')
 	return nil
 }
@@ -155,7 +156,7 @@ func writeCoordSequence(b *strings.Builder, flat []float64, layout geom.Layout, 
 
 func writeLineString(b *strings.Builder, ls *geom.LineString, c *config) error {
 	b.WriteString(`{"type":"LineString","coordinates":`)
-	writeCoordSequence(b, ls.FlatCoords(), ls.Layout(), c)
+	writeCoordSequence(b, flatref.Coords(ls), ls.Layout(), c)
 	b.WriteByte('}')
 	return nil
 }
@@ -176,7 +177,7 @@ func writePolygonRings(b *strings.Builder, p *geom.Polygon, c *config) {
 	if stride == 0 {
 		return
 	}
-	flat := p.FlatCoords()
+	flat := flatref.Coords(p)
 	vertexOff := 0
 	for r := 0; r < p.NumRings(); r++ {
 		if r > 0 {
@@ -228,7 +229,7 @@ func orientedFlatRing(flat []float64, layout geom.Layout, r int) []float64 {
 
 func writeMultiPoint(b *strings.Builder, mp *geom.MultiPoint, c *config) error {
 	b.WriteString(`{"type":"MultiPoint","coordinates":`)
-	writeCoordSequence(b, mp.FlatCoords(), mp.Layout(), c)
+	writeCoordSequence(b, flatref.Coords(mp), mp.Layout(), c)
 	b.WriteByte('}')
 	return nil
 }
@@ -240,7 +241,7 @@ func writeMultiLineString(b *strings.Builder, m *geom.MultiLineString, c *config
 			b.WriteByte(',')
 		}
 		ls := m.LineStringAt(i)
-		writeCoordSequence(b, ls.FlatCoords(), ls.Layout(), c)
+		writeCoordSequence(b, flatref.Coords(ls), ls.Layout(), c)
 	}
 	b.WriteString("]}")
 	return nil

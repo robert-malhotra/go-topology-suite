@@ -72,8 +72,8 @@ func TestFrechetSimilarity_OrderSensitive(t *testing.T) {
 }
 
 func TestFrechetSimilarity_BothEmpty(t *testing.T) {
-	a := geom.NewLineString(nil, nil)
-	b := geom.NewLineString(nil, nil)
+	a := geom.NewLineString(nil, []geom.XY(nil))
+	b := geom.NewLineString(nil, []geom.XY(nil))
 	got := FrechetSimilarity(a, b)
 	assert.Equal(t, 1.0, got, "both empty: want 1, got %v", got)
 }

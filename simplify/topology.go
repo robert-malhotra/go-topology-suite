@@ -382,7 +382,7 @@ func rebuild(g geom.Geometry, results [][]geom.XY, idx *int) (geom.Geometry, boo
 		pts := results[*idx]
 		*idx++
 		if len(pts) < 2 {
-			return geom.NewLineString(v.CRS(), nil), false
+			return geom.NewEmptyLineString(v.CRS(), v.Layout()), false
 		}
 		return geom.NewLineString(v.CRS(), pts), true
 	case *geom.LinearRing:

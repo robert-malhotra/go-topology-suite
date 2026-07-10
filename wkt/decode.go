@@ -360,7 +360,7 @@ func (p *parser) parseLineString() (geom.Geometry, error) {
 func (p *parser) parseLinearRing() (geom.Geometry, error) {
 	layout, empty := p.parseEmptyOrLayout()
 	if empty {
-		return geom.NewLinearRingFlat(layout, p.crs, nil), nil
+		return geom.NewLinearRingOwned(layout, p.crs, nil), nil
 	}
 	flat, err := p.readCoordSequence(layout.Stride())
 	if err != nil {
@@ -408,48 +408,49 @@ func (p *parser) parsePolygon() (geom.Geometry, error) {
 func (p *parser) parseMultiPoint() (geom.Geometry, error) {
 	layout, empty := p.parseEmptyOrLayout()
 	if empty {
-		return geom.NewMultiPoint(p.crs, nil), nil
+		return geom.NewEmptyMultiPoint(p.crs, layout), nil
 	}
 	if err := p.consume('('); err != nil {
 		return nil, err
 	}
 	stride := layout.Stride()
-	var pts []geom.XY
+	var flat []float64
 	for {
 		// Each member may be EMPTY, parenthesised "(x y)", or bare "x y".
 		p.skipWhitespace()
 		if p.tryReadEmpty() {
-			// Drop empty Point member; go-topology-suite's MultiPoint is a flat XY
-			// list and has no representation for empty Points. JTS
+			// Drop empty Point member; go-topology-suite's MultiPoint is a flat
+			// coordinate list and has no representation for empty Points. JTS
 			// behaviour is preserved for relate/distance/overlay since
 			// an empty Point contributes nothing topologically.
 		} else {
-			var flat []float64
+			var c []float64
 			if p.peek() == '(' {
 				p.pos++
-				c, err := p.readCoord(stride)
+				cc, err := p.readCoord(stride)
 				if err != nil {
 					return nil, err
 				}
 				if err := p.consume(')'); err != nil {
 					return nil, err
 				}
-				flat = c
+				c = cc
 			} else {
-				c, err := p.readCoord(stride)
+				cc, err := p.readCoord(stride)
 				if err != nil {
 					return nil, err
 				}
-				flat = c
+				c = cc
 			}
-			pts = append(pts, geom.XY{X: flat[0], Y: flat[1]})
+			// readCoord returns the full stride, so Z/M values survive.
+			flat = append(flat, c...)
 		}
 		done, err := p.consumeMemberSeparator("multipoint")
 		if err != nil {
 			return nil, err
 		}
 		if done {
-			return geom.NewMultiPoint(p.crs, pts), nil
+			return geom.NewMultiPointOwned(layout, p.crs, flat), nil
 		}
 	}
 }

@@ -338,7 +338,7 @@ func assembleMixedDim(c *crs.CRS, first *geom.Polygon, rest []*geom.Polygon, lin
 
 func wrapLinesResult(c *crs.CRS, lines [][]geom.XY) geom.Geometry {
 	if len(lines) == 0 {
-		return geom.NewLineString(c, nil)
+		return geom.NewEmptyLineString(c, geom.LayoutXY)
 	}
 	if len(lines) == 1 {
 		return geom.NewLineString(c, lines[0])

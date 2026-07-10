@@ -17,25 +17,28 @@ type Polygon struct {
 	ringStarts []int // vertex offsets; len = numRings; first element is 0
 }
 
-// NewPolygon constructs a polygon from XY rings. The first ring is the
-// outer shell; remaining rings are holes. Rings are cloned.
-func NewPolygon(c *crs.CRS, rings ...[]XY) *Polygon {
+// NewPolygon constructs a polygon from coordinate rings. The first ring is
+// the outer shell; remaining rings are holes. It is generic over the four
+// coordinate types (XY, XYZ, XYM, XYZM); the layout is inferred from the
+// element type. Rings are cloned.
+func NewPolygon[C Coord](c *crs.CRS, rings ...[]C) *Polygon {
+	layout := layoutOf[C]()
+	stride := layout.Stride()
 	totalVerts := 0
 	for _, r := range rings {
 		totalVerts += len(r)
 	}
-	flat := make([]float64, 0, 2*totalVerts)
+	flat := make([]float64, 0, stride*totalVerts)
 	starts := make([]int, 0, len(rings))
 	off := 0
 	for _, r := range rings {
 		starts = append(starts, off)
-		for _, p := range r {
-			flat = append(flat, p.X, p.Y)
-		}
+		_, ringFlat := flattenCoords(r)
+		flat = append(flat, ringFlat...)
 		off += len(r)
 	}
 	return &Polygon{
-		baseGeom:   baseGeom{layout: LayoutXY, coords: flat, crs: c},
+		baseGeom:   baseGeom{layout: layout, coords: flat, crs: c},
 		ringStarts: starts,
 	}
 }

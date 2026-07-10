@@ -126,7 +126,7 @@ func TestPreparedLineString_Intersects_Polygon(t *testing.T) {
 }
 
 func TestPreparedLineString_Intersects_Empty(t *testing.T) {
-	pl := prepare.LineString(geom.NewLineString(nil, nil))
+	pl := prepare.LineString(geom.NewLineString(nil, []geom.XY(nil)))
 	assert.False(t, pl.IntersectsPoint(geom.XY{}))
 	assert.False(t, pl.IntersectsEnvelope(geom.Envelope{MinX: -1, MaxX: 1, MinY: -1, MaxY: 1}))
 	assert.False(t, pl.Intersects(geom.NewPoint(nil, geom.XY{})))

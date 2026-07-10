@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/flatref"
 )
 
 // Type codes per OGC SFS 1.2.1 + PostGIS EWKB extension.
@@ -155,7 +156,7 @@ func appendPointBody(dst []byte, p *geom.Point, c *config) ([]byte, error) {
 		}
 		return dst, nil
 	}
-	return appendCoordRun(dst, p.FlatCoords()[:stride], c), nil
+	return appendCoordRun(dst, flatref.Coords(p)[:stride], c), nil
 }
 
 func appendCoordRun(dst []byte, flat []float64, c *config) []byte {
@@ -166,7 +167,7 @@ func appendCoordRun(dst []byte, flat []float64, c *config) []byte {
 }
 
 func appendLineStringBody(dst []byte, ls *geom.LineString, c *config) ([]byte, error) {
-	flat := ls.FlatCoords()
+	flat := flatref.Coords(ls)
 	stride := ls.Layout().Stride()
 	n := uint32(0)
 	if stride > 0 {
@@ -183,7 +184,7 @@ func appendLineStringBody(dst []byte, ls *geom.LineString, c *config) ([]byte, e
 func appendPolygonBody(dst []byte, p *geom.Polygon, c *config) ([]byte, error) {
 	dst = appendUint32(dst, c.order, uint32(p.NumRings()))
 	stride := p.Layout().Stride()
-	flat := p.FlatCoords()
+	flat := flatref.Coords(p)
 	vertexOff := 0
 	for i := 0; i < p.NumRings(); i++ {
 		n := p.RingLen(i)
@@ -196,7 +197,7 @@ func appendPolygonBody(dst []byte, p *geom.Polygon, c *config) ([]byte, error) {
 
 func appendMultiPointBody(dst []byte, mp *geom.MultiPoint, c *config) ([]byte, error) {
 	stride := mp.Layout().Stride()
-	flat := mp.FlatCoords()
+	flat := flatref.Coords(mp)
 	n := 0
 	if stride > 0 {
 		n = len(flat) / stride

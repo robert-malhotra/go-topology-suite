@@ -47,7 +47,7 @@ func TestSnapTo_CracksSegmentAtNearbySnapPoint(t *testing.T) {
 
 // SnapTo on empty geometry passes through.
 func TestSnapTo_EmptyInputs(t *testing.T) {
-	src := geom.NewLineString(nil, nil)
+	src := geom.NewLineString(nil, []geom.XY(nil))
 	dst := geom.NewLineString(nil, []geom.XY{{X: 0, Y: 0}, {X: 1, Y: 0}})
 	out := SnapTo(src, dst, 0.01)
 	assert.True(t, out.IsEmpty())

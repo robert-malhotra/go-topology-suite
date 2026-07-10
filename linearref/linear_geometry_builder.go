@@ -59,7 +59,7 @@ func (b *linearGeometryBuilder) build() geom.Geometry {
 	b.endLine()
 	switch len(b.lines) {
 	case 0:
-		return geom.NewLineString(b.crs, nil)
+		return geom.NewEmptyLineString(b.crs, geom.LayoutXY)
 	case 1:
 		return b.lines[0]
 	default:

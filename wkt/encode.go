@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/flatref"
 )
 
 // Option configures the WKT writer.
@@ -137,7 +138,7 @@ func appendPoint(b *strings.Builder, p *geom.Point, c *config) error {
 		return nil
 	}
 	b.WriteString(" (")
-	writeFlatPoint(b, p.FlatCoords(), 0, p.Layout().Stride(), c)
+	writeFlatPoint(b, flatref.Coords(p), 0, p.Layout().Stride(), c)
 	b.WriteByte(')')
 	return nil
 }
@@ -161,7 +162,7 @@ func appendCurve(b *strings.Builder, keyword string, ls *geom.LineString, c *con
 		return nil
 	}
 	b.WriteByte(' ')
-	appendCoordSequence(b, ls.FlatCoords(), ls.Layout().Stride(), c)
+	appendCoordSequence(b, flatref.Coords(ls), ls.Layout().Stride(), c)
 	return nil
 }
 
@@ -184,7 +185,7 @@ func writePolygonRingsFlat(b *strings.Builder, p *geom.Polygon, c *config) {
 	if stride == 0 {
 		return
 	}
-	flat := p.FlatCoords()
+	flat := flatref.Coords(p)
 	vertexOff := 0
 	for r := 0; r < p.NumRings(); r++ {
 		if r > 0 {
@@ -201,7 +202,7 @@ func appendMultiPoint(b *strings.Builder, mp *geom.MultiPoint, c *config) error 
 		return nil
 	}
 	stride := mp.Layout().Stride()
-	flat := mp.FlatCoords()
+	flat := flatref.Coords(mp)
 	n := len(flat) / stride
 	b.WriteString(" (")
 	for i := 0; i < n; i++ {
@@ -226,7 +227,7 @@ func appendMultiLineString(b *strings.Builder, m *geom.MultiLineString, c *confi
 			b.WriteString(", ")
 		}
 		ls := m.LineStringAt(i)
-		appendCoordSequence(b, ls.FlatCoords(), ls.Layout().Stride(), c)
+		appendCoordSequence(b, flatref.Coords(ls), ls.Layout().Stride(), c)
 	}
 	b.WriteByte(')')
 	return nil

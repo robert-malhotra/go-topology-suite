@@ -13,13 +13,22 @@ type MultiPoint struct {
 	baseGeom
 }
 
-// NewMultiPoint constructs a MultiPoint from XY coordinates.
-func NewMultiPoint(c *crs.CRS, pts []XY) *MultiPoint {
-	flat := make([]float64, 0, 2*len(pts))
-	for _, p := range pts {
-		flat = append(flat, p.X, p.Y)
-	}
-	return &MultiPoint{baseGeom{layout: LayoutXY, coords: flat, crs: c}}
+// NewMultiPoint constructs a MultiPoint from coordinate values. It is
+// generic over the four coordinate types (XY, XYZ, XYM, XYZM); the layout
+// is inferred from the element type. The input is cloned; the caller
+// retains ownership.
+func NewMultiPoint[C Coord](c *crs.CRS, pts []C) *MultiPoint {
+	layout, flat := flattenCoords(pts)
+	return &MultiPoint{baseGeom{layout: layout, coords: flat, crs: c}}
+}
+
+// NewMultiPointOwned constructs a MultiPoint that takes ownership of flat
+// without copying. Intended for format decoders and other callers that have
+// just allocated the buffer themselves and won't mutate it afterwards.
+//
+// Parallels NewLineStringOwned.
+func NewMultiPointOwned(layout Layout, c *crs.CRS, flat []float64) *MultiPoint {
+	return &MultiPoint{baseGeom{layout: layout, coords: flat, crs: c}}
 }
 
 // NewEmptyMultiPoint returns an empty MultiPoint carrying the given layout.

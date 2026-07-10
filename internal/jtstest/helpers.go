@@ -580,17 +580,17 @@ func geometryBoundary(g geom.Geometry) geom.Geometry {
 		return geom.NewGeometryCollection(g.CRS())
 	case *geom.LineString:
 		if v.IsEmpty() {
-			return geom.NewMultiPoint(g.CRS(), nil)
+			return geom.NewEmptyMultiPoint(g.CRS(), geom.LayoutXY)
 		}
 		n := v.NumPoints()
 		first, last := v.PointAt(0), v.PointAt(n-1)
 		if first == last {
-			return geom.NewMultiPoint(g.CRS(), nil)
+			return geom.NewEmptyMultiPoint(g.CRS(), geom.LayoutXY)
 		}
 		return geom.NewMultiPoint(g.CRS(), []geom.XY{first, last})
 	case *geom.LinearRing:
 		// LinearRing is closed by definition; OGC boundary is empty.
-		return geom.NewMultiPoint(g.CRS(), nil)
+		return geom.NewEmptyMultiPoint(g.CRS(), geom.LayoutXY)
 	case *geom.MultiLineString:
 		count := map[geom.XY]int{}
 		for i := 0; i < v.NumGeometries(); i++ {

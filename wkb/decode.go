@@ -293,7 +293,6 @@ func (d *decoder) readPolygon(layout geom.Layout, cr *crs.CRS, o binary.ByteOrde
 }
 
 func (d *decoder) readMultiPoint(layout geom.Layout, cr *crs.CRS, o binary.ByteOrder) (geom.Geometry, error) {
-	_ = layout
 	n, err := d.readUint32(o)
 	if err != nil {
 		return nil, err
@@ -302,7 +301,10 @@ func (d *decoder) readMultiPoint(layout geom.Layout, cr *crs.CRS, o binary.ByteO
 	if err := d.checkCount(n, 5); err != nil {
 		return nil, err
 	}
-	pts := make([]geom.XY, 0, n)
+	// Children are full-layout Points; collect their ordinates at the
+	// MultiPoint's stride so Z/M values are preserved. Empty (all-NaN)
+	// child points contribute nothing, matching the WKT parser.
+	flat := make([]float64, 0, int(n)*layout.Stride())
 	for i := uint32(0); i < n; i++ {
 		child, err := d.readGeometry(cr)
 		if err != nil {
@@ -312,9 +314,9 @@ func (d *decoder) readMultiPoint(layout geom.Layout, cr *crs.CRS, o binary.ByteO
 		if !ok {
 			return nil, fmt.Errorf("wkb: MultiPoint child is %T, want Point", child)
 		}
-		pts = append(pts, pp.XY())
+		flat = pp.AppendFlatCoords(flat)
 	}
-	return geom.NewMultiPoint(cr, pts), nil
+	return geom.NewMultiPointOwned(layout, cr, flat), nil
 }
 
 func (d *decoder) readMultiLineString(layout geom.Layout, cr *crs.CRS, o binary.ByteOrder) (geom.Geometry, error) {

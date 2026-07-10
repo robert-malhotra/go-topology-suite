@@ -63,7 +63,7 @@ func densifyLineString(ls *geom.LineString, tol float64) *geom.LineString {
 	}
 	out := densifyPoints(ls.XYs(), tol)
 	if len(out) < 2 {
-		return geom.NewLineString(ls.CRS(), nil)
+		return geom.NewEmptyLineString(ls.CRS(), ls.Layout())
 	}
 	return geom.NewLineString(ls.CRS(), out)
 }

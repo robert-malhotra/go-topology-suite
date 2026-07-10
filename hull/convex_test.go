@@ -35,7 +35,7 @@ func TestSinglePointHull(t *testing.T) {
 }
 
 func TestEmptyHull(t *testing.T) {
-	pts := geom.NewMultiPoint(nil, nil)
+	pts := geom.NewMultiPoint(nil, []geom.XY(nil))
 	hull := ConvexHull(pts)
 	assert.True(t, hull.IsEmpty(), "empty hull should be empty")
 }

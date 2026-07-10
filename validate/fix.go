@@ -108,13 +108,13 @@ func emptyOfType(g geom.Geometry) geom.Geometry {
 	case *geom.Point:
 		return geom.NewEmptyPoint(v.CRS(), v.Layout())
 	case *geom.LineString:
-		return geom.NewLineString(v.CRS(), nil)
+		return geom.NewEmptyLineString(v.CRS(), v.Layout())
 	case *geom.LinearRing:
-		return geom.NewLineString(v.CRS(), nil)
+		return geom.NewEmptyLineString(v.CRS(), v.Layout())
 	case *geom.Polygon:
 		return geom.NewEmptyPolygon(v.CRS(), v.Layout())
 	case *geom.MultiPoint:
-		return geom.NewMultiPoint(v.CRS(), nil)
+		return geom.NewEmptyMultiPoint(v.CRS(), v.Layout())
 	case *geom.MultiLineString:
 		return geom.NewMultiLineString(v.CRS())
 	case *geom.MultiPolygon:

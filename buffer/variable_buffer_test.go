@@ -10,7 +10,7 @@ import (
 )
 
 func TestVariableBuffer_Empty(t *testing.T) {
-	ls := geom.NewLineString(nil, nil)
+	ls := geom.NewLineString(nil, []geom.XY(nil))
 	got, err := VariableBuffer(ls, []float64{})
 	require.NoError(t, err)
 	require.True(t, got.IsEmpty(), "expected empty result")

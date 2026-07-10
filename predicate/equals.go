@@ -4,6 +4,7 @@ import (
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/flatref"
 )
 
 // Equals reports whether a and b describe the same point set.
@@ -73,7 +74,7 @@ func structuralEqual(a, b geom.Geometry) bool {
 	case *geom.Point:
 		return va.XY() == b.(*geom.Point).XY()
 	case *geom.LineString:
-		return flatEqual(va.FlatCoords(), b.(*geom.LineString).FlatCoords())
+		return flatEqual(flatref.Coords(va), flatref.Coords(b.(*geom.LineString)))
 	case *geom.Polygon:
 		vb := b.(*geom.Polygon)
 		if va.NumRings() != vb.NumRings() {
@@ -86,7 +87,7 @@ func structuralEqual(a, b geom.Geometry) bool {
 		}
 		return true
 	case *geom.MultiPoint:
-		return flatEqual(va.FlatCoords(), b.(*geom.MultiPoint).FlatCoords())
+		return flatEqual(flatref.Coords(va), flatref.Coords(b.(*geom.MultiPoint)))
 	case *geom.MultiLineString:
 		vb := b.(*geom.MultiLineString)
 		if va.NumGeometries() != vb.NumGeometries() {
