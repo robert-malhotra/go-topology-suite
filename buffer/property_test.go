@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/measure"
 	"github.com/stretchr/testify/assert"
@@ -119,5 +120,42 @@ func TestBuffer_NegativeInsetNeverGrows(t *testing.T) {
 		assert.LessOrEqualf(t, areaOut, areaG*1.01,
 			"inset grew: area(Buffer(g,-d))=%v > area(g)=%v",
 			areaOut, areaG)
+	})
+}
+
+// TestGeographicBufferVertexRadius: buffering a WGS84 point by d metres
+// yields a ring whose vertices sit ~d metres (geodesic) from the centre,
+// at random centres up to |lat| = 88°. The buffer distance is metres,
+// interpreted in the automatic local-projection metric frame.
+//
+// Tolerance 0.05% (per plan). The dominant error is the Transverse Mercator
+// scale factor 1 + x²/(2R²), ≈ 1.2e-4 at the 100 km half-width cap used
+// here; polar (|lat| > 84°) inputs run in the equal-area LAEA frame whose
+// near-centre distance distortion is comparable.
+func TestGeographicBufferVertexRadius(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		lon := rapid.Float64Range(-175, 175).Draw(t, "lon")
+		lat := rapid.Float64Range(-88, 88).Draw(t, "lat")
+		d := rapid.Float64Range(1000, 100000).Draw(t, "d")
+
+		center := geom.NewPoint(crs.WGS84, geom.XY{X: lon, Y: lat})
+		res, err := Buffer(center, d)
+		if err != nil {
+			t.Skipf("Buffer failed: %v", err)
+		}
+		poly, ok := res.(*geom.Polygon)
+		if !ok {
+			t.Skipf("result is %T, not polygon", res)
+		}
+		for _, v := range poly.Ring(0) {
+			dist, derr := measure.Distance(center, geom.NewPoint(crs.WGS84, v))
+			if derr != nil {
+				t.Fatalf("distance: %v", derr)
+			}
+			rel := math.Abs(dist-d) / d
+			assert.Lessf(t, rel, 5e-4,
+				"vertex geodesic radius %.3f vs %.3f (rel %.3e) at (%.3f,%.3f) d=%.0f",
+				dist, d, rel, lon, lat, d)
+		}
 	})
 }

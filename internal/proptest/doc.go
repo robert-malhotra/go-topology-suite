@@ -15,6 +15,9 @@
 package proptest
 
 import (
+	"math"
+
+	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"pgregory.net/rapid"
 )
@@ -47,4 +50,32 @@ func AnyTriangle(t *rapid.T) (a, b, c geom.XY) {
 			return
 		}
 	}
+}
+
+// GeoLonLat draws a (longitude, latitude) pair kept clear of the poles and
+// the antimeridian (|lon| ≤ 170, |lat| ≤ 80), so a small feature centred
+// there stays inside the automatic local-projection frame's extent limits
+// on the Transverse-Mercator branch.
+func GeoLonLat(t *rapid.T, name string) (lon, lat float64) {
+	lon = rapid.Float64Range(-170, 170).Draw(t, name+"_lon")
+	lat = rapid.Float64Range(-80, 80).Draw(t, name+"_lat")
+	return
+}
+
+// GeoTriangleNear draws a small counter-clockwise geographic (crs.WGS84)
+// triangle centred on (cLon, cLat), with an angular radius of 0.05°–0.15°
+// and a random rotation. Two triangles drawn near the same centre overlap
+// often enough to exercise the geographic overlay path. The physical extent
+// stays well inside the geoframe limits at any latitude reachable via
+// GeoLonLat.
+func GeoTriangleNear(t *rapid.T, name string, cLon, cLat float64) *geom.Polygon {
+	r := rapid.Float64Range(0.05, 0.15).Draw(t, name+"_r")
+	rot := rapid.Float64Range(0, 2*math.Pi).Draw(t, name+"_rot")
+	pts := make([]geom.XY, 4)
+	for i := 0; i < 3; i++ {
+		theta := rot + 2*math.Pi*float64(i)/3
+		pts[i] = geom.XY{X: cLon + r*math.Cos(theta), Y: cLat + r*math.Sin(theta)}
+	}
+	pts[3] = pts[0]
+	return geom.NewPolygon(crs.WGS84, pts)
 }

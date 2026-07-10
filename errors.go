@@ -39,6 +39,15 @@ var (
 	// etc.). Use validate.Validate for detailed defect reports.
 	ErrInvalidGeometry = errors.New("gts: invalid geometry")
 
+	// ErrGeographicExtent is returned by overlay and buffer operations when
+	// a geographic-CRS input is too large for the automatic local-projection
+	// round-trip: its envelope spans more than 180° of longitude, or its
+	// physical extent exceeds the ~1,000,000 m frame limit beyond which the
+	// Transverse Mercator scale error grows past tolerance. Reproject
+	// explicitly with gts.Transform to a suitable projected CRS. Errors
+	// wrapping it carry the specific detail; match with errors.Is.
+	ErrGeographicExtent = errors.New("gts: geometry extent exceeds automatic local-projection limits; reproject explicitly with gts.Transform")
+
 	// ErrNilGeometry is returned when an operation receives a nil geometry
 	// operand. It is distinct from ErrInvalidGeometry, which is scoped to
 	// invariant violations of actual (non-nil) geometries.

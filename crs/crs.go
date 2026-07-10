@@ -142,6 +142,18 @@ func Equal(a, b *CRS) bool {
 		definitionEqual(a.definition, b.definition)
 }
 
+// Definition returns the transform Definition (datum, axis order,
+// projection) attached at construction, or nil when the CRS carries none
+// (identity-only CRSes such as crs.WGS84, and any CRS built with New or
+// NewFromWKT2). Nil-safe. The returned pointer is shared and immutable;
+// callers must not mutate it.
+func (c *CRS) Definition() *Definition {
+	if c == nil {
+		return nil
+	}
+	return c.definition
+}
+
 // IsGeographic reports whether c is known to be a geographic CRS.
 // nil and unknown-kind CRSes return false.
 func (c *CRS) IsGeographic() bool { return c != nil && c.kind == Geographic }

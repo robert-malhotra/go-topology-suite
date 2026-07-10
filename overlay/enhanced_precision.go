@@ -70,6 +70,13 @@ func enhancedPrecisionApply(
 	if a == nil || b == nil {
 		return nil, originalErr
 	}
+	// Geographic inputs: op already routed through the local-projection
+	// round trip (see geographic.go). The CommonBitsOp retry would bit-shift
+	// the lon/lat degrees toward the origin and re-enter the geographic
+	// dispatch, building a projection frame from shifted garbage. Skip it.
+	if a.CRS().IsGeographic() || b.CRS().IsGeographic() {
+		return nil, originalErr
+	}
 	resEP, errEP := precision.CommonBitsOp(a, b, op)
 	if errEP != nil {
 		return nil, originalErr

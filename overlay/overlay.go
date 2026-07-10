@@ -23,6 +23,19 @@ func Intersection(subject, clipper geom.Geometry) (geom.Geometry, error) {
 	if subject.IsEmpty() || clipper.IsEmpty() {
 		return emptyOfDim(subject.CRS(), minDim(subject, clipper)), nil
 	}
+	// Geographic operands: project to a local planar frame, intersect
+	// there, and project back (see geographic.go).
+	if subject.CRS().IsGeographic() {
+		return geographic2(subject, clipper, intersectionPlanar)
+	}
+	return intersectionPlanar(subject, clipper)
+}
+
+// intersectionPlanar is the planar body of Intersection. Inputs are
+// non-empty, CRS-equal, and LinearRing-unwrapped; it makes no CRS
+// decisions, so overlay of projected / CRS-less inputs is byte-identical
+// to the pre-geographic-dispatch behaviour.
+func intersectionPlanar(subject, clipper geom.Geometry) (geom.Geometry, error) {
 	// Non-polygonal operands (Point/LineString/MultiPoint/MultiLineString)
 	// or any MultiPolygon: route to the general path.
 	subj, sIsPoly := subject.(*geom.Polygon)

@@ -610,6 +610,17 @@ func Union(subject, other geom.Geometry) (geom.Geometry, error) {
 	if other.IsEmpty() {
 		return subject, nil
 	}
+	// Geographic operands: project to a local planar frame, union there,
+	// and project back (see geographic.go).
+	if subject.CRS().IsGeographic() {
+		return geographic2(subject, other, unionPlanar)
+	}
+	return unionPlanar(subject, other)
+}
+
+// unionPlanar is the planar body of Union. Inputs are non-empty,
+// CRS-equal, and LinearRing-unwrapped.
+func unionPlanar(subject, other geom.Geometry) (geom.Geometry, error) {
 	if !isPolygonal(subject) || !isPolygonal(other) {
 		return unionNonPolygonal(subject, other)
 	}
@@ -641,6 +652,17 @@ func Difference(subject, other geom.Geometry) (geom.Geometry, error) {
 	if other.IsEmpty() {
 		return subject, nil
 	}
+	// Geographic operands: project to a local planar frame, difference
+	// there, and project back (see geographic.go).
+	if subject.CRS().IsGeographic() {
+		return geographic2(subject, other, differencePlanar)
+	}
+	return differencePlanar(subject, other)
+}
+
+// differencePlanar is the planar body of Difference. Inputs are non-empty,
+// CRS-equal, and LinearRing-unwrapped.
+func differencePlanar(subject, other geom.Geometry) (geom.Geometry, error) {
 	if !isPolygonal(subject) || !isPolygonal(other) {
 		return differenceNonPolygonal(subject, other)
 	}
@@ -678,6 +700,19 @@ func SymmetricDifference(a, b geom.Geometry) (geom.Geometry, error) {
 	if b.IsEmpty() {
 		return a, nil
 	}
+	// Geographic operands: project to a local planar frame, compute the
+	// symmetric difference there, and project back (see geographic.go). The
+	// internal Difference/Union calls see the projected frame CRS, so they
+	// do not re-enter this dispatch.
+	if a.CRS().IsGeographic() {
+		return geographic2(a, b, symmetricDifferencePlanar)
+	}
+	return symmetricDifferencePlanar(a, b)
+}
+
+// symmetricDifferencePlanar is the planar body of SymmetricDifference.
+// Inputs are non-empty, CRS-equal, and LinearRing-unwrapped.
+func symmetricDifferencePlanar(a, b geom.Geometry) (geom.Geometry, error) {
 	if !isPolygonal(a) || !isPolygonal(b) {
 		return symDifferenceNonPolygonal(a, b)
 	}

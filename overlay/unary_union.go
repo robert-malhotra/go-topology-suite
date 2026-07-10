@@ -39,18 +39,40 @@ func UnaryUnion(g geom.Geometry) (geom.Geometry, error) {
 	case *geom.MultiPoint:
 		return dedupeMultiPoint(v), nil
 	case *geom.MultiPolygon:
-		polys := make([]geom.Geometry, 0, v.NumGeometries())
-		for i := 0; i < v.NumGeometries(); i++ {
-			p := v.PolygonAt(i)
-			if !p.IsEmpty() {
-				polys = append(polys, p)
-			}
+		// Geographic operands union in a local planar frame (see
+		// geographic.go); the frame-CRS members do not re-enter dispatch.
+		if v.CRS().IsGeographic() {
+			return geographicUnary(v, unaryUnionMultiPolygonPlanar)
 		}
-		return unionAllAreal(v.CRS(), polys)
+		return unaryUnionMultiPolygonPlanar(v)
 	case *geom.GeometryCollection:
+		if v.CRS().IsGeographic() {
+			return geographicUnary(v, unaryUnionGeometryCollectionPlanar)
+		}
 		return unionGeometryCollection(v)
 	}
 	return g, nil
+}
+
+// unaryUnionMultiPolygonPlanar unions the members of a MultiPolygon in
+// its own CRS. Factored out so the geographic path can run it in a
+// projected frame.
+func unaryUnionMultiPolygonPlanar(g geom.Geometry) (geom.Geometry, error) {
+	v := g.(*geom.MultiPolygon)
+	polys := make([]geom.Geometry, 0, v.NumGeometries())
+	for i := 0; i < v.NumGeometries(); i++ {
+		p := v.PolygonAt(i)
+		if !p.IsEmpty() {
+			polys = append(polys, p)
+		}
+	}
+	return unionAllAreal(v.CRS(), polys)
+}
+
+// unaryUnionGeometryCollectionPlanar adapts unionGeometryCollection to the
+// geom.Geometry-typed planar-op signature used by geographicUnary.
+func unaryUnionGeometryCollectionPlanar(g geom.Geometry) (geom.Geometry, error) {
+	return unionGeometryCollection(g.(*geom.GeometryCollection))
 }
 
 func dedupeMultiPoint(mp *geom.MultiPoint) geom.Geometry {

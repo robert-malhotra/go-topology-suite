@@ -46,6 +46,14 @@ import (
 //
 // OffsetCurve is total (no error return): a nil geometry is treated as
 // empty and returns nil (interface nil).
+//
+// Unlike Buffer, OffsetCurve stays purely planar on every input, including
+// geographic (lon/lat) CRSes: distance is always interpreted in the units of
+// the geometry's CRS (degrees for a geographic CRS). A one-sided offset curve
+// has no single enclosing envelope on which to center a local metric frame,
+// and its result is a curve rather than an area, so the automatic-projection
+// treatment that Buffer applies does not fit. Project explicitly with
+// gts.Transform to a metric CRS for a metre-unit offset.
 func OffsetCurve(g geom.Geometry, distance float64, opts ...Option) geom.Geometry {
 	if g == nil {
 		return nil

@@ -69,7 +69,9 @@ The `internal/` packages — `relateng`, `noding`, `snap`, `snaprounding`, `corp
 
 ## Coordinate reference systems
 
-Every geometry holds a `*crs.CRS` pointer. Operations between two geometries with different CRS pointers return `gts.ErrCRSMismatch`; there is no implicit reprojection. Use `gts.Transform(g, target)` (or `crs.OperationFor(src, dst)`) to reproject explicitly.
+Every geometry holds a `*crs.CRS` pointer. Operations between two geometries with different CRS pointers return `gts.ErrCRSMismatch`; there is no implicit reprojection **between user CRSes**. Use `gts.Transform(g, target)` (or `crs.OperationFor(src, dst)`) to reproject explicitly.
+
+The `overlay` and `buffer` operations do, however, handle a geographic (lon/lat) CRS automatically, PostGIS-`geography`-style: they project the input into an ad-hoc local metric frame (Transverse Mercator, or polar Lambert Azimuthal Equal-Area beyond ±84°), compute there, and project the result back to the original CRS — so `buffer.Buffer` distances on geographic input are **metres**, and overlays are computed in a true plane rather than in degree space. This is local frame selection, not reprojection between user CRSes: a CRS mismatch is still rejected first, and inputs whose extent exceeds the frame limits (>180° longitude span or ~1,000,000 m) return `gts.ErrGeographicExtent`. To opt out and force planar-degree math, strip the CRS with `geom.WithCRS(g, nil)`.
 
 The CRS subsystem is **deliberately narrower than PROJ**:
 

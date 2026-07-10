@@ -47,6 +47,21 @@ func Buffer(g geom.Geometry, distance float64, opts ...Option) (geom.Geometry, e
 		o(&cfg)
 	}
 
+	// Geographic input: the buffer distance is metres. Project into a local
+	// planar frame, buffer there, and project back (see geographic.go). A
+	// zero distance and empty input need no metric frame — they fall through
+	// to the planar path, which returns the correct empty/identity result in
+	// the original geographic CRS.
+	if g.CRS().IsGeographic() && distance != 0 && !g.IsEmpty() {
+		return bufferGeographic(g, distance, cfg)
+	}
+	return bufferPlanar(g, distance, cfg)
+}
+
+// bufferPlanar is the planar body of Buffer: it interprets distance in the
+// units of g's CRS. Factored out so the geographic path can run it in a
+// projected (metric) frame.
+func bufferPlanar(g geom.Geometry, distance float64, cfg config) (geom.Geometry, error) {
 	// Treat a LinearRing as a LineString for buffering purposes: the
 	// distinct type exists only for OGC validity semantics.
 	if lr, ok := g.(*geom.LinearRing); ok {

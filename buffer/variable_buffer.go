@@ -8,6 +8,7 @@ import (
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/internal/geoframe"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 	"github.com/exergy-dev/go-topology-suite/overlay"
@@ -51,6 +52,31 @@ func VariableBuffer(line *geom.LineString, distances []float64, opts ...Option) 
 		o(&cfg)
 	}
 
+	// Geographic line: distances are metres. Project into a local planar
+	// frame, buffer there, and project back (see geographic.go). The
+	// frame-CRS overlay.UnaryUnion call inside the planar path does not
+	// re-enter dispatch.
+	if line.CRS().IsGeographic() && hasPositiveDistance(distances) {
+		rt, err := geoframe.New(line.CRS(), line.Envelope())
+		if err != nil {
+			return nil, err
+		}
+		fg, err := rt.Forward(line)
+		if err != nil {
+			return nil, err
+		}
+		res, err := variableBufferPlanar(fg.(*geom.LineString), distances, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return rt.Back(res)
+	}
+	return variableBufferPlanar(line, distances, cfg)
+}
+
+// variableBufferPlanar is the planar body of VariableBuffer, interpreting
+// the per-vertex distances in the units of line's CRS.
+func variableBufferPlanar(line *geom.LineString, distances []float64, cfg config) (geom.Geometry, error) {
 	pts := make([]geom.XY, line.NumPoints())
 	for i := 0; i < line.NumPoints(); i++ {
 		pts[i] = line.PointAt(i)
@@ -106,6 +132,35 @@ func VariableBufferInterpolated(line *geom.LineString, startDistance, endDistanc
 		math.IsInf(startDistance, 0) || math.IsInf(endDistance, 0) {
 		return nil, errors.New("buffer.VariableBufferInterpolated: distances must be finite")
 	}
+
+	// Geographic line: distances are metres, and the fractional-length
+	// interpolation must run in the metric frame (degree lengths are not
+	// uniform). Project first, interpolate + buffer in the frame, then
+	// project back (see geographic.go).
+	if line.CRS().IsGeographic() && (startDistance != 0 || endDistance != 0) {
+		rt, err := geoframe.New(line.CRS(), line.Envelope())
+		if err != nil {
+			return nil, err
+		}
+		fg, err := rt.Forward(line)
+		if err != nil {
+			return nil, err
+		}
+		res, err := variableBufferInterpolatedPlanar(fg.(*geom.LineString), startDistance, endDistance, opts...)
+		if err != nil {
+			return nil, err
+		}
+		return rt.Back(res)
+	}
+	return variableBufferInterpolatedPlanar(line, startDistance, endDistance, opts...)
+}
+
+// variableBufferInterpolatedPlanar is the planar body of
+// VariableBufferInterpolated: it interpolates the per-vertex distances by
+// fractional length in the units of line's CRS and delegates to
+// VariableBuffer. line must be non-nil, non-empty, and its distances
+// already absolute-valued and finite.
+func variableBufferInterpolatedPlanar(line *geom.LineString, startDistance, endDistance float64, opts ...Option) (geom.Geometry, error) {
 	n := line.NumPoints()
 	values := make([]float64, n)
 	values[0] = startDistance

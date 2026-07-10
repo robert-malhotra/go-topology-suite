@@ -33,10 +33,35 @@
 //
 // # Coordinate system
 //
-// Buffer is purely planar. The input distance is interpreted in the units
-// of the geometry's coordinate reference system. Geographic CRSes
-// (lat/lon degrees) will produce nonsense output — project to a metric CRS
-// (UTM, Web Mercator with appropriate scale factor, etc.) before calling.
+// For a projected or CRS-less geometry the buffer is purely planar and the
+// distance is interpreted in the units of the geometry's coordinate
+// reference system (metres for a metric projection).
+//
+// For a geographic (lon/lat) CRS the distance is interpreted in METRES.
+// Buffer, VariableBuffer, and VariableBufferInterpolated automatically
+// project the input into an ad-hoc local metric frame centered on its
+// envelope (a Transverse Mercator, or a polar Lambert Azimuthal Equal-Area
+// beyond ±84° latitude), buffer there, and project the result back to the
+// original geographic CRS — the PostGIS geography-type precedent. The result
+// keeps the input's CRS pointer. Note this is a behaviour change: previous
+// releases documented geographic buffer output as "nonsense" planar degrees.
+//
+// Limits: the automatic frame is rejected — returning an error wrapping
+// gts.ErrGeographicExtent — when the input envelope spans more than 180° of
+// longitude or its physical extent exceeds ~1,000,000 m, beyond which the
+// projection scale error grows past tolerance. Reproject explicitly with
+// gts.Transform for larger inputs.
+//
+// Escape hatch: to force the old planar-degree behaviour (distance in
+// degrees), strip the CRS with geom.WithCRS(g, nil) before calling.
+//
+// Edges are straight lines in the local frame, not geodesics in degree
+// space (gts.Transform does not densify); the extent limit keeps the
+// resulting deviation small.
+//
+// OffsetCurve is the exception: it stays purely planar on every input
+// (including geographic), interpreting distance in CRS units, because a
+// one-sided offset curve has no single enclosing envelope to frame.
 //
 // # Validity
 //
