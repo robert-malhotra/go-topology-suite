@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+> **Semver exception.** This release knowingly contains breaking API changes without a `/v2` module-path bump: v1.0.0 was tagged days before these fixes with zero external adopters, and carrying the footguns below (mutable-buffer `FlatCoords`, XY-only constructors, a three-way-inconsistent nil contract) into real adoption was judged worse than a one-time, fully documented break. The apidiff against v1.0.0 is limited to exactly the entries marked "breaking" here. The v1 stability promise applies unqualified from this release forward.
+
 ### Changed (breaking)
 
 - **`buffer.Buffer` distance on geographic (lon/lat) input is now METRES, not planar degrees.** `Buffer`, `VariableBuffer`, and `VariableBufferInterpolated` project a geographic input into a local metric frame, buffer there, and project back (see Added). Previously the buffer ran directly on degrees and the package doc declared the output "nonsense" — this is a bug-fix-grade behaviour change. Callers who genuinely want degree-unit buffers must strip the CRS with `geom.WithCRS(g, nil)`. `buffer.OffsetCurve` is unaffected and stays planar.
