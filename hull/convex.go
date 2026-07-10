@@ -13,7 +13,13 @@ import (
 // LineString if there are fewer than 3 unique vertices).
 //
 // The hull's CRS is inherited from g; ordering is counter-clockwise.
+//
+// ConvexHull is total (no error return): a nil geometry is treated as
+// empty and returns nil (interface nil).
 func ConvexHull(g geom.Geometry) geom.Geometry {
+	if g == nil {
+		return nil
+	}
 	pts := collectVertices(g)
 	switch len(pts) {
 	case 0:

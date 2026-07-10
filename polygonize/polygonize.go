@@ -22,7 +22,7 @@ import (
 //	              (self-intersecting).
 //
 // Inputs of any geometry type are accepted — only LineString and
-// LinearRing components contribute.
+// LinearRing components contribute. Nil elements of geoms are skipped.
 func Polygonize(geoms []geom.Geometry) (polygons []geom.Geometry, dangles []geom.Geometry, cutEdges []geom.Geometry, invalidRings []geom.Geometry) {
 	var lines []*geom.LineString
 	var c *crs.CRS

@@ -13,6 +13,8 @@ import (
 // degree ≥3); degree-2 vertices are merged through.
 //
 // Port of org.locationtech.jts.dissolve.LineDissolver.dissolve(Geometry).
+//
+// Nil elements of geometries are skipped.
 func Lines(geometries []geom.Geometry) []*geom.LineString {
 	d := newDissolver()
 	for _, g := range geometries {

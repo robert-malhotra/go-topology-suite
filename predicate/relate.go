@@ -1,8 +1,6 @@
 package predicate
 
 import (
-	"github.com/exergy-dev/go-topology-suite"
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
@@ -19,9 +17,12 @@ type DE9IM string
 // Relate returns the DE-9IM matrix for (a, b). Computed by the
 // RelateNG topology driver (internal/relateng), mirroring JTS's
 // org.locationtech.jts.operation.relateng.RelateNG.
+//
+// Returns ErrNilGeometry if either operand is nil (checked before the
+// CRS comparison), or ErrCRSMismatch if the operands' CRS differ.
 func Relate(a, b geom.Geometry, opts ...Option) (DE9IM, error) {
-	if !crs.Equal(a.CRS(), b.CRS()) {
-		return "", gts.ErrCRSMismatch
+	if err := guardBinary(a, b); err != nil {
+		return "", err
 	}
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)

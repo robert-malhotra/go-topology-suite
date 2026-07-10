@@ -32,7 +32,7 @@ type PreparedLineString struct {
 	env  geom.Envelope
 }
 
-// LineString builds a prepared form of ls. ls must not be nil.
+// LineString builds a prepared form of ls. A nil ls returns a nil handle.
 //
 // Subsequent mutations to ls's coordinate buffer are not reflected in the
 // prepared form; treat the prepared instance as a snapshot.

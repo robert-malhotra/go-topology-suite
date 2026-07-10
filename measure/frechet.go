@@ -22,19 +22,19 @@ import (
 // recurrence which is sufficient for typical N,M up to a few thousand
 // and matches the same answer.
 //
-// Empty inputs: both empty → 0; one empty → +Inf.
+// Empty inputs: both empty → 0; one empty → +Inf. A nil operand is
+// treated as empty.
 //
 // Port of org.locationtech.jts.algorithm.distance.DiscreteFrechetDistance.
 // Per JTS, only LineString-style coordinate sequences are meaningful;
 // the API restricts inputs to *geom.LineString.
 func DiscreteFrechet(a, b *geom.LineString) float64 {
-	if a == nil || b == nil {
-		return math.NaN()
-	}
-	if a.IsEmpty() && b.IsEmpty() {
+	aEmpty := a == nil || a.IsEmpty()
+	bEmpty := b == nil || b.IsEmpty()
+	if aEmpty && bEmpty {
 		return 0
 	}
-	if a.IsEmpty() || b.IsEmpty() {
+	if aEmpty || bEmpty {
 		return math.Inf(+1)
 	}
 	pa := a.XYs()

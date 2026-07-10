@@ -28,6 +28,8 @@ import (
 //
 // Mirrors JTS org.locationtech.jts.simplify.VWSimplifier and
 // org.locationtech.jts.simplify.VWLineSimplifier.
+//
+// A nil geometry is treated as empty and returns nil.
 func Visvalingam(g geom.Geometry, tolerance float64) geom.Geometry {
 	if tolerance < 0 || g == nil || g.IsEmpty() {
 		return g

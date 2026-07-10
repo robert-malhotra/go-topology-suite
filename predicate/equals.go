@@ -1,8 +1,6 @@
 package predicate
 
 import (
-	"github.com/exergy-dev/go-topology-suite"
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/flatref"
 )
@@ -19,8 +17,8 @@ import (
 // considered topologically equal to any other empty geometry of any
 // type.
 func Equals(a, b geom.Geometry, opts ...Option) (bool, error) {
-	if !crs.Equal(a.CRS(), b.CRS()) {
-		return false, gts.ErrCRSMismatch
+	if err := guardBinary(a, b); err != nil {
+		return false, err
 	}
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)

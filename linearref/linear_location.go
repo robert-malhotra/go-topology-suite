@@ -35,7 +35,8 @@ func NewLinearLocationFull(componentIndex, segmentIndex int, segmentFraction flo
 	return loc
 }
 
-// EndLocation returns a location referring to the end of g.
+// EndLocation returns a location referring to the end of g. A nil or
+// non-linear g is treated as empty and returns the zero LinearLocation.
 func EndLocation(g geom.Geometry) LinearLocation {
 	loc := LinearLocation{}
 	loc.SetToEnd(g)

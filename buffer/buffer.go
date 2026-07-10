@@ -31,9 +31,12 @@ var errGeometryCollectionNotImplemented = fmt.Errorf("buffer.Buffer: GeometryCol
 //     otherwise the polygon is returned unchanged.
 //   - distance < 0 on polygon inputs is the inset buffer.
 //   - NaN or infinite distance returns gts.ErrInvalidGeometry.
+//
+// A nil geometry returns gts.ErrNilGeometry (distinct from
+// ErrInvalidGeometry, which is reserved for defects of real geometries).
 func Buffer(g geom.Geometry, distance float64, opts ...Option) (geom.Geometry, error) {
 	if g == nil {
-		return nil, gts.ErrInvalidGeometry
+		return nil, gts.ErrNilGeometry
 	}
 	if math.IsNaN(distance) || math.IsInf(distance, 0) {
 		return nil, fmt.Errorf("buffer.Buffer: distance must be finite: %w", gts.ErrInvalidGeometry)

@@ -23,9 +23,10 @@ import (
 // Errors:
 //
 //   - crs.ErrUntransformable: one of the CRSes lacks a Definition.
+//   - ErrNilGeometry: g is nil.
 func Transform(g geom.Geometry, target *crs.CRS) (geom.Geometry, error) {
 	if g == nil {
-		return nil, nil
+		return nil, ErrNilGeometry
 	}
 	src := g.CRS()
 	if crs.Equal(src, target) {

@@ -1,8 +1,6 @@
 package predicate
 
 import (
-	"github.com/exergy-dev/go-topology-suite"
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 )
@@ -18,8 +16,8 @@ import (
 // short-circuits and a direct point-in-polygon fast path for the
 // Polygon-covers-Point pair.
 func Covers(a, b geom.Geometry, opts ...Option) (bool, error) {
-	if !crs.Equal(a.CRS(), b.CRS()) {
-		return false, gts.ErrCRSMismatch
+	if err := guardBinary(a, b); err != nil {
+		return false, err
 	}
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)

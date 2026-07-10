@@ -23,13 +23,15 @@ const minCapSegLenFactor = 4
 //
 // Direct port of JTS org.locationtech.jts.operation.buffer.VariableBuffer.
 //
-// The function returns gts.ErrInvalidGeometry when:
-//   - line is nil or empty
+// The function returns gts.ErrNilGeometry when line is nil, and
+// gts.ErrInvalidGeometry when:
 //   - distances has fewer/more entries than the line has vertices
 //   - any distance is NaN or +/-Inf, or negative
+//
+// An empty (non-nil) line returns POLYGON EMPTY.
 func VariableBuffer(line *geom.LineString, distances []float64, opts ...Option) (geom.Geometry, error) {
 	if line == nil {
-		return nil, gts.ErrInvalidGeometry
+		return nil, gts.ErrNilGeometry
 	}
 	if line.IsEmpty() {
 		return geom.NewEmptyPolygon(line.CRS(), line.Layout()), nil
@@ -88,9 +90,12 @@ func VariableBuffer(line *geom.LineString, distances []float64, opts ...Option) 
 // endDistance (using each vertex's fractional length along the line).
 //
 // Mirrors JTS VariableBuffer.buffer(line, startDistance, endDistance).
+//
+// A nil line returns gts.ErrNilGeometry; an empty (non-nil) line returns
+// POLYGON EMPTY.
 func VariableBufferInterpolated(line *geom.LineString, startDistance, endDistance float64, opts ...Option) (geom.Geometry, error) {
 	if line == nil {
-		return nil, gts.ErrInvalidGeometry
+		return nil, gts.ErrNilGeometry
 	}
 	if line.IsEmpty() {
 		return geom.NewEmptyPolygon(line.CRS(), line.Layout()), nil

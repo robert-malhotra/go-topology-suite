@@ -1,20 +1,19 @@
 package predicate
 
 import (
-	"github.com/exergy-dev/go-topology-suite"
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 )
 
 // Intersects reports whether a and b share at least one point.
 //
-// Returns ErrCRSMismatch if the geometries' CRS differ. The empty case is
-// well-defined: any geometry with an empty operand is Disjoint, so
-// Intersects returns false (not an error).
+// Returns ErrNilGeometry if either operand is nil, or ErrCRSMismatch if
+// the geometries' CRS differ. The empty case is well-defined: any
+// geometry with an empty operand is Disjoint, so Intersects returns false
+// (not an error).
 func Intersects(a, b geom.Geometry, opts ...Option) (bool, error) {
-	if !crs.Equal(a.CRS(), b.CRS()) {
-		return false, gts.ErrCRSMismatch
+	if err := guardBinary(a, b); err != nil {
+		return false, err
 	}
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)

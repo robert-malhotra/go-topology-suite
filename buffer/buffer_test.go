@@ -189,7 +189,7 @@ func TestBufferEmptyPoint(t *testing.T) {
 
 func TestBufferNilGeometry(t *testing.T) {
 	_, err := Buffer(nil, 1)
-	require.True(t, errors.Is(err, gts.ErrInvalidGeometry), "err = %v, want ErrInvalidGeometry", err)
+	require.True(t, errors.Is(err, gts.ErrNilGeometry), "err = %v, want ErrNilGeometry", err)
 }
 
 func TestBufferNaNDistance(t *testing.T) {

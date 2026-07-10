@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 
+	gts "github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/index"
 	"github.com/exergy-dev/go-topology-suite/internal/geomath"
@@ -63,7 +64,7 @@ func newPolygonHullSimplifier(g geom.Geometry, isOuter bool) *polygonHullSimplif
 
 func (h *polygonHullSimplifier) result() (geom.Geometry, error) {
 	if h.input == nil {
-		return nil, errors.New("simplify: PolygonHull: nil geometry")
+		return nil, gts.ErrNilGeometry
 	}
 	// Trivial parameter values short-circuit to a copy of the input.
 	if h.vertexNumFraction == 1 || h.areaDeltaRatio == 0 {

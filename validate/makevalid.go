@@ -21,7 +21,7 @@ import (
 // unexpected ways. Documented per-call.
 func MakeValid(g geom.Geometry) (geom.Geometry, error) {
 	if g == nil {
-		return nil, gts.ErrEmpty
+		return nil, gts.ErrNilGeometry
 	}
 	if g.IsEmpty() {
 		return nil, gts.ErrEmpty

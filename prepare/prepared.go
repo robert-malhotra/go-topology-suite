@@ -37,8 +37,9 @@ type PreparedPolygon struct {
 // total vertex count; subsequent queries are amortised O(log n + k) where
 // k is the number of edges actually intersected by the query envelope.
 //
-// p must not be nil. The returned PreparedPolygon retains a reference to p;
-// callers must not mutate the polygon's coordinate buffer afterwards.
+// A nil p returns a nil handle. The returned PreparedPolygon retains a
+// reference to p; callers must not mutate the polygon's coordinate buffer
+// afterwards.
 func Polygon(p *geom.Polygon) *PreparedPolygon {
 	if p == nil {
 		return nil

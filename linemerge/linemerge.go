@@ -9,6 +9,8 @@ import (
 // polylines. Direction of each merged result follows the majority
 // of the contributing input segments — for chains this is the
 // natural direction of traversal.
+//
+// Nil elements of geoms are skipped.
 func Merge(geoms []geom.Geometry) []*geom.LineString {
 	g := newGraph()
 	for _, src := range geoms {

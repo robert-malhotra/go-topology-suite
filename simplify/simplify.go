@@ -10,9 +10,10 @@ import (
 
 // Simplify returns a Douglas-Peucker simplification of g with the given
 // tolerance (perpendicular distance in the geometry's coordinate units).
-// A tolerance ≤ 0 returns g unchanged.
+// A tolerance ≤ 0 returns g unchanged. A nil geometry is treated as empty
+// and returns nil (matching Visvalingam).
 func Simplify(g geom.Geometry, tolerance float64) geom.Geometry {
-	if tolerance <= 0 || g.IsEmpty() {
+	if g == nil || tolerance <= 0 || g.IsEmpty() {
 		return g
 	}
 	switch v := g.(type) {

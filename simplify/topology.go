@@ -23,9 +23,10 @@ import (
 // regardless of its perpendicular distance.
 //
 // Endpoints of open lines and the closing vertex of rings are pinned.
-// A tolerance ≤ 0 returns g unchanged.
+// A tolerance ≤ 0 returns g unchanged. A nil geometry is treated as empty
+// and returns nil.
 func TopologyPreserving(g geom.Geometry, tolerance float64) geom.Geometry {
-	if tolerance <= 0 || g.IsEmpty() {
+	if g == nil || tolerance <= 0 || g.IsEmpty() {
 		return g
 	}
 	chains := collectChains(g)

@@ -43,6 +43,9 @@ import (
 // WithCapStyle is ignored — offset curves have no end caps. Quadrant
 // segments below 8 are clamped up to 8 to avoid artifacts at line
 // endpoints (mirrors JTS MIN_QUADRANT_SEGMENTS).
+//
+// OffsetCurve is total (no error return): a nil geometry is treated as
+// empty and returns nil (interface nil).
 func OffsetCurve(g geom.Geometry, distance float64, opts ...Option) geom.Geometry {
 	if g == nil {
 		return nil

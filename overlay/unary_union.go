@@ -3,6 +3,7 @@ package overlay
 import (
 	"sort"
 
+	gts "github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/predicate"
@@ -21,8 +22,14 @@ import (
 //     members are pairwise unioned, lineal and pointal members are
 //     carried through unchanged. The result is a GeometryCollection iff
 //     more than one dimensional class survives.
+//
+// A nil operand returns gts.ErrNilGeometry. An empty (non-nil) geometry
+// is returned unchanged.
 func UnaryUnion(g geom.Geometry) (geom.Geometry, error) {
-	if g == nil || g.IsEmpty() {
+	if g == nil {
+		return nil, gts.ErrNilGeometry
+	}
+	if g.IsEmpty() {
 		return g, nil
 	}
 	g = unwrapLinearRing(g)

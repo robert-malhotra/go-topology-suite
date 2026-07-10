@@ -48,9 +48,13 @@ func defaultKernel(g geom.Geometry) kernel.Kernel {
 }
 
 // Distance returns the kernel-appropriate distance between a and b.
-// Returns 0 if either is empty (with no error). CRS mismatch returns
-// ErrCRSMismatch and a NaN distance.
+// Returns 0 if either is empty (with no error). A nil operand returns
+// (NaN, ErrNilGeometry), checked before the CRS comparison. CRS mismatch
+// returns ErrCRSMismatch and a NaN distance.
 func Distance(a, b geom.Geometry, opts ...Option) (float64, error) {
+	if a == nil || b == nil {
+		return math.NaN(), gts.ErrNilGeometry
+	}
 	if !crs.Equal(a.CRS(), b.CRS()) {
 		return math.NaN(), gts.ErrCRSMismatch
 	}
@@ -143,8 +147,12 @@ func areaContainsAnyPoint(g, other geom.Geometry, k kernel.Kernel) bool {
 }
 
 // Length returns the total length of all linear components in g.
-// Polygons return the perimeter (outer + holes).
+// Polygons return the perimeter (outer + holes). A nil geometry is
+// treated as empty and returns 0.
 func Length(g geom.Geometry, opts ...Option) float64 {
+	if g == nil {
+		return 0
+	}
 	c := resolve(g, opts)
 	var total float64
 	visitSegments(g, func(s1, s2 geom.XY) {
@@ -154,8 +162,12 @@ func Length(g geom.Geometry, opts ...Option) float64 {
 }
 
 // Area returns the area of polygonal components. Lines and points return 0.
-// Holes subtract from the outer ring.
+// Holes subtract from the outer ring. A nil geometry is treated as empty
+// and returns 0.
 func Area(g geom.Geometry, opts ...Option) float64 {
+	if g == nil {
+		return 0
+	}
 	c := resolve(g, opts)
 	switch v := g.(type) {
 	case *geom.Polygon:
@@ -196,7 +208,13 @@ func polygonArea(p *geom.Polygon, k kernel.Kernel) float64 {
 // MultiLineString / MultiPolygon and the length-weighting of segments
 // on a LineString. The per-polygon centroid is the planar shoelace
 // regardless of kernel; see the package doc.
+//
+// A nil geometry is treated as empty and returns a non-nil empty *Point
+// (never a typed-nil pointer).
 func Centroid(g geom.Geometry, opts ...Option) *geom.Point {
+	if g == nil {
+		return geom.NewEmptyPoint(nil, geom.LayoutXY)
+	}
 	if g.IsEmpty() {
 		return geom.NewEmptyPoint(g.CRS(), geom.LayoutXY)
 	}

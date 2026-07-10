@@ -15,6 +15,7 @@ package precision
 import (
 	"math"
 
+	gts "github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
@@ -179,9 +180,12 @@ func (r *CommonBitsRemover) AddCommonBits(g geom.Geometry) geom.Geometry {
 //
 // The operation func receives the shifted geometries and returns a
 // shifted result; CommonBitsOp does the unshifting.
+//
+// A nil operand returns gts.ErrNilGeometry (the shift is undefined
+// without coordinates to shift).
 func CommonBitsOp(a, b geom.Geometry, op func(a, b geom.Geometry) (geom.Geometry, error)) (geom.Geometry, error) {
 	if a == nil || b == nil {
-		return op(a, b)
+		return nil, gts.ErrNilGeometry
 	}
 	r := NewCommonBitsRemover()
 	r.Add(a)

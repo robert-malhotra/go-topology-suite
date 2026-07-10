@@ -1,8 +1,6 @@
 package predicate
 
 import (
-	"github.com/exergy-dev/go-topology-suite"
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 )
 
@@ -13,8 +11,8 @@ import (
 // false: points have no boundary). Derived from the DE-9IM matrix per
 // OGC: II=F AND any of {IB, BI, BB} is non-F.
 func Touches(a, b geom.Geometry, opts ...Option) (bool, error) {
-	if !crs.Equal(a.CRS(), b.CRS()) {
-		return false, gts.ErrCRSMismatch
+	if err := guardBinary(a, b); err != nil {
+		return false, err
 	}
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)

@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 
+	gts "github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 	"github.com/exergy-dev/go-topology-suite/kernel"
@@ -57,7 +58,14 @@ func (e *ValidationError) Error() string {
 
 // Validate returns nil if g is a valid OGC geometry, or *ValidationError
 // listing every defect detected.
+//
+// A nil geometry returns gts.ErrNilGeometry: "no geometry" is not a valid
+// geometry, and is reported distinctly from a real geometry that violates
+// an invariant (which yields *ValidationError).
 func Validate(g geom.Geometry, opts ...Option) error {
+	if g == nil {
+		return gts.ErrNilGeometry
+	}
 	v := &validator{}
 	for _, o := range opts {
 		o(&v.cfg)

@@ -21,17 +21,17 @@ import (
 // the JTS DiscreteHausdorffDistance javadoc for caveats and a counter-example.
 //
 // Both empty inputs return 0; one empty and one non-empty returns +Inf
-// (no point in the empty side can witness a maximum).
+// (no point in the empty side can witness a maximum). A nil operand is
+// treated as empty.
 //
 // Port of org.locationtech.jts.algorithm.distance.DiscreteHausdorffDistance.
 func DiscreteHausdorff(a, b geom.Geometry) float64 {
-	if a == nil || b == nil {
-		return math.NaN()
-	}
-	if a.IsEmpty() && b.IsEmpty() {
+	aEmpty := a == nil || a.IsEmpty()
+	bEmpty := b == nil || b.IsEmpty()
+	if aEmpty && bEmpty {
 		return 0
 	}
-	if a.IsEmpty() || b.IsEmpty() {
+	if aEmpty || bEmpty {
 		return math.Inf(+1)
 	}
 	d0 := orientedHausdorff(a, b)
@@ -46,15 +46,15 @@ func DiscreteHausdorff(a, b geom.Geometry) float64 {
 // distance from a to b: the largest distance from any vertex of a to its
 // nearest point on b's segments/vertices.
 //
-// Port of DiscreteHausdorffDistance.orientedDistance.
+// Port of DiscreteHausdorffDistance.orientedDistance. A nil operand is
+// treated as empty.
 func OrientedHausdorff(a, b geom.Geometry) float64 {
-	if a == nil || b == nil {
-		return math.NaN()
-	}
-	if a.IsEmpty() && b.IsEmpty() {
+	aEmpty := a == nil || a.IsEmpty()
+	bEmpty := b == nil || b.IsEmpty()
+	if aEmpty && bEmpty {
 		return 0
 	}
-	if a.IsEmpty() || b.IsEmpty() {
+	if aEmpty || bEmpty {
 		return math.Inf(+1)
 	}
 	return orientedHausdorff(a, b)

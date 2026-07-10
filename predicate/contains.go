@@ -1,8 +1,6 @@
 package predicate
 
 import (
-	"github.com/exergy-dev/go-topology-suite"
-	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/kernel"
 )
@@ -14,8 +12,8 @@ import (
 // after envelope/dimension short-circuits and a direct point-in-polygon
 // fast path for the Polygon-contains-Point pair.
 func Contains(a, b geom.Geometry, opts ...Option) (bool, error) {
-	if !crs.Equal(a.CRS(), b.CRS()) {
-		return false, gts.ErrCRSMismatch
+	if err := guardBinary(a, b); err != nil {
+		return false, err
 	}
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)
@@ -59,8 +57,8 @@ func Within(a, b geom.Geometry, opts ...Option) (bool, error) {
 // is irrelevant: ContainsProperly never requires boundary noding, while
 // Contains and Covers may.
 func ContainsProperly(a, b geom.Geometry, opts ...Option) (bool, error) {
-	if !crs.Equal(a.CRS(), b.CRS()) {
-		return false, gts.ErrCRSMismatch
+	if err := guardBinary(a, b); err != nil {
+		return false, err
 	}
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)

@@ -15,7 +15,7 @@ type LengthIndexedLine struct {
 
 // NewLengthIndexedLine constructs a LengthIndexedLine for g, which
 // must be a LineString or MultiLineString. Returns nil for any other
-// geometry type.
+// geometry type, including a nil geometry.
 func NewLengthIndexedLine(g geom.Geometry) *LengthIndexedLine {
 	switch g.(type) {
 	case *geom.LineString, *geom.MultiLineString:

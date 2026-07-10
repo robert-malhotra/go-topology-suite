@@ -38,4 +38,20 @@ var (
 	// invariant required by the operation (self-intersection, unclosed ring,
 	// etc.). Use validate.Validate for detailed defect reports.
 	ErrInvalidGeometry = errors.New("gts: invalid geometry")
+
+	// ErrNilGeometry is returned when an operation receives a nil geometry
+	// operand. It is distinct from ErrInvalidGeometry, which is scoped to
+	// invariant violations of actual (non-nil) geometries.
+	//
+	// The module-wide nil-geometry contract is:
+	//
+	//   - Error-returning operations return ErrNilGeometry on any nil
+	//     operand, checked BEFORE any CRS or empty-geometry checks.
+	//   - Non-error total operations treat nil as empty: geometry-returning
+	//     ops return nil (interface nil, never a typed-nil pointer); scalar
+	//     ops return the empty-input value (e.g. 0 length/area, +Inf
+	//     clearance); ok-returning ops return the zero value with ok=false;
+	//     concrete-pointer returns give an empty concrete value.
+	//   - Slice-taking operations skip nil elements.
+	ErrNilGeometry = errors.New("gts: nil geometry operand")
 )

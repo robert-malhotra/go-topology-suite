@@ -14,6 +14,9 @@ import (
 // densify package free of buffer/overlay dependencies). Densification
 // of a simple polygon never introduces self-intersections, so the
 // usual case is unaffected.
+//
+// Densify is total (no error return): a nil geometry is treated as empty
+// and returned as nil; a non-positive maxSegmentLength returns g unchanged.
 func Densify(g geom.Geometry, maxSegmentLength float64) geom.Geometry {
 	if g == nil || maxSegmentLength <= 0 {
 		return g

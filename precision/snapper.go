@@ -25,7 +25,8 @@ const SnapPrecisionFactor = 1e-9
 //
 // Tolerance is in the same coordinate units as the geometries.
 // A non-positive tolerance returns g unchanged (no snapping
-// possible).
+// possible). A nil g or snapTo is treated as empty: g is returned
+// unchanged (so a nil g stays nil).
 func SnapTo(g, snapTo geom.Geometry, tolerance float64) geom.Geometry {
 	if g == nil || snapTo == nil {
 		return g
@@ -51,6 +52,7 @@ func SnapBoth(g0, g1 geom.Geometry, tolerance float64) (geom.Geometry, geom.Geom
 // produced by upstream floating-point error. Mirrors JTS
 // GeometrySnapper.snapToSelf — without the optional buffer(0) cleanup
 // (which is buffer/-package territory and out-of-scope here).
+// A nil g is treated as empty and returned as nil.
 func SnapToSelf(g geom.Geometry, tolerance float64) geom.Geometry {
 	if g == nil || !(tolerance > 0) {
 		return g

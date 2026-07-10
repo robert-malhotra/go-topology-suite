@@ -17,7 +17,7 @@ type LocationIndexedLine struct {
 
 // NewLocationIndexedLine constructs a LocationIndexedLine for g, which
 // must be a LineString or MultiLineString. Returns nil for any other
-// geometry type.
+// geometry type, including a nil geometry.
 func NewLocationIndexedLine(g geom.Geometry) *LocationIndexedLine {
 	switch g.(type) {
 	case *geom.LineString, *geom.MultiLineString:

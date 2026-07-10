@@ -8,6 +8,7 @@ import (
 
 // Length computes the planar length-along-line for the given
 // LinearLocation on g. Mirrors JTS LengthLocationMap.getLength.
+// A nil or non-linear g is treated as empty and returns 0.
 func Length(g geom.Geometry, loc LinearLocation) float64 {
 	if numComponents(g) == 0 {
 		return 0
@@ -46,6 +47,8 @@ func Location(g geom.Geometry, length float64) LinearLocation {
 // ambiguous index (one falling exactly at a component endpoint) is
 // resolved. resolveLower=true picks the lowest possible location;
 // false picks the highest. Mirrors the two-arg JTS overload.
+// A nil or non-linear g is treated as empty and returns the zero
+// LinearLocation (as does Location).
 func LocationResolve(g geom.Geometry, length float64, resolveLower bool) LinearLocation {
 	if numComponents(g) == 0 {
 		return LinearLocation{}

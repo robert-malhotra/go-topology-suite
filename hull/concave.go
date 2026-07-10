@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 
+	gts "github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/triangulate"
@@ -24,6 +25,9 @@ import (
 // path). The result is always a single connected Polygon (or a Point /
 // LineString when the input is degenerate).
 func ConcaveHull(g geom.Geometry, maxEdgeLength float64) (geom.Geometry, error) {
+	if g == nil {
+		return nil, gts.ErrNilGeometry
+	}
 	if maxEdgeLength < 0 {
 		return nil, errors.New("hull: maxEdgeLength must be non-negative")
 	}
@@ -61,6 +65,9 @@ func ConcaveHull(g geom.Geometry, maxEdgeLength float64) (geom.Geometry, error) 
 //
 // JTS: ConcaveHull.concaveHullByLengthRatio.
 func ConcaveHullByLengthRatio(g geom.Geometry, ratio float64) (geom.Geometry, error) {
+	if g == nil {
+		return nil, gts.ErrNilGeometry
+	}
 	if ratio < 0 || ratio > 1 {
 		return nil, errors.New("hull: lengthRatio must be in [0,1]")
 	}

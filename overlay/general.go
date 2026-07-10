@@ -547,7 +547,15 @@ func maxCoordMagnitude(polys []*geom.Polygon) float64 {
 	return m
 }
 
+// requireSameCRS is the shared operand guard for every binary overlay
+// entry point. A nil operand is rejected with gts.ErrNilGeometry first
+// (so it beats a CRS mismatch and precedes the a.CRS()/b.CRS() calls that
+// would panic on interface nil); a CRS mismatch is then rejected with
+// gts.ErrCRSMismatch.
 func requireSameCRS(a, b geom.Geometry) error {
+	if a == nil || b == nil {
+		return gts.ErrNilGeometry
+	}
 	if !crs.Equal(a.CRS(), b.CRS()) {
 		return gts.ErrCRSMismatch
 	}
