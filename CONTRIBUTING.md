@@ -32,8 +32,6 @@ PRs must keep these green. If a change is large enough that running the matrix l
 | Tag | What it gates | Why |
 |---|---|---|
 | `jts` | `internal/jtstest/...` runs the full JTS testxml corpus (8 951 cases). | The corpus is large; running it on every test pass would be wasteful. Run it on PRs that touch `overlay/`, `predicate/`, `buffer/`, `kernel/`, or anything noding-related. |
-| `postgis` | benchmark harness for cross-impl comparison (PostGIS via cgo). | Uses cgo and an external Postgres; opt-in only. |
-| `cgo` | benchmark harness for GEOS comparison. | Same reasoning as `postgis`. |
 
 Run JTS conformance with:
 

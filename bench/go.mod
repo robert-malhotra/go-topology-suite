@@ -4,7 +4,7 @@
 // graph; it is not intended to be imported.
 module github.com/exergy-dev/go-topology-suite/bench
 
-go 1.23
+go 1.25
 
 require (
 	github.com/exergy-dev/go-topology-suite v0.1.0

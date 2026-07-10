@@ -4,6 +4,16 @@ All notable changes to go-topology-suite will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+
+- **GEOS/PostGIS cross-implementation conformance stubs** (`bench/conformance/geos_impl.go`, `bench/conformance/postgis_impl.go`) and their `cgo`/`postgis` build-tag documentation. The stubs were never wired to a real backend — `newDefaultImpls()` only ever compared go-topology-suite against simplefeatures, and no CI job used the tags. Bench-module-only cleanup; not part of the v1 public API surface. Drops the `github.com/twpayne/go-geos` dev-only dependency from `bench/`.
+
+### Fixed
+
+- **`crs.Equal` now recognises structurally identical ad-hoc CRSes.** Two CRSes built with `crs.NewWithDefinition` that carry no authority code and no WKT2 text — but have the same `Kind` and a deep-equal `*Definition` (datum, axis order, projection) — now compare equal instead of only by pointer. Comparison is layered in four tiers: pointer identity, authority code, WKT2 text, then this structural fallback. Definition remains payload rather than identity for authority-identified CRSes, so `crs.WGS84` still equals its `epsg`-registry counterpart; definition-less ad-hoc CRSes remain pointer-equal-only. Custom `crs.Projection` implementations must be `reflect.DeepEqual`-comparable value types to participate in the structural tier.
+
 ## [1.0.0] - 2026-07-08
 
 First stable release. Every exported symbol outside `internal/` is now covered by the v1 stability promise (see README "Versioning and stability"). The release is dominated by a pre-1.0 API-consistency sweep; the breaking changes below are the last of their kind before the SemVer contract takes effect.

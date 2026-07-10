@@ -21,7 +21,7 @@ import (
 const pairsPerFixture = 3
 
 // newDefaultImpls returns the impls compared in TestConformance under
-// the default build (no `postgis`, no `cgo`). The go-topology-suite impl is the
+// the default build. The go-topology-suite impl is the
 // reference; other entries are compared against it.
 //
 // Adding a new pure-Go impl: append it here. Adding an impl behind a

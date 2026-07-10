@@ -63,9 +63,7 @@
 //
 //  1. Define a struct that implements the Impl interface declared in
 //     runner.go.
-//  2. Register itself in newDefaultImpls() in harness_test.go (or be
-//     added behind a build tag — see postgis_impl.go and geos_impl.go
-//     for the pattern).
+//  2. Register itself in newDefaultImpls() in harness_test.go.
 //  3. Convert go-topology-suite geometries via wkt.Marshal + the implementation's
 //     own WKT parser. WKT is the lingua franca; nobody owns the
 //     conversion path on either side.
@@ -74,15 +72,10 @@
 // is responsible for translating go-topology-suite geometries into its own native
 // form. This keeps each adapter self-contained and easy to audit.
 //
-// # Build tags
+// # Implementations
 //
 //   - simplefeatures (pure Go): IN by default. The dependency adds no
 //     cgo cost and exercising it gives the harness immediate value.
-//   - postgis: opt-in. Requires a running Postgres + PostGIS instance.
-//     The stub in postgis_impl.go documents the connection-string
-//     incantation.
-//   - cgo:    opt-in (and required by go-geos). The stub in geos_impl.go
-//     documents the cgo build incantation.
 //
 // # Performance
 //
