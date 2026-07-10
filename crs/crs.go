@@ -97,8 +97,25 @@ func (c *CRS) EPSG() (int, bool) {
 }
 
 // Equal reports whether two CRSes refer to the same coordinate reference
-// system. Identity is by (Authority, Code) when both have authority codes;
-// otherwise structural over the WKT2 string. Two nil pointers compare equal.
+// system, comparing in four tiers of decreasing strength:
+//
+//  1. Pointer identity — the same *CRS (and two nil pointers) are equal.
+//  2. Authority identity — when both carry an authority code
+//     (Authority != "" and Code != 0), equality is that code alone.
+//  3. WKT2 text — when neither is authority-identified, equal WKT2 strings
+//     are equal.
+//  4. Structural — two ad-hoc CRSes that carry neither an authority code
+//     nor WKT2 are equal when their Kind matches and both carry a non-nil,
+//     deep-equal Definition (see definitionEqual).
+//
+// Two caveats follow from this ordering:
+//
+//   - Definition is payload, not identity. Two CRSes with the same authority
+//     code compare equal regardless of their Definitions (or lack thereof).
+//     This preserves the documented promise (below) that the identity-only
+//     crs.WGS84 equals its Definition-carrying epsg-registry counterpart.
+//   - Ad-hoc CRSes that carry no Definition (and no authority code or WKT2)
+//     compare equal only by pointer — there is nothing else to compare.
 func Equal(a, b *CRS) bool {
 	if a == b {
 		return true
@@ -106,10 +123,23 @@ func Equal(a, b *CRS) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	if a.authority != "" && b.authority != "" && a.code != 0 && b.code != 0 {
+	aID := a.authority != "" && a.code != 0
+	bID := b.authority != "" && b.code != 0
+	if aID && bID {
 		return a.authority == b.authority && a.code == b.code
 	}
-	return a.wkt2 != "" && a.wkt2 == b.wkt2
+	if a.wkt2 != "" && a.wkt2 == b.wkt2 {
+		return true
+	}
+	// Mismatched identification status, or either side carrying WKT2 that did
+	// not match above, rules out equality before the structural fallback.
+	if aID != bID || a.wkt2 != "" || b.wkt2 != "" {
+		return false
+	}
+	// Structural fallback for ad-hoc CRSes with no authority code and no WKT2.
+	return a.kind == b.kind &&
+		a.definition != nil && b.definition != nil &&
+		definitionEqual(a.definition, b.definition)
 }
 
 // IsGeographic reports whether c is known to be a geographic CRS.

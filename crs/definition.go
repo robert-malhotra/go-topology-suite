@@ -1,5 +1,7 @@
 package crs
 
+import "reflect"
+
 // AxisOrder describes the storage order of geographic coordinates.
 //
 // Most data in the wild is stored as (longitude, latitude) — that is the
@@ -106,6 +108,41 @@ type Definition struct {
 	Datum      Datum
 	AxisOrder  AxisOrder
 	Projection Projection
+}
+
+// definitionEqual reports whether two Definitions describe the same
+// transform. Datum and AxisOrder are compared by value (both are
+// comparable); the Projection interface is compared by its Name and then
+// by reflect.DeepEqual.
+//
+// Custom Projection implementations therefore must be DeepEqual-comparable
+// value types (or pointers to such): two projections that produce identical
+// coordinates but differ in unexported bookkeeping fields will not compare
+// equal here, and two that share a Name but hold different parameters will
+// (correctly) compare unequal.
+func definitionEqual(a, b *Definition) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Datum == b.Datum &&
+		a.AxisOrder == b.AxisOrder &&
+		projectionEqual(a.Projection, b.Projection)
+}
+
+// projectionEqual compares two Projection values. A cheap Name mismatch
+// short-circuits the reflect.DeepEqual; two nil projections (the geographic
+// case) are equal.
+func projectionEqual(a, b Projection) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	if a.Name() != b.Name() {
+		return false
+	}
+	return reflect.DeepEqual(a, b)
 }
 
 // Pre-defined ellipsoids covering the datums go-topology-suite ships parameters for.
