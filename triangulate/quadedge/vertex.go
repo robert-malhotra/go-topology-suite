@@ -1,7 +1,3 @@
-// Package quadedge implements the Guibas–Stolfi quad-edge data structure
-// used by the incremental Delaunay triangulator.
-//
-// Ported from JTS org.locationtech.jts.triangulate.quadedge (Vivid Solutions, EPL).
 package quadedge
 
 import (

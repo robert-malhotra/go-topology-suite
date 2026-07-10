@@ -1,16 +1,3 @@
-// Package coverage implements operations on polygonal coverages.
-//
-// A polygonal coverage is a collection of *geom.Polygon values whose
-// interiors are pairwise disjoint and whose shared boundaries match
-// exactly (vector-clean). Algorithms in this package assume the input
-// satisfies that contract; behaviour on invalid coverages is
-// best-effort.
-//
-// Ports of the JTS classes:
-//
-//   - Union   -> org.locationtech.jts.coverage.CoverageUnion
-//   - Validate -> org.locationtech.jts.coverage.CoverageValidator
-//   - Simplify -> org.locationtech.jts.coverage.CoverageSimplifier
 package coverage
 
 import (

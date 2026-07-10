@@ -1,18 +1,3 @@
-// Package densify inserts extra vertices along the line segments of a
-// geometry so no segment exceeds a given distance tolerance.
-//
-// Port of org.locationtech.jts.densify.Densifier.
-//
-// All segments in the output have length less than or equal to the
-// supplied tolerance; existing input vertices are preserved. Points
-// are returned unchanged.
-//
-// Public API:
-//
-//	out := densify.Densify(g, maxSegmentLength)
-//
-// `maxSegmentLength` must be positive. A non-positive tolerance is a
-// no-op and the input is returned as-is.
 package densify
 
 import (

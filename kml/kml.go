@@ -1,12 +1,3 @@
-// Package kml emits a KML <Geometry>-substitutable XML fragment for a
-// gts geom.Geometry. It is a port of org.locationtech.jts.io.kml.KMLWriter
-// (Vivid Solutions / LocationTech JTS), preserving the indenting, the
-// per-coordinate "x,y[,z]" tuple format, and the optional <extrude>,
-// <tesselate>, and <altitudeMode> sub-elements.
-//
-// The output is a *fragment* — it lacks the surrounding KML <kml> /
-// <Document> envelope, matching JTS's KMLWriter contract. The result can
-// be substituted anywhere a KML <Geometry> abstract element is expected.
 package kml
 
 import (

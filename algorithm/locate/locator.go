@@ -1,8 +1,3 @@
-// Package locate ports org.locationtech.jts.algorithm.locate.
-//
-// It provides point-in-area locators that classify a point's relation to
-// an areal Geometry as INTERIOR, BOUNDARY, or EXTERIOR, mirroring the
-// JTS Location enum.
 package locate
 
 import "github.com/exergy-dev/go-topology-suite/geom"

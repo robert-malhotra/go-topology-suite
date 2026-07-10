@@ -1,14 +1,3 @@
-// Package match provides similarity measures between geometries,
-// porting org.locationtech.jts.algorithm.match.
-//
-// The measures return scores in [0, 1]: 1 means identical, 0 means
-// fully dissimilar. Scores from different measures can be combined
-// with CombineSimilarities (geometric mean) or CombineMin (JTS
-// pairwise-min parity).
-//
-// The package lives outside measure because AreaSimilarity computes
-// real overlay intersections and unions: measure is a leaf package
-// imported by overlay, so the similarity family sits above both.
 package match
 
 import (

@@ -1,22 +1,3 @@
-// Package proj implements the projection families needed by the EPSG
-// codes go-topology-suite ships with: Web Mercator (EPSG:3857), Transverse Mercator
-// (UTM zones, BNG, ...), Lambert Conformal Conic 2SP (EPSG:2154),
-// Albers Equal-Area Conic (EPSG:5070), Lambert Azimuthal Equal-Area
-// (EPSG:3035).
-//
-// Each projection is a struct that satisfies crs.Projection. Forward
-// takes (lon, lat) in radians and returns (easting, northing) in metres;
-// Inverse goes the other way. All structs are immutable after
-// construction; methods are pure functions on values.
-//
-// Formulas: EPSG Guidance Note 7-2 (IOGP) and Snyder PP1395 (USGS) for
-// the conic projections. Both are public-domain references PROJ also
-// implements from. Validation uses PROJ's own gie test fixtures (see
-// crs/proj/testdata/gie/).
-//
-// This package is experimental: it may evolve within a major version
-// (with a release-note entry) as projection coverage grows. See the
-// README "Versioning and stability" section.
 package proj
 
 import "math"

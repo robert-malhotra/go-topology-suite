@@ -1,5 +1,3 @@
-// Package triangulate provides a Delaunay triangulation builder ported
-// from JTS org.locationtech.jts.triangulate.
 package triangulate
 
 import (

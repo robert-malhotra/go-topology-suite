@@ -1,23 +1,3 @@
-// Package linemerge merges connected linestrings end-to-end into the
-// smallest set of polylines.
-//
-// Port of org.locationtech.jts.operation.linemerge.LineMerger.
-//
-// Two input linestrings A and B are merged whenever they share an
-// endpoint at a node of degree exactly 2 — that is, the only edges
-// meeting at that node are A and B themselves. Nodes of degree 1
-// (dangling tips) and degree ≥3 (junctions) terminate a merged
-// chain. Isolated rings (every node has degree 2) are emitted as a
-// single closed polyline starting at an arbitrary node.
-//
-// Public API:
-//
-//	merged := linemerge.Merge(lines)
-//
-// where `lines` is a slice of geometries; any LineString or
-// MultiLineString members are extracted, all other types are
-// ignored. Empty inputs and lines with fewer than 2 distinct
-// vertices are dropped (matching JTS).
 package linemerge
 
 import (

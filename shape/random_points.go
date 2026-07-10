@@ -1,6 +1,3 @@
-// Package shape contains generators for synthetic geometries useful for
-// benchmarks, fuzz seeds, and visual tests. It is a Go port of the JTS
-// org.locationtech.jts.shape.* family of builders.
 package shape
 
 import (

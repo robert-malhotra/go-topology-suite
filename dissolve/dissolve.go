@@ -1,18 +1,3 @@
-// Package dissolve dissolves the linear components of a collection of
-// geometries into the smallest set of disjoint line strings such that
-// every unique input segment appears in the output exactly once.
-//
-// Port of org.locationtech.jts.dissolve.LineDissolver.
-//
-// Distinct from the linemerge package (LineMerger) — LineMerger only
-// joins line strings end-to-end when they share an endpoint of degree
-// exactly 2 between input lines, while LineDissolver also collapses
-// duplicate segments. Use cases include simplifying polygonal coverages
-// for visualization and de-duplicating shared boundaries.
-//
-// This package does NOT node intersecting input segments; if two input
-// edges cross at an interior vertex they will still cross in the output.
-// Snap or node the input first if that is required.
 package dissolve
 
 import (

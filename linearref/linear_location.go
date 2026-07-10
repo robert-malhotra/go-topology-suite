@@ -1,14 +1,3 @@
-// Package linearref provides linear referencing along LineString and
-// MultiLineString geometries.
-//
-// Port of org.locationtech.jts.linearref.
-//
-// A linear location identifies a position along a line as the triple
-// (componentIndex, segmentIndex, segmentFraction). componentIndex is
-// 0 for a LineString or selects a child LineString of a MultiLineString.
-// segmentIndex selects a segment within that component (0..N-1 for an
-// N-segment line; segmentIndex == N with fraction 0 represents the end
-// vertex). segmentFraction is in [0, 1].
 package linearref
 
 import (

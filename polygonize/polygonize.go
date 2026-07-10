@@ -1,33 +1,3 @@
-// Package polygonize assembles a set of LineStrings into the polygons
-// they bound.
-//
-// Port of org.locationtech.jts.operation.polygonize.Polygonizer.
-//
-// Distinct from buffer's internal polygonize: this package operates on
-// arbitrary line networks. The input lines must be correctly noded —
-// they may only meet at their endpoints. Lines that fail this
-// requirement are not formed into polygons; the offending pieces are
-// surfaced via the dangles and cutEdges return values.
-//
-// Public API:
-//
-//	polygons, dangles, cutEdges, invalidRings := polygonize.Polygonize(lines)
-//
-// Where:
-//   - polygons: the polygons formed by the linework (each as a *geom.Polygon).
-//   - dangles: input LineStrings whose endpoints are not incident on any
-//     other line endpoint.
-//   - cutEdges: lines that lie wholly inside or between polygons but
-//     are not part of any polygon ring.
-//   - invalidRings: lines forming rings that are individually invalid
-//     (e.g. self-intersecting linework).
-//
-// Empty input yields empty results.
-//
-// Algorithm: build a planar graph keyed by node coordinate, then trace
-// minimal-area faces by repeatedly picking the most-clockwise next
-// directed edge at each node. Faces traced CCW are polygon shells; CW
-// faces are holes (assigned to the smallest enclosing shell).
 package polygonize
 
 import (

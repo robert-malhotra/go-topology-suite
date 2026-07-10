@@ -1,26 +1,3 @@
-// Package gml implements GML 2 geometry XML serialization. It is a
-// port of org.locationtech.jts.io.gml2.GMLReader and GMLWriter (Vivid
-// Solutions / LocationTech JTS).
-//
-// The package provides:
-//
-//   - Marshal: emit a geom.Geometry as a GML2 XML fragment.
-//   - Unmarshal: parse a GML2 XML fragment into a geom.Geometry.
-//
-// Supported GML2 elements:
-//
-//	gml:Point, gml:LineString, gml:LinearRing, gml:Polygon
-//	(with gml:outerBoundaryIs / gml:innerBoundaryIs),
-//	gml:MultiPoint (gml:pointMember), gml:MultiLineString
-//	(gml:lineStringMember), gml:MultiPolygon (gml:polygonMember),
-//	gml:MultiGeometry (gml:geometryMember), gml:coordinates,
-//	and the legacy gml:coord (gml:X, gml:Y, gml:Z) form.
-//
-// Coordinate tuples are written as `x,y` (or `x,y,z` when Z is present)
-// space-separated, matching JTS's GMLWriter. The reader accepts the
-// same form and tolerates extra whitespace; namespace prefixes are
-// stripped before element-name comparison so input with or without
-// the `gml:` prefix is accepted.
 package gml
 
 import (
