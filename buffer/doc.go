@@ -40,10 +40,10 @@
 // For a geographic (lon/lat) CRS the distance is interpreted in METRES.
 // Buffer, VariableBuffer, and VariableBufferInterpolated automatically
 // project the input into an ad-hoc local metric frame centered on its
-// envelope (a Transverse Mercator, or a polar Lambert Azimuthal Equal-Area
-// beyond ±84° latitude), buffer there, and project the result back to the
-// original geographic CRS — the PostGIS geography-type precedent. The result
-// keeps the input's CRS pointer. Note this is a behaviour change: previous
+// envelope (a Transverse Mercator, or an envelope-centered Lambert Azimuthal
+// Equal-Area beyond ±84° latitude), buffer there, and project the result back
+// to the original geographic CRS — the PostGIS geography-type precedent. The
+// result keeps the input's CRS pointer. Note this is a behaviour change: previous
 // releases documented geographic buffer output as "nonsense" planar degrees.
 //
 // Limits: the automatic frame is rejected — returning an error wrapping

@@ -7,8 +7,10 @@
 // planar operation runs in that frame, and the result is projected back to
 // the original geographic CRS (the PostGIS geography-type precedent). The
 // frame is a Transverse Mercator centered on the envelope, or — for
-// envelopes reaching beyond ±84° latitude — a polar-aspect Lambert
-// Azimuthal Equal-Area.
+// envelopes reaching beyond ±84° latitude, where the TM Krüger series
+// degrades — an envelope-centered (oblique-aspect) Lambert Azimuthal
+// Equal-Area. An envelope lying exactly on a pole degenerates naturally
+// to the polar aspect.
 //
 // The frame CRS never escapes: RoundTrip.Back rebrands the result with the
 // caller's original CRS pointer, so result.CRS() == input.CRS().
@@ -42,8 +44,8 @@ const (
 	maxExtentM = 1_000_000.0
 
 	// polarLatDeg is the latitude beyond which the TM frame is abandoned
-	// for a polar-aspect LAEA frame. Standard UTM/TM validity tops out at
-	// ±84°.
+	// for an envelope-centered LAEA frame. Standard UTM/TM validity tops
+	// out at ±84°, and the Krüger series degrades in the polar band.
 	polarLatDeg = 84.0
 )
 
@@ -120,12 +122,17 @@ func New(original *crs.CRS, env geom.Envelope) (*RoundTrip, error) {
 
 	var projection crs.Projection
 	switch {
-	case latMax > polarLatDeg:
-		// North-polar aspect LAEA.
-		projection = proj.NewLambertAzimuthalEqualArea(a, e2, midLon*deg2rad, math.Pi/2, 0, 0)
-	case latMin < -polarLatDeg:
-		// South-polar aspect LAEA.
-		projection = proj.NewLambertAzimuthalEqualArea(a, e2, midLon*deg2rad, -math.Pi/2, 0, 0)
+	case latMax > polarLatDeg || latMin < -polarLatDeg:
+		// The envelope reaches into a polar band where the Transverse
+		// Mercator Krüger series degrades. Use an equal-area LAEA frame
+		// centered on the envelope (oblique aspect). Centering on the
+		// envelope keeps the radial distance ρ bounded by the extent, so
+		// the radial distortion (≈ ρ²/4R²) stays small; a pole-centered
+		// aspect would instead pay a distortion that grows with the
+		// geometry's distance from the pole (~1.8e-3 at 85° latitude).
+		// An envelope sitting exactly on a pole (lat0 == ±90°) is detected
+		// by the constructor and degenerates to the polar aspect.
+		projection = proj.NewLambertAzimuthalEqualArea(a, e2, midLon*deg2rad, midLat*deg2rad, 0, 0)
 	default:
 		// Transverse Mercator centered on the envelope.
 		projection = proj.NewTransverseMercator(a, e2, midLon*deg2rad, midLat*deg2rad, 1, 0, 0)

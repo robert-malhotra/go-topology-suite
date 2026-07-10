@@ -24,8 +24,8 @@
 // binary op (Intersection, Union, Difference, SymmetricDifference) and
 // UnaryUnion automatically project the operands into a shared ad-hoc local
 // metric frame centered on their combined envelope (a Transverse Mercator,
-// or a polar Lambert Azimuthal Equal-Area beyond ±84° latitude), run the
-// planar engine there, and project the result back — the PostGIS
+// or an envelope-centered Lambert Azimuthal Equal-Area beyond ±84° latitude),
+// run the planar engine there, and project the result back — the PostGIS
 // geography-type precedent. The result keeps the input's CRS pointer, so
 // result.CRS() == input.CRS().
 //

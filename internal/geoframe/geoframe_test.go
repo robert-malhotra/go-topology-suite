@@ -65,7 +65,7 @@ func TestNewMidLatSelectsTM(t *testing.T) {
 }
 
 func TestNewPolarSelectsLAEA(t *testing.T) {
-	// Envelope reaching beyond +84° → north-polar LAEA.
+	// Envelope reaching beyond +84° → envelope-centered (oblique) LAEA.
 	rt, err := New(crs.WGS84, env(10, 89, 0.1, 0.1))
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -73,14 +73,33 @@ func TestNewPolarSelectsLAEA(t *testing.T) {
 	if got := rt.frame.Definition().Projection.Name(); got != "Lambert Azimuthal Equal-Area" {
 		t.Fatalf("frame projection = %q, want Lambert Azimuthal Equal-Area", got)
 	}
+	// The LAEA is centered on the envelope centre (oblique aspect), not on
+	// the pole: the centre point maps to ~(0, 0).
+	nc := geom.NewPoint(crs.WGS84, geom.XY{X: 10, Y: 89})
+	fc, err := rt.Forward(nc)
+	if err != nil {
+		t.Fatalf("Forward: %v", err)
+	}
+	if xy := fc.(*geom.Point).XY(); math.Abs(xy.X) > 1e-4 || math.Abs(xy.Y) > 1e-4 {
+		t.Fatalf("north polar centre forward = %+v, want ~(0,0) (not pole-centered)", xy)
+	}
 
-	// Beyond -84° → south-polar LAEA.
+	// Beyond -84° → envelope-centered (oblique) LAEA, likewise ~(0,0) at
+	// the envelope centre.
 	rtS, err := New(crs.WGS84, env(10, -89, 0.1, 0.1))
 	if err != nil {
 		t.Fatalf("New(south): %v", err)
 	}
 	if got := rtS.frame.Definition().Projection.Name(); got != "Lambert Azimuthal Equal-Area" {
 		t.Fatalf("south frame projection = %q, want Lambert Azimuthal Equal-Area", got)
+	}
+	sc := geom.NewPoint(crs.WGS84, geom.XY{X: 10, Y: -89})
+	fsc, err := rtS.Forward(sc)
+	if err != nil {
+		t.Fatalf("Forward(south): %v", err)
+	}
+	if xy := fsc.(*geom.Point).XY(); math.Abs(xy.X) > 1e-4 || math.Abs(xy.Y) > 1e-4 {
+		t.Fatalf("south polar centre forward = %+v, want ~(0,0) (not pole-centered)", xy)
 	}
 }
 
