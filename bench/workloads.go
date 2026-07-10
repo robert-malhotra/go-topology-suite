@@ -3,6 +3,7 @@ package bench
 import (
 	"testing"
 
+	"github.com/exergy-dev/go-topology-suite/buffer"
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/overlay"
 	"github.com/exergy-dev/go-topology-suite/predicate"
@@ -23,6 +24,9 @@ func Workloads() []NamedWorkload {
 		{Name: "PairwiseIntersection", Fn: PairwiseIntersectionWorkload},
 		{Name: "PointInPolygon", Fn: PointInPolygonWorkload},
 		{Name: "PointInPolygonPrepared", Fn: PointInPolygonPreparedWorkload},
+		{Name: "Buffer", Fn: BufferWorkload},
+		{Name: "UnaryUnion", Fn: UnaryUnionWorkload},
+		{Name: "GeographicIntersection", Fn: GeographicPairwiseWorkload},
 	}
 }
 
@@ -110,6 +114,63 @@ func PointInPolygonPreparedWorkload(b *testing.B) {
 		}
 		if hits < 0 {
 			b.Fatal("impossible")
+		}
+	}
+}
+
+// BufferWorkload buffers the 1,024-vertex CoastlinePolygon at distance 2.0,
+// then buffers each of the 100 SmallPolygons at distance 0.5. Buffer had no
+// benchmark coverage anywhere in the repo prior to this workload.
+func BufferWorkload(b *testing.B) {
+	coastline := CoastlinePolygon()
+	smalls := SmallPolygons()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		out, err := buffer.Buffer(coastline, 2.0)
+		if err != nil {
+			b.Fatalf("buffer.Buffer(coastline): %v", err)
+		}
+		_ = out
+		for _, s := range smalls {
+			out, err := buffer.Buffer(s, 0.5)
+			if err != nil {
+				b.Fatalf("buffer.Buffer(small): %v", err)
+			}
+			_ = out
+		}
+	}
+}
+
+// UnaryUnionWorkload dissolves UnionField's 1,000 overlapping quads into
+// their union.
+func UnaryUnionWorkload(b *testing.B) {
+	field := UnionField()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		out, err := overlay.UnaryUnion(field)
+		if err != nil {
+			b.Fatalf("overlay.UnaryUnion: %v", err)
+		}
+		_ = out
+	}
+}
+
+// GeographicPairwiseWorkload mirrors PairwiseIntersectionWorkload's loop
+// shape but over the WGS84 geographic fixtures, isolating the cost the
+// automatic geographic overlay path (geoframe setup + coordinate
+// round-trips) pays on top of the planar engine. Compare its ns/op against
+// PairwiseIntersectionWorkload for the "geographic overhead" ratio.
+func GeographicPairwiseWorkload(b *testing.B) {
+	ref := GeoReferencePolygon()
+	smalls := GeoSmallPolygons()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, s := range smalls {
+			out, err := overlay.Intersection(s, ref)
+			if err != nil {
+				b.Fatalf("overlay.Intersection (geographic): %v", err)
+			}
+			_ = out
 		}
 	}
 }
