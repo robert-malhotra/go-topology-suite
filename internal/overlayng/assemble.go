@@ -1,10 +1,27 @@
 package overlayng
 
 import (
+	"sort"
+
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/index"
 	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
+
+// smallRingCount is the ring-count threshold below which brute-force
+// all-pairs containment testing beats building two R-trees: index
+// construction overhead dominates on trivial outputs (a handful of
+// rings), so this is a pure performance fallback with no behavioral
+// difference.
+const smallRingCount = 16
+
+// pointEnvelope returns the degenerate (zero-area) envelope at p, used to
+// query an R-tree of ring envelopes for "which rings' envelopes contain
+// this point" via Envelope.Intersects.
+func pointEnvelope(p geom.XY) geom.Envelope {
+	return geom.Envelope{MinX: p.X, MinY: p.Y, MaxX: p.X, MaxY: p.Y}
+}
 
 // RingRepresentativePoint returns a point strictly inside ring's
 // interior. Picks the midpoint of the longest segment and nudges
@@ -85,19 +102,77 @@ func AssembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*ge
 	// ring j is undefined, which mis-attributes depth and lands a ring
 	// that should be a hole as a separate outer.
 	reps := make([]geom.XY, len(rings))
+	envs := make([]geom.Envelope, len(rings))
 	for i, ring := range rings {
 		reps[i] = RingRepresentativePoint(ring)
+		envs[i] = geom.EnvelopeOfXY(ring)
 	}
+
+	// Containment (PointInRing) is O(ring length) and the naive algorithm
+	// tests every ring against every other ring — O(R^2 * L) ray-casts.
+	// An envelope-contains-point test is a cheap necessary condition for
+	// PointInRing being true, so two R-trees turn both all-pairs loops
+	// below into candidate-filtered scans: envelope containment only ever
+	// PRUNES candidates, it never adds one PointInRing wouldn't also
+	// reject, so depths and parent selection come out byte-identical to
+	// the brute-force result.
+	//
+	//   - envTree indexes ring envelopes; querying it with a point finds
+	//     rings whose envelope contains that point (used for depth
+	//     counting and the "deeper container" check, both of which test
+	//     one point against many candidate rings).
+	//   - repTree indexes each ring's representative-point (as a
+	//     degenerate envelope); querying it with a ring's envelope finds
+	//     rings whose rep point could fall inside that ring (used for the
+	//     hole search, which tests one ring against many candidate
+	//     points).
+	useIndex := len(rings) >= smallRingCount
+	var envTree, repTree *index.RTree[int]
+	if useIndex {
+		envItems := make([]index.Item[int], len(rings))
+		repItems := make([]index.Item[int], len(rings))
+		for i := range rings {
+			envItems[i] = index.Item[int]{Env: envs[i], Value: i}
+			repItems[i] = index.Item[int]{Env: pointEnvelope(reps[i]), Value: i}
+		}
+		envTree = index.New[int]()
+		envTree.Bulk(envItems)
+		repTree = index.New[int]()
+		repTree.Bulk(repItems)
+	}
+
+	// forRingsContainingPoint calls fn(k) for every candidate ring index k
+	// (k != skip) whose envelope contains p — a superset of the rings that
+	// actually contain p by PointInRing. fn returning false stops the scan
+	// early (mirrors a `break` in the brute-force loop).
+	forRingsContainingPoint := func(p geom.XY, skip int, fn func(k int) bool) {
+		if !useIndex {
+			for k := range rings {
+				if k == skip {
+					continue
+				}
+				if !fn(k) {
+					return
+				}
+			}
+			return
+		}
+		envTree.Search(pointEnvelope(p), func(it index.Item[int]) bool {
+			if it.Value == skip {
+				return true
+			}
+			return fn(it.Value)
+		})
+	}
+
 	depths := make([]int, len(rings))
 	for i := range rings {
-		for j := range rings {
-			if i == j {
-				continue
-			}
+		forRingsContainingPoint(reps[i], i, func(j int) bool {
 			if geomath.PointInRing(reps[i], rings[j]) {
 				depths[i]++
 			}
-		}
+			return true
+		})
 	}
 
 	type group struct {
@@ -114,10 +189,33 @@ func AssembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*ge
 			continue
 		}
 		g := group{outer: i}
-		for j := range rings {
-			if i == j || depths[j] != depths[i]+1 {
-				continue
+
+		// Candidate holes: rings of the right depth whose rep point falls
+		// within ring i's envelope.
+		var holeCandidates []int
+		if useIndex {
+			repTree.Search(envs[i], func(it index.Item[int]) bool {
+				j := it.Value
+				if j != i && depths[j] == depths[i]+1 {
+					holeCandidates = append(holeCandidates, j)
+				}
+				return true
+			})
+			// Search visits tree nodes in spatial (STR-packed) order, not
+			// ascending ring index, but g.holes must come out in the same
+			// order the brute-force `for j := range rings` scan produced
+			// (ascending j) for byte-identical output ring ordering.
+			sort.Ints(holeCandidates)
+		} else {
+			for j := range rings {
+				if j == i || depths[j] != depths[i]+1 {
+					continue
+				}
+				holeCandidates = append(holeCandidates, j)
 			}
+		}
+
+		for _, j := range holeCandidates {
 			if !geomath.PointInRing(reps[j], rings[i]) {
 				continue
 			}
@@ -125,18 +223,19 @@ func AssembleOutputPolygons(c *crs.CRS, rings [][]geom.XY) (*geom.Polygon, []*ge
 			// ring of depth=depths[i]+? interposes. Simpler check: among
 			// all even-depth rings containing j, i should be the deepest.
 			deeperContainer := false
-			for k := range rings {
-				if k == i || depths[k] >= depths[i]+1 {
-					continue
+			forRingsContainingPoint(reps[j], i, func(k int) bool {
+				if depths[k] >= depths[i]+1 {
+					return true
 				}
 				if !geomath.PointInRing(reps[j], rings[k]) {
-					continue
+					return true
 				}
 				if depths[k] > depths[i] {
 					deeperContainer = true
-					break
+					return false
 				}
-			}
+				return true
+			})
 			if !deeperContainer {
 				g.holes = append(g.holes, j)
 			}
