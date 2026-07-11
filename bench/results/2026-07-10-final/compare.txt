@@ -1,0 +1,768 @@
+goos: linux
+goarch: amd64
+pkg: github.com/exergy-dev/go-topology-suite/bench/compare
+cpu: Intel(R) Core(TM) i9-14900KF
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 549287794 ns/op	46140000 B/op	  395398 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 546984131 ns/op	46137192 B/op	  395394 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 545524665 ns/op	46134784 B/op	  395395 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 556158678 ns/op	46131744 B/op	  395389 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 546732148 ns/op	46131696 B/op	  395388 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 540431388 ns/op	46131688 B/op	  395388 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 548326369 ns/op	46131640 B/op	  395387 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 545108698 ns/op	46131744 B/op	  395389 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 544299733 ns/op	46131696 B/op	  395388 allocs/op
+BenchmarkIntersection/impl=gts/n=1024-32         	       2	 545826972 ns/op	46134440 B/op	  395391 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 211640056 ns/op	121449723 B/op	 1391611 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 213043983 ns/op	121449656 B/op	 1391610 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 212493788 ns/op	121449796 B/op	 1391611 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 231086664 ns/op	121449508 B/op	 1391608 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 218237323 ns/op	121450792 B/op	 1391611 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 216560230 ns/op	121449672 B/op	 1391610 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 215333214 ns/op	121449748 B/op	 1391610 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 237692837 ns/op	121449595 B/op	 1391609 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 222674977 ns/op	121449633 B/op	 1391609 allocs/op
+BenchmarkIntersection/impl=simplefeatures/n=1024-32         	       5	 221886175 ns/op	121449617 B/op	 1391609 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	       9	 130842106 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	       9	 135162535 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	      10	 132151656 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	      10	 132447094 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	      10	 117061588 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	      10	 132737654 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	      12	 115529406 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	      10	 114853477 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	      10	 111980280 ns/op	      16 B/op	       1 allocs/op
+BenchmarkIntersection/impl=geos/n=1024-32                   	       9	 117416712 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 726442372 ns/op	40752488 B/op	  371269 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 727365526 ns/op	40678728 B/op	  371262 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 717345542 ns/op	40715608 B/op	  371266 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 735311852 ns/op	40771000 B/op	  371272 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 719612546 ns/op	40715512 B/op	  371265 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 734567792 ns/op	40678632 B/op	  371261 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 727434251 ns/op	40715608 B/op	  371266 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 722283203 ns/op	40733976 B/op	  371267 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 722834133 ns/op	40734120 B/op	  371268 allocs/op
+BenchmarkUnion/impl=gts/n=1024-32                           	       2	 711668280 ns/op	40715512 B/op	  371265 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 221511386 ns/op	121126411 B/op	 1397285 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 229062308 ns/op	121126472 B/op	 1397286 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 229368103 ns/op	121126507 B/op	 1397286 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 229612307 ns/op	121126430 B/op	 1397285 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 227168171 ns/op	121126641 B/op	 1397287 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 230634247 ns/op	121126680 B/op	 1397288 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 231264537 ns/op	121126603 B/op	 1397287 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 225180852 ns/op	121126392 B/op	 1397285 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 221884085 ns/op	121126296 B/op	 1397284 allocs/op
+BenchmarkUnion/impl=simplefeatures/n=1024-32                	       5	 225517068 ns/op	121126660 B/op	 1397287 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       8	 140019328 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       9	 142902013 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       9	 148518900 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       9	 125297355 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       9	 133484131 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       8	 145950624 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	      10	 131616769 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       8	 139454376 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       9	 130143649 ns/op	      16 B/op	       1 allocs/op
+BenchmarkUnion/impl=geos/n=1024-32                          	       9	 125096917 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 406870182 ns/op	44635600 B/op	  399282 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 406595105 ns/op	44635600 B/op	  399282 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 399495940 ns/op	44635728 B/op	  399284 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 402149670 ns/op	44635728 B/op	  399284 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 401809612 ns/op	44635760 B/op	  399284 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 403269054 ns/op	44635664 B/op	  399283 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 400544204 ns/op	44635792 B/op	  399284 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 416103072 ns/op	44635664 B/op	  399283 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 404689173 ns/op	44635632 B/op	  399283 allocs/op
+BenchmarkDifference/impl=gts/n=1024-32                      	       3	 404146901 ns/op	44635664 B/op	  399283 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       5	 211460422 ns/op	121541748 B/op	 1398097 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       7	 158891876 ns/op	121541726 B/op	 1398097 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       7	 164419252 ns/op	121541580 B/op	 1398096 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       6	 179196512 ns/op	121541880 B/op	 1398099 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       6	 192016744 ns/op	121542053 B/op	 1398101 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       6	 184735908 ns/op	121541912 B/op	 1398099 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       6	 187395645 ns/op	121541608 B/op	 1398096 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       6	 182367851 ns/op	121541661 B/op	 1398096 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       6	 179479884 ns/op	121541816 B/op	 1398098 allocs/op
+BenchmarkDifference/impl=simplefeatures/n=1024-32           	       6	 175070312 ns/op	121541752 B/op	 1398097 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      14	 102441654 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      14	  99423593 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      14	  99509562 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      14	  92515877 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      14	  88074992 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      14	  87293529 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      14	  99444979 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      12	  88357968 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      15	  87093592 ns/op	      16 B/op	       1 allocs/op
+BenchmarkDifference/impl=geos/n=1024-32                     	      18	  71304678 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1491300779 ns/op	19727560 B/op	  371674 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1509180388 ns/op	19727528 B/op	  371673 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1424958317 ns/op	19727432 B/op	  371672 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1554616735 ns/op	19727432 B/op	  371672 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1582934421 ns/op	19727432 B/op	  371672 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1579139036 ns/op	19727624 B/op	  371674 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1697551161 ns/op	19727624 B/op	  371674 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1789851471 ns/op	19727432 B/op	  371672 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1661755515 ns/op	19727528 B/op	  371673 allocs/op
+BenchmarkRelate/impl=gts/n=1024-32                          	       1	1602148305 ns/op	19727432 B/op	  371672 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      32	  35988610 ns/op	22237468 B/op	  493384 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      28	  42341487 ns/op	22237492 B/op	  493385 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      26	  42439951 ns/op	22237462 B/op	  493384 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      26	  46582831 ns/op	22237485 B/op	  493384 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      26	  43865598 ns/op	22237505 B/op	  493385 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      27	  47995767 ns/op	22237531 B/op	  493385 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      25	  42189233 ns/op	22237484 B/op	  493384 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      26	  42466406 ns/op	22237528 B/op	  493385 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      24	  42656968 ns/op	22237557 B/op	  493385 allocs/op
+BenchmarkRelate/impl=simplefeatures/n=1024-32               	      28	  40451439 ns/op	22237530 B/op	  493385 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     204	   5757092 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     206	   5706466 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     210	   5763280 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     212	   5712251 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     210	   5656512 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     210	   5810440 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     207	   5734220 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     207	   5744296 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     207	   5757590 ns/op	      16 B/op	       1 allocs/op
+BenchmarkRelate/impl=geos/n=1024-32                         	     208	   5707772 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  220640	      5438 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  207482	      5423 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  222585	      5427 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  212389	      5378 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  213283	      6016 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  182031	      6128 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  325498	      5318 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  210016	      5799 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  200475	      5859 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=gts/n=1024-32                            	  209217	      5860 ns/op	   18456 B/op	       2 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1000000	      1079 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1000000	      1018 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1449837	       802.8 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1218939	      1014 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1000000	      1048 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1000000	      1012 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1000000	      1002 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1230336	       974.6 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1248877	       957.0 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=simplefeatures/n=1024-32                 	 1269506	       945.8 ns/op	      16 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  706567	      1789 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  675902	      1800 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  689455	      1791 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  660570	      1785 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  658359	      1810 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  674335	      1822 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  681189	      1869 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  666465	      1829 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  638905	      1803 ns/op	       8 B/op	       1 allocs/op
+BenchmarkArea/impl=geos/n=1024-32                           	  682411	      1796 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  144603	      8184 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  167913	      6883 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  153475	      7561 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  159631	      7530 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  165118	      7584 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  157546	      7543 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  160531	      7592 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  156337	      7481 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  161102	      7518 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=gts/n=1024-32                          	  157189	      7275 ns/op	      24 B/op	       1 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	130201118	         9.573 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	100000000	        10.46 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	100000000	        10.51 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	100000000	        10.80 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	100000000	        10.85 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	100000000	        10.70 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	100000000	        11.02 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	105533407	        11.41 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	100000000	        11.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=simplefeatures/n=1024-32               	100000000	        11.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  602193	      1990 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  585080	      1951 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  581275	      1959 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  606632	      1955 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  622160	      1948 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  598874	      1950 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  607978	      1963 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  604968	      1751 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  772735	      1670 ns/op	       8 B/op	       1 allocs/op
+BenchmarkLength/impl=geos/n=1024-32                         	  760527	      1700 ns/op	       8 B/op	       1 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10195440 ns/op	 4865104 B/op	   20810 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10119828 ns/op	 4865108 B/op	   20810 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10120584 ns/op	 4865101 B/op	   20809 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10162306 ns/op	 4865108 B/op	   20810 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10149165 ns/op	 4865096 B/op	   20809 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10104391 ns/op	 4865114 B/op	   20810 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10197031 ns/op	 4865109 B/op	   20810 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10203891 ns/op	 4865092 B/op	   20809 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10104703 ns/op	 4865103 B/op	   20809 allocs/op
+BenchmarkBuffer/impl=gts/n=256-32                           	     100	  10124507 ns/op	 4865094 B/op	   20809 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     490	   2453229 ns/op	 1872744 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     471	   2517276 ns/op	 1872724 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     495	   2073767 ns/op	 1872771 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     690	   2200761 ns/op	 1872737 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     492	   2453646 ns/op	 1872731 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     487	   2454841 ns/op	 1872800 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     500	   2429825 ns/op	 1872791 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     487	   2441930 ns/op	 1872744 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     483	   2460200 ns/op	 1872774 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=simplefeatures/n=256-32                	     483	   2473110 ns/op	 1872750 B/op	   21690 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    3220	    372130 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    3531	    362721 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    3592	    355465 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    3492	    352009 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    3562	    357789 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    3480	    304794 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    4396	    343449 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    3402	    352901 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	    3444	    352723 ns/op	      16 B/op	       1 allocs/op
+BenchmarkBuffer/impl=geos/n=256-32                          	SIGFPE: floating-point exception
+PC=0x7f3f6a054e08 m=24 sigcode=7
+signal arrived during cgo execution
+instruction bytes: 0xf2 0xf 0x58 0xc2 0x66 0x48 0xf 0x7e 0xc2 0x66 0xf 0x28 0xe0 0xf2 0xf 0x10
+
+goroutine 664 gp=0xc00148c380 m=24 mp=0xc002498808 [syscall]:
+runtime.cgocall(0x66c100, 0xc0000a0d48)
+	/usr/local/go/src/runtime/cgocall.go:167 +0x4b fp=0xc0000a0d20 sp=0xc0000a0ce8 pc=0x478e8b
+github.com/exergy-dev/go-topology-suite/bench/compare._Cfunc_GEOSBuffer_r(0x7f3e9401c020, 0x7f3e95399f10, 0x4000000000000000, 0x8)
+	_cgo_gotypes.go:98 +0x47 fp=0xc0000a0d48 sp=0xc0000a0d20 pc=0x656ae7
+github.com/exergy-dev/go-topology-suite/bench/compare.(*geosImpl).Buffer.func1(...)
+	/home/rkm/projects/go-topology-suite/bench/compare/geos_impl.go:285
+github.com/exergy-dev/go-topology-suite/bench/compare.(*geosImpl).Buffer(0xc001a3e000, {0x686f20?, 0xc000efe030?}, 0x4000000000000000)
+	/home/rkm/projects/go-topology-suite/bench/compare/geos_impl.go:285 +0x165 fp=0xc0000a0df0 sp=0xc0000a0d48 pc=0x659645
+github.com/exergy-dev/go-topology-suite/bench/compare.BenchmarkBuffer.func1(0xc00020c2c8, {0x778bf0, 0xc001a3e000})
+	/home/rkm/projects/go-topology-suite/bench/compare/compare_test.go:203 +0xf0 fp=0xc0000a0e58 sp=0xc0000a0df0 pc=0x6561b0
+github.com/exergy-dev/go-topology-suite/bench/compare.runImplSub.func1(0xc00020c2c8)
+	/home/rkm/projects/go-topology-suite/bench/compare/compare_test.go:40 +0x86 fp=0xc0000a0eb0 sp=0xc0000a0e58 pc=0x6550e6
+testing.(*B).runN(0xc00020c2c8, 0xe82)
+	/usr/local/go/src/testing/benchmark.go:219 +0x190 fp=0xc0000a0f40 sp=0xc0000a0eb0 pc=0x4e2d90
+testing.(*B).launch(0xc00020c2c8)
+	/usr/local/go/src/testing/benchmark.go:354 +0x1bc fp=0xc0000a0fc8 sp=0xc0000a0f40 pc=0x4e397c
+testing.(*B).doBench.gowrap1()
+	/usr/local/go/src/testing/benchmark.go:296 +0x25 fp=0xc0000a0fe0 sp=0xc0000a0fc8 pc=0x4e3785
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000a0fe8 sp=0xc0000a0fe0 pc=0x482a81
+created by testing.(*B).doBench in goroutine 575
+	/usr/local/go/src/testing/benchmark.go:296 +0x65
+
+goroutine 1 gp=0xc000002380 m=nil [chan receive]:
+runtime.gopark(0x60e700000000?, 0x200e700000000?, 0x88?, 0xdf?, 0x7f3f69fc0a78?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc0000a3840 sp=0xc0000a3820 pc=0x47b4ce
+runtime.chanrecv(0xc001274000, 0x0, 0x1)
+	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc0000a38b8 sp=0xc0000a3840 pc=0x412813
+runtime.chanrecv1(0x7f3f69fcc230?, 0x7f3f69fca430?)
+	/usr/local/go/src/runtime/chan.go:509 +0x12 fp=0xc0000a38e0 sp=0xc0000a38b8 pc=0x412392
+testing.(*B).run1(0xc00020c848)
+	/usr/local/go/src/testing/benchmark.go:247 +0xa6 fp=0xc0000a39d0 sp=0xc0000a38e0 pc=0x4e2fa6
+testing.(*B).Run(0xc00020c008, {0x70b820?, 0x49d833?}, 0x719658)
+	/usr/local/go/src/testing/benchmark.go:862 +0x4d4 fp=0xc0000a3ad0 sp=0xc0000a39d0 pc=0x4e5b34
+testing.runBenchmarks.func1(0xc00020c008)
+	/usr/local/go/src/testing/benchmark.go:721 +0x37 fp=0xc0000a3b10 sp=0xc0000a3ad0 pc=0x4e4bb7
+testing.(*B).runN(0xc00020c008, 0x1)
+	/usr/local/go/src/testing/benchmark.go:219 +0x190 fp=0xc0000a3ba0 sp=0xc0000a3b10 pc=0x4e2d90
+testing.runBenchmarks({0x71697d, 0x35}, 0x0?, {0x996c00, 0x9, 0xc000189180?})
+	/usr/local/go/src/testing/benchmark.go:730 +0x5f1 fp=0xc0000a3ca0 sp=0xc0000a3ba0 pc=0x4e4af1
+testing.(*M).Run(0xc0000d4140)
+	/usr/local/go/src/testing/testing.go:2353 +0x996 fp=0xc0000a3ed0 sp=0xc0000a3ca0 pc=0x4f17f6
+main.main()
+	_testmain.go:63 +0x9b fp=0xc0000a3f50 sp=0xc0000a3ed0 pc=0x65ba1b
+runtime.main()
+	/usr/local/go/src/runtime/proc.go:285 +0x29d fp=0xc0000a3fe0 sp=0xc0000a3f50 pc=0x446b5d
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000a3fe8 sp=0xc0000a3fe0 pc=0x482a81
+
+goroutine 2 gp=0xc000002e00 m=nil [force gc (idle), 5 minutes]:
+runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00008efa8 sp=0xc00008ef88 pc=0x47b4ce
+runtime.goparkunlock(...)
+	/usr/local/go/src/runtime/proc.go:466
+runtime.forcegchelper()
+	/usr/local/go/src/runtime/proc.go:373 +0xb3 fp=0xc00008efe0 sp=0xc00008efa8 pc=0x446e93
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00008efe8 sp=0xc00008efe0 pc=0x482a81
+created by runtime.init.7 in goroutine 1
+	/usr/local/go/src/runtime/proc.go:361 +0x1a
+
+goroutine 3 gp=0xc000003340 m=nil [GC sweep wait]:
+runtime.gopark(0x9b4101?, 0x9b4180?, 0xc?, 0x9?, 0x1?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00008f780 sp=0xc00008f760 pc=0x47b4ce
+runtime.goparkunlock(...)
+	/usr/local/go/src/runtime/proc.go:466
+runtime.bgsweep(0xc0000ba000)
+	/usr/local/go/src/runtime/mgcsweep.go:323 +0xdf fp=0xc00008f7c8 sp=0xc00008f780 pc=0x42eedf
+runtime.gcenable.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:212 +0x25 fp=0xc00008f7e0 sp=0xc00008f7c8 pc=0x422ee5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00008f7e8 sp=0xc00008f7e0 pc=0x482a81
+created by runtime.gcenable in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:212 +0x66
+
+goroutine 4 gp=0xc000003500 m=nil [GC scavenge wait]:
+runtime.gopark(0x9b4520?, 0x5234de?, 0x0?, 0x0?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00008ff78 sp=0xc00008ff58 pc=0x47b4ce
+runtime.goparkunlock(...)
+	/usr/local/go/src/runtime/proc.go:466
+runtime.(*scavengerState).park(0x9b4520)
+	/usr/local/go/src/runtime/mgcscavenge.go:425 +0x49 fp=0xc00008ffa8 sp=0xc00008ff78 pc=0x42c969
+runtime.bgscavenge(0xc0000ba000)
+	/usr/local/go/src/runtime/mgcscavenge.go:658 +0x59 fp=0xc00008ffc8 sp=0xc00008ffa8 pc=0x42cf19
+runtime.gcenable.gowrap2()
+	/usr/local/go/src/runtime/mgc.go:213 +0x25 fp=0xc00008ffe0 sp=0xc00008ffc8 pc=0x422e85
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00008ffe8 sp=0xc00008ffe0 pc=0x482a81
+created by runtime.gcenable in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:213 +0xa5
+
+goroutine 5 gp=0xc000003a40 m=nil [GOMAXPROCS updater (idle), 5 minutes]:
+runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000090788 sp=0xc000090768 pc=0x47b4ce
+runtime.goparkunlock(...)
+	/usr/local/go/src/runtime/proc.go:466
+runtime.updateMaxProcsGoroutine()
+	/usr/local/go/src/runtime/proc.go:6720 +0xe7 fp=0xc0000907e0 sp=0xc000090788 pc=0x454e87
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000907e8 sp=0xc0000907e0 pc=0x482a81
+created by runtime.defaultGOMAXPROCSUpdateEnable in goroutine 1
+	/usr/local/go/src/runtime/proc.go:6708 +0x37
+
+goroutine 6 gp=0xc0000de000 m=nil [finalizer wait]:
+runtime.gopark(0x0?, 0x719788?, 0x0?, 0x0?, 0x1000000010?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00009ee20 sp=0xc00009ee00 pc=0x47b4ce
+runtime.runFinalizers()
+	/usr/local/go/src/runtime/mfinal.go:210 +0x107 fp=0xc00009efe0 sp=0xc00009ee20 pc=0x421e87
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00009efe8 sp=0xc00009efe0 pc=0x482a81
+created by runtime.createfing in goroutine 1
+	/usr/local/go/src/runtime/mfinal.go:172 +0x3d
+
+goroutine 7 gp=0xc0000de380 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x9f36a0?, 0x1?, 0x62?, 0x86?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000223f38 sp=0xc000223f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000223fc8 sp=0xc000223f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000223fe0 sp=0xc000223fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000223fe8 sp=0xc000223fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 8 gp=0xc0000de540 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26b18f444?, 0x3?, 0xf2?, 0xf8?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000224f38 sp=0xc000224f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000224fc8 sp=0xc000224f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000224fe0 sp=0xc000224fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000224fe8 sp=0xc000224fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 9 gp=0xc0000de700 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5d87ddaefb3?, 0x3?, 0x45?, 0x9b?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00008d738 sp=0xc00008d718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00008d7c8 sp=0xc00008d738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00008d7e0 sp=0xc00008d7c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00008d7e8 sp=0xc00008d7e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 10 gp=0xc0000de8c0 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0xc00006be38?, 0x1?, 0xf7?, 0x92?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000090f38 sp=0xc000090f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000090fc8 sp=0xc000090f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000090fe0 sp=0xc000090fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000090fe8 sp=0xc000090fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 11 gp=0xc0000dea80 m=nil [GC worker (idle)]:
+runtime.gopark(0x601bd6d021a?, 0x1?, 0x83?, 0x3b?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000212738 sp=0xc000212718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002127c8 sp=0xc000212738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002127e0 sp=0xc0002127c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002127e8 sp=0xc0002127e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 12 gp=0xc0000dec40 m=nil [GC worker (idle)]:
+runtime.gopark(0x9f36a0?, 0x1?, 0x2c?, 0x28?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000221738 sp=0xc000221718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002217c8 sp=0xc000221738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002217e0 sp=0xc0002217c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002217e8 sp=0xc0002217e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 13 gp=0xc0000dee00 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26b18f10e?, 0x3?, 0x31?, 0xf3?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000214f38 sp=0xc000214f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000214fc8 sp=0xc000214f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000214fe0 sp=0xc000214fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000214fe8 sp=0xc000214fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 14 gp=0xc0000defc0 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x9f36a0?, 0x3?, 0x1c?, 0xf2?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000224738 sp=0xc000224718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002247c8 sp=0xc000224738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002247e0 sp=0xc0002247c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002247e8 sp=0xc0002247e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 15 gp=0xc0000df180 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26b18f390?, 0x1?, 0xeb?, 0xac?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000215738 sp=0xc000215718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002157c8 sp=0xc000215738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002157e0 sp=0xc0002157c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002157e8 sp=0xc0002157e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 16 gp=0xc0000df340 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5d8826b84f5?, 0x3?, 0x68?, 0xd9?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000213f38 sp=0xc000213f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000213fc8 sp=0xc000213f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000213fe0 sp=0xc000213fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000213fe8 sp=0xc000213fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 18 gp=0xc0000df500 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26b18f54b?, 0x3?, 0x44?, 0xbf?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000210f38 sp=0xc000210f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000210fc8 sp=0xc000210f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000210fe0 sp=0xc000210fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000210fe8 sp=0xc000210fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 19 gp=0xc0000df6c0 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26a409ff0?, 0x3?, 0xb5?, 0xf4?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000222738 sp=0xc000222718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002227c8 sp=0xc000222738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002227e0 sp=0xc0002227c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002227e8 sp=0xc0002227e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 20 gp=0xc0000df880 m=nil [GC worker (idle)]:
+runtime.gopark(0x9f36a0?, 0x1?, 0x24?, 0x15?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc0000a4f38 sp=0xc0000a4f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0000a4fc8 sp=0xc0000a4f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0000a4fe0 sp=0xc0000a4fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0000a4fe8 sp=0xc0000a4fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 21 gp=0xc0000dfa40 m=nil [GC worker (idle)]:
+runtime.gopark(0x601bd6d0446?, 0x1?, 0x79?, 0x45?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000212f38 sp=0xc000212f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000212fc8 sp=0xc000212f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000212fe0 sp=0xc000212fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000212fe8 sp=0xc000212fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 22 gp=0xc0000dfc00 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5d87ddaef49?, 0x3?, 0xa5?, 0x79?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00008df38 sp=0xc00008df18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00008dfc8 sp=0xc00008df38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00008dfe0 sp=0xc00008dfc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00008dfe8 sp=0xc00008dfe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 23 gp=0xc0000dfdc0 m=nil [GC worker (idle)]:
+runtime.gopark(0x5ff0622a440?, 0x3?, 0x91?, 0x14?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00008bf38 sp=0xc00008bf18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00008bfc8 sp=0xc00008bf38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00008bfe0 sp=0xc00008bfc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00008bfe8 sp=0xc00008bfe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 24 gp=0xc000218000 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e1226c35a2?, 0x3?, 0x38?, 0xb8?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00021ef38 sp=0xc00021ef18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00021efc8 sp=0xc00021ef38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00021efe0 sp=0xc00021efc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00021efe8 sp=0xc00021efe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 25 gp=0xc0002181c0 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26a408228?, 0x3?, 0xa9?, 0x3e?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000215f38 sp=0xc000215f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000215fc8 sp=0xc000215f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000215fe0 sp=0xc000215fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000215fe8 sp=0xc000215fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 26 gp=0xc000218380 m=nil [GC worker (idle)]:
+runtime.gopark(0x601bd6cfd33?, 0x1?, 0x39?, 0xce?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000214738 sp=0xc000214718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002147c8 sp=0xc000214738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002147e0 sp=0xc0002147c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002147e8 sp=0xc0002147e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 27 gp=0xc000218540 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26a4098c7?, 0x1?, 0xdb?, 0xa7?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000211738 sp=0xc000211718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002117c8 sp=0xc000211738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002117e0 sp=0xc0002117c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002117e8 sp=0xc0002117e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 28 gp=0xc000218700 m=nil [GC worker (idle), 3 minutes]:
+runtime.gopark(0x9f36a0?, 0x3?, 0xa9?, 0x59?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000223738 sp=0xc000223718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002237c8 sp=0xc000223738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002237e0 sp=0xc0002237c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002237e8 sp=0xc0002237e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 29 gp=0xc0002188c0 m=nil [GC worker (idle)]:
+runtime.gopark(0x9f36a0?, 0x1?, 0xc9?, 0xba?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00011ef38 sp=0xc00011ef18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00011efc8 sp=0xc00011ef38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00011efe0 sp=0xc00011efc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00011efe8 sp=0xc00011efe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 30 gp=0xc000218a80 m=nil [GC worker (idle)]:
+runtime.gopark(0x5fb95e8b118?, 0x1?, 0xf0?, 0x91?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00021ff38 sp=0xc00021ff18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00021ffc8 sp=0xc00021ff38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00021ffe0 sp=0xc00021ffc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00021ffe8 sp=0xc00021ffe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 31 gp=0xc000218c40 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5d880b79c24?, 0x1?, 0x52?, 0xe0?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00021e738 sp=0xc00021e718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00021e7c8 sp=0xc00021e738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00021e7e0 sp=0xc00021e7c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00021e7e8 sp=0xc00021e7e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 32 gp=0xc000218e00 m=nil [GC worker (idle)]:
+runtime.gopark(0x5fb79f5351e?, 0x1?, 0xe2?, 0x65?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000222f38 sp=0xc000222f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000222fc8 sp=0xc000222f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000222fe0 sp=0xc000222fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000222fe8 sp=0xc000222fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 33 gp=0xc000218fc0 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e0ff6452ae?, 0x1?, 0xfa?, 0x96?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000213738 sp=0xc000213718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002137c8 sp=0xc000213738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002137e0 sp=0xc0002137c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002137e8 sp=0xc0002137e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 34 gp=0xc000219180 m=nil [GC worker (idle)]:
+runtime.gopark(0x9f36a0?, 0x1?, 0x12?, 0x30?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00008e738 sp=0xc00008e718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00008e7c8 sp=0xc00008e738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00008e7e0 sp=0xc00008e7c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00008e7e8 sp=0xc00008e7e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 35 gp=0xc000219340 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26b18f255?, 0x3?, 0x10?, 0x7c?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc00008c738 sp=0xc00008c718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc00008c7c8 sp=0xc00008c738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc00008c7e0 sp=0xc00008c7c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc00008c7e8 sp=0xc00008c7e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 36 gp=0xc000219500 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26a40bc79?, 0xc00021b800?, 0x1c?, 0xa?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000217f38 sp=0xc000217f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000217fc8 sp=0xc000217f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000217fe0 sp=0xc000217fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000217fe8 sp=0xc000217fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 37 gp=0xc0002196c0 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26b18f171?, 0x3?, 0x35?, 0x8b?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000210738 sp=0xc000210718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002107c8 sp=0xc000210738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002107e0 sp=0xc0002107c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002107e8 sp=0xc0002107e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 38 gp=0xc000219880 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26b18f59f?, 0x1?, 0x0?, 0xe3?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000216738 sp=0xc000216718 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc0002167c8 sp=0xc000216738 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc0002167e0 sp=0xc0002167c8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc0002167e8 sp=0xc0002167e0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 39 gp=0xc000219a40 m=nil [GC worker (idle), 2 minutes]:
+runtime.gopark(0x5e26a40b06f?, 0x1?, 0xdb?, 0x1d?, 0x0?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000211f38 sp=0xc000211f18 pc=0x47b4ce
+runtime.gcBgMarkWorker(0xc0000c82a0)
+	/usr/local/go/src/runtime/mgc.go:1463 +0xeb fp=0xc000211fc8 sp=0xc000211f38 pc=0x4255cb
+runtime.gcBgMarkStartWorkers.gowrap1()
+	/usr/local/go/src/runtime/mgc.go:1373 +0x25 fp=0xc000211fe0 sp=0xc000211fc8 pc=0x4254a5
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000211fe8 sp=0xc000211fe0 pc=0x482a81
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	/usr/local/go/src/runtime/mgc.go:1373 +0x105
+
+goroutine 575 gp=0xc000102380 m=nil [chan receive]:
+runtime.gopark(0x419597?, 0x102003f69fca430?, 0x80?, 0x8a?, 0x7f3f69fc0a78?)
+	/usr/local/go/src/runtime/proc.go:460 +0xce fp=0xc000133a40 sp=0xc000133a20 pc=0x47b4ce
+runtime.chanrecv(0xc001274070, 0x0, 0x1)
+	/usr/local/go/src/runtime/chan.go:667 +0x473 fp=0xc000133ab8 sp=0xc000133a40 pc=0x412813
+runtime.chanrecv1(0x6bae40?, 0x411366?)
+	/usr/local/go/src/runtime/chan.go:509 +0x12 fp=0xc000133ae0 sp=0xc000133ab8 pc=0x412392
+testing.(*B).doBench(0xc00020c2c8)
+	/usr/local/go/src/testing/benchmark.go:297 +0x78 fp=0xc000133b30 sp=0xc000133ae0 pc=0x4e36f8
+testing.(*benchState).processBench(0xc000012150, 0x20?)
+	/usr/local/go/src/testing/benchmark.go:761 +0x3cb fp=0xc000133cd0 sp=0xc000133b30 pc=0x4e4fcb
+testing.(*B).run(0xc00020c588?)
+	/usr/local/go/src/testing/benchmark.go:288 +0x5b fp=0xc000133d00 sp=0xc000133cd0 pc=0x4e34db
+testing.(*B).Run(0xc00020c848, {0xc0003b8010?, 0xc00012de90?}, 0xc0003c6020)
+	/usr/local/go/src/testing/benchmark.go:863 +0x4e5 fp=0xc000133e00 sp=0xc000133d00 pc=0x4e5b45
+github.com/exergy-dev/go-topology-suite/bench/compare.runImplSub(0xc00020c848, 0x100, 0xc000f8c000)
+	/home/rkm/projects/go-topology-suite/bench/compare/compare_test.go:36 +0xd4 fp=0xc000133ec0 sp=0xc000133e00 pc=0x654f14
+github.com/exergy-dev/go-topology-suite/bench/compare.BenchmarkBuffer(0xc00020c848)
+	/home/rkm/projects/go-topology-suite/bench/compare/compare_test.go:194 +0x45 fp=0xc000133f10 sp=0xc000133ec0 pc=0x656025
+testing.(*B).runN(0xc00020c848, 0x1)
+	/usr/local/go/src/testing/benchmark.go:219 +0x190 fp=0xc000133fa0 sp=0xc000133f10 pc=0x4e2d90
+testing.(*B).run1.func1()
+	/usr/local/go/src/testing/benchmark.go:245 +0x48 fp=0xc000133fe0 sp=0xc000133fa0 pc=0x4e3408
+runtime.goexit({})
+	/usr/local/go/src/runtime/asm_amd64.s:1693 +0x1 fp=0xc000133fe8 sp=0xc000133fe0 pc=0x482a81
+created by testing.(*B).run1 in goroutine 1
+	/usr/local/go/src/testing/benchmark.go:238 +0x90
+
+rax    0x7ff8000000000000
+rbx    0x7f3ec6ffc6b8
+rcx    0x7f3f6a0d3b80
+rdx    0x3fcb8853
+rdi    0x7f3ec6ffc6b8
+rsi    0x7f3ec6ffc6b0
+rbp    0x7f3ec6ffc6b0
+rsp    0x7f3ec6ffc600
+r8     0x7f3ebdcdaf58
+r9     0x7f3ebc019ba0
+r10    0x7f3ebc000790
+r11    0x7f3ebc000090
+r12    0x1fa0
+r13    0x1
+r14    0x7f3ec6ffc6b0
+r15    0x7f3ec6ffc6b8
+rip    0x7f3f6a054e08
+rflags 0x10293
+cs     0x33
+fs     0x0
+gs     0x0
+exit status 2
+FAIL	github.com/exergy-dev/go-topology-suite/bench/compare	326.984s
+FAIL

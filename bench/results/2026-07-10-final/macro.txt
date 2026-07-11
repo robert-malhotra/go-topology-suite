@@ -1,0 +1,76 @@
+goos: linux
+goarch: amd64
+pkg: github.com/exergy-dev/go-topology-suite/bench
+cpu: Intel(R) Core(TM) i9-14900KF
+BenchmarkBuffer-32                    	      12	 109122430 ns/op	45516406 B/op	  309542 allocs/op
+BenchmarkBuffer-32                    	      10	 110101677 ns/op	45514420 B/op	  309540 allocs/op
+BenchmarkBuffer-32                    	      12	 110267564 ns/op	45513602 B/op	  309540 allocs/op
+BenchmarkBuffer-32                    	      10	 108437692 ns/op	45513204 B/op	  309540 allocs/op
+BenchmarkBuffer-32                    	      12	 105883907 ns/op	45513176 B/op	  309539 allocs/op
+BenchmarkBuffer-32                    	      10	 105979112 ns/op	45514828 B/op	  309540 allocs/op
+BenchmarkBuffer-32                    	      10	 104879445 ns/op	45513308 B/op	  309539 allocs/op
+BenchmarkBuffer-32                    	      12	 110060977 ns/op	45514836 B/op	  309540 allocs/op
+BenchmarkBuffer-32                    	       9	 117491702 ns/op	45514102 B/op	  309539 allocs/op
+BenchmarkBuffer-32                    	       9	 113115745 ns/op	45512749 B/op	  309539 allocs/op
+BenchmarkGeographicIntersection-32    	     648	   1814934 ns/op	  250209 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     651	   1807900 ns/op	  250180 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     654	   1806936 ns/op	  250188 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     672	   1761436 ns/op	  250215 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     672	   1772365 ns/op	  250182 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     682	   1766089 ns/op	  250210 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     672	   1783018 ns/op	  250209 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     670	   1805556 ns/op	  250209 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     658	   1804643 ns/op	  250211 B/op	    2865 allocs/op
+BenchmarkGeographicIntersection-32    	     656	   1817107 ns/op	  250214 B/op	    2865 allocs/op
+BenchmarkIngestWKB-32                 	     794	   1410373 ns/op	 1680008 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     864	   1393361 ns/op	 1680010 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     847	   1396248 ns/op	 1680009 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     882	   1407061 ns/op	 1680009 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     871	   1377025 ns/op	 1680009 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     896	   1395541 ns/op	 1680010 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     847	   1416162 ns/op	 1680011 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     856	   1399565 ns/op	 1680010 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     844	   1420258 ns/op	 1680010 B/op	   30000 allocs/op
+BenchmarkIngestWKB-32                 	     844	   1407394 ns/op	 1680009 B/op	   30000 allocs/op
+BenchmarkPairwiseIntersection-32      	   12939	     92555 ns/op	   23355 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   12946	     93977 ns/op	   23354 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   12829	     92629 ns/op	   23355 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   12790	     93250 ns/op	   23355 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   13034	     92665 ns/op	   23355 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   13082	     92225 ns/op	   23356 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   12800	     94388 ns/op	   23356 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   12700	     93570 ns/op	   23354 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   12795	     95223 ns/op	   23354 B/op	     317 allocs/op
+BenchmarkPairwiseIntersection-32      	   12249	     96686 ns/op	   23355 B/op	     317 allocs/op
+BenchmarkPointInPolygon-32            	      36	  29993996 ns/op	 6408698 B/op	  200006 allocs/op
+BenchmarkPointInPolygon-32            	      36	  31123520 ns/op	 6408383 B/op	  200005 allocs/op
+BenchmarkPointInPolygon-32            	      38	  29899854 ns/op	 6408423 B/op	  200005 allocs/op
+BenchmarkPointInPolygon-32            	      34	  30612937 ns/op	 6408392 B/op	  200005 allocs/op
+BenchmarkPointInPolygon-32            	      39	  30787988 ns/op	 6408647 B/op	  200006 allocs/op
+BenchmarkPointInPolygon-32            	      38	  30660630 ns/op	 6408448 B/op	  200005 allocs/op
+BenchmarkPointInPolygon-32            	      37	  29904454 ns/op	 6408798 B/op	  200006 allocs/op
+BenchmarkPointInPolygon-32            	      37	  29950822 ns/op	 6408662 B/op	  200005 allocs/op
+BenchmarkPointInPolygon-32            	      36	  29530246 ns/op	 6408628 B/op	  200006 allocs/op
+BenchmarkPointInPolygon-32            	      39	  29563630 ns/op	 6408750 B/op	  200006 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      72	  15543553 ns/op	 6400009 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      81	  15532478 ns/op	 6400002 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      78	  15324790 ns/op	 6400002 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      86	  15588038 ns/op	 6400001 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      75	  15543828 ns/op	 6400006 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      75	  15661871 ns/op	 6400005 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      81	  15570499 ns/op	 6400004 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      80	  15548968 ns/op	 6400013 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      67	  15618827 ns/op	 6400007 B/op	  200000 allocs/op
+BenchmarkPointInPolygonPrepared-32    	      75	  15613455 ns/op	 6400007 B/op	  200000 allocs/op
+BenchmarkUnaryUnion-32                	      28	  40733137 ns/op	38369617 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      28	  41164288 ns/op	38369652 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      28	  40943016 ns/op	38369602 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      27	  41045169 ns/op	38369635 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      27	  42342543 ns/op	38369634 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      27	  43215869 ns/op	38369629 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      28	  43006045 ns/op	38369636 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      27	  42643836 ns/op	38369613 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      26	  43184388 ns/op	38369621 B/op	  332725 allocs/op
+BenchmarkUnaryUnion-32                	      26	  42274691 ns/op	38369626 B/op	  332725 allocs/op
+PASS
+ok  	github.com/exergy-dev/go-topology-suite/bench	96.888s
