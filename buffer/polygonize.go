@@ -770,6 +770,8 @@ func buildPolygonizeDCEL(segs []offsetSegment) *overlayng.DCEL {
 	for i, s := range segs {
 		ds[i] = overlayng.DepthSegment{P0: s.p0, P1: s.p1, DepthDelta: s.depthDelta}
 	}
+	// ds is already the exact representation BuildDepthDCEL's core
+	// (buildDCELCore) consumes -- no further re-copy happens inside it.
 	return overlayng.BuildDepthDCEL(ds)
 }
 

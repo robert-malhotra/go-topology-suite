@@ -58,12 +58,17 @@ func (n MCIndexNoder) Node(input []*SegmentString) []*SegmentString {
 		return passThrough(input)
 	}
 
+	// totalSplits counts add()'s successful insertions as they happen —
+	// reused below to size the output arena slab without a second pass
+	// over the splits table.
+	totalSplits := 0
 	add := func(i, j int, t float64, p geom.XY) {
 		const eps = 1e-12
 		if t <= eps || t >= 1-eps {
 			return
 		}
 		splits[i][j] = append(splits[i][j], split{t: t, p: p})
+		totalSplits++
 	}
 
 	// Build chains and a map from chain-id -> (string-index, chain
@@ -150,6 +155,25 @@ func (n MCIndexNoder) Node(input []*SegmentString) []*SegmentString {
 	}
 
 	// Emit pieces — identical construction to SimpleNoder/IndexedNoder.
+	//
+	// Piece coordinates are carved out of one arena slab per Node() call
+	// instead of a per-piece make+copy: adjacent pieces share a boundary
+	// VALUE (the break vertex) but never a boundary CELL — each piece's
+	// bytes are copied into their own disjoint index range of slab, so
+	// mutating one piece's coordinates in place (e.g.
+	// overlayng.snapNodedToGrid / snaprounding.snapAndDedupe, which both
+	// write s.Coords[i] = ... on their own noder output) can never affect
+	// a different piece. Each piece is handed out as a 3-index slice
+	// (cap == len), so an append past a piece's own length reallocates
+	// instead of silently overwriting the next piece's slab region.
+	// Sized to an upper bound (original coords + 2x every candidate
+	// split, before near-duplicate collapsing) computed from counters
+	// already in hand (totalSegs, totalSplits) — no extra pass over the
+	// input or splits table. overflow — which the bound makes
+	// unreachable in practice — falls back to an individual per-piece
+	// allocation, mirroring the DCEL slab's alloc* fallback pattern.
+	slab := make([]geom.XY, 0, totalSegs+len(input)+2*totalSplits)
+
 	out := make([]*SegmentString, 0, len(input))
 	for i, ss := range input {
 		ns := ss.NumSegments()
@@ -184,9 +208,17 @@ func (n MCIndexNoder) Node(input []*SegmentString) []*SegmentString {
 		start := 0
 		for k := 1; k < len(nodes); k++ {
 			if breaks[k] || k == len(nodes)-1 {
-				piece := make([]geom.XY, k-start+1)
-				copy(piece, nodes[start:k+1])
-				out = append(out, &SegmentString{Coords: piece, Tag: ss.Tag})
+				plen := k - start + 1
+				var pieceCoords []geom.XY
+				if len(slab)+plen <= cap(slab) {
+					base := len(slab)
+					slab = append(slab, nodes[start:k+1]...)
+					pieceCoords = slab[base : base+plen : base+plen]
+				} else {
+					pieceCoords = make([]geom.XY, plen)
+					copy(pieceCoords, nodes[start:k+1])
+				}
+				out = append(out, &SegmentString{Coords: pieceCoords, Tag: ss.Tag})
 				start = k
 			}
 		}

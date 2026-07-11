@@ -235,8 +235,8 @@ func overlayCorePolygonalMixed(
 		segs = append(segs, &noding.SegmentString{Coords: append([]geom.XY(nil), r...), Tag: 2})
 	}
 	noded := nodeAndSnap(segs, tolerance)
-	taggedSegs := flattenNoded(noded)
-	d := buildDCEL(taggedSegs)
+	depthSegs := flattenNoded(noded)
+	d := buildDCEL(depthSegs)
 	d.traceFaces()
 
 	if !d.isConnected() && !mayHandleMultiComponent(d, subjRings, subjPerPoly, clipRings, clipPerPoly) {
@@ -387,8 +387,8 @@ func overlayCorePolygonal(
 		})
 	}
 	noded := nodeAdaptive(segs)
-	taggedSegs := flattenNoded(noded)
-	d := buildDCEL(taggedSegs)
+	depthSegs := flattenNoded(noded)
+	d := buildDCEL(depthSegs)
 	d.traceFaces()
 
 	// Multi-component DCELs (no shared boundary between subj and clip,
@@ -1176,28 +1176,29 @@ func rebuildPolygons(c *crs.CRS, rings [][]geom.XY, perPoly []int) []*geom.Polyg
 	return out
 }
 
-// flattenNoded turns a slice of noded SegmentStrings into our internal
-// tagged 2-vertex edges. When two SegmentStrings produce the same
-// directed segment, the DCEL builder merges them and ORs the tags so
-// shared edges carry both source labels.
-func flattenNoded(strings []*noding.SegmentString) []taggedSegment {
+// flattenNoded turns a slice of noded SegmentStrings into DepthSegment,
+// the single representation buildDCELCore consumes directly (no further
+// re-copy). When two SegmentStrings produce the same directed segment,
+// the DCEL builder merges them and ORs the tags so shared edges carry
+// both source labels.
+func flattenNoded(strings []*noding.SegmentString) []DepthSegment {
 	total := 0
 	for _, s := range strings {
 		if n := len(s.Coords); n >= 2 {
 			total += n - 1
 		}
 	}
-	out := make([]taggedSegment, 0, total)
+	out := make([]DepthSegment, 0, total)
 	for _, s := range strings {
 		if len(s.Coords) < 2 {
 			continue
 		}
 		tag := uint8(s.Tag)
 		for i := 0; i+1 < len(s.Coords); i++ {
-			out = append(out, taggedSegment{
-				p0:  s.Coords[i],
-				p1:  s.Coords[i+1],
-				tag: tag,
+			out = append(out, DepthSegment{
+				P0:  s.Coords[i],
+				P1:  s.Coords[i+1],
+				Tag: tag,
 			})
 		}
 	}

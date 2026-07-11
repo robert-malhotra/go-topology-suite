@@ -158,26 +158,24 @@ func makeKey(p geom.XY) vertexKey {
 	return vertexKey{x: math.Float64bits(p.X), y: math.Float64bits(p.Y)}
 }
 
-// taggedSegment is a noded edge with its per-edge payload: the
+// DepthSegment is a noded edge with its per-edge payload: the
 // source-polygon tag (overlay tag-mode builds) or the signed depth
-// delta (buffer polygonizer depth-mode builds).
-type taggedSegment struct {
-	p0, p1     geom.XY
-	tag        uint8 // 1=subj, 2=clip
-	depthDelta int8
-}
-
-// DepthSegment is a noded edge carrying a signed interior-crossing
-// depth. It is the input to BuildDepthDCEL, the buffer polygonizer's
-// entry point into the shared DCEL substrate.
+// delta (buffer polygonizer depth-mode builds). It is the single
+// intermediate representation between "noded segments" and
+// buildDCELCore: overlay's flattenNoded builds this slice directly
+// (setting Tag, leaving DepthDelta zero) and buffer/polygonize.go's
+// buildPolygonizeDCEL builds it directly (setting DepthDelta, leaving
+// Tag zero) — buildDCELCore consumes whichever a caller already has in
+// hand, with no further re-copy.
 type DepthSegment struct {
 	P0, P1     geom.XY
-	DepthDelta int8 // +1 if walking P0→P1 crosses INTO buffer interior
+	Tag        uint8 // 1=subj, 2=clip (overlay tag-mode builds)
+	DepthDelta int8  // +1 if walking P0→P1 crosses INTO buffer interior (depth-mode builds)
 }
 
 // buildDCEL builds a planar subdivision from the noded segments.
 // Coincident segments merge their tags by OR (tag mode).
-func buildDCEL(segs []taggedSegment) *DCEL {
+func buildDCEL(segs []DepthSegment) *DCEL {
 	return buildDCELCore(segs, false)
 }
 
@@ -191,12 +189,12 @@ func buildDCEL(segs []taggedSegment) *DCEL {
 // Unlike the overlay path (buildDCEL + traceFaces), the depth path does
 // not classify the outer face — the buffer polygonizer's depth
 // labelling never reads it.
+//
+// Takes the caller's []DepthSegment slice directly — buildPolygonizeDCEL
+// (buffer/polygonize.go) builds it in the final representation already,
+// so there is nothing left to re-copy here.
 func BuildDepthDCEL(segs []DepthSegment) *DCEL {
-	ts := make([]taggedSegment, len(segs))
-	for i, s := range segs {
-		ts[i] = taggedSegment{p0: s.P0, p1: s.P1, depthDelta: s.DepthDelta}
-	}
-	d := buildDCELCore(ts, true)
+	d := buildDCELCore(segs, true)
 	d.traceFaceCycles()
 	return d
 }
@@ -210,7 +208,7 @@ func BuildDepthDCEL(segs []DepthSegment) *DCEL {
 // The input MUST be noded: any two distinct segments share at most an
 // endpoint, never a true interior crossing. Producing the noding is the
 // caller's responsibility (typically: snap → node before building).
-func buildDCELCore(segs []taggedSegment, depthMode bool) *DCEL {
+func buildDCELCore(segs []DepthSegment, depthMode bool) *DCEL {
 	n := len(segs)
 	d := &DCEL{}
 	// Slab arenas, pre-sized to typical-case estimates (overflow falls
@@ -250,15 +248,15 @@ func buildDCELCore(segs []taggedSegment, depthMode bool) *DCEL {
 	edgeMap := make(map[edgeKey]*HalfEdge, 2*n)
 
 	for _, s := range segs {
-		if s.p0 == s.p1 {
+		if s.P0 == s.P1 {
 			continue // skip degenerate
 		}
 		// getVertex already computed each point's vertexKey internally
 		// (to probe/populate vmap); reuse it here instead of re-hashing
-		// va.P/vb.P — they're bit-identical to s.p0/s.p1 by construction
+		// va.P/vb.P — they're bit-identical to s.P0/s.P1 by construction
 		// (a vmap hit only occurs on an exact Float64bits match).
-		va, ka := getVertex(s.p0)
-		vb, kb := getVertex(s.p1)
+		va, ka := getVertex(s.P0)
+		vb, kb := getVertex(s.P1)
 
 		fk := edgeKey{ka, kb}
 		bk := edgeKey{kb, ka}
@@ -269,15 +267,15 @@ func buildDCELCore(segs []taggedSegment, depthMode bool) *DCEL {
 			if depthMode {
 				// Coincident edge: depths add, so opposite-direction
 				// duplicates cancel on the co-directed half.
-				e.DepthDelta += s.depthDelta
+				e.DepthDelta += s.DepthDelta
 			} else {
-				e.tags |= s.tag
-				e.Twin.tags |= s.tag
+				e.tags |= s.Tag
+				e.Twin.tags |= s.Tag
 			}
 			continue
 		}
-		eFwd := d.allocEdge(HalfEdge{Origin: va, Target: vb, tags: s.tag, DepthDelta: s.depthDelta})
-		eBack := d.allocEdge(HalfEdge{Origin: vb, Target: va, tags: s.tag, DepthDelta: -s.depthDelta})
+		eFwd := d.allocEdge(HalfEdge{Origin: va, Target: vb, tags: s.Tag, DepthDelta: s.DepthDelta})
+		eBack := d.allocEdge(HalfEdge{Origin: vb, Target: va, tags: s.Tag, DepthDelta: -s.DepthDelta})
 		eFwd.Twin = eBack
 		eBack.Twin = eFwd
 		eFwd.angle = pseudoAngle(vb.P.X-va.P.X, vb.P.Y-va.P.Y)
