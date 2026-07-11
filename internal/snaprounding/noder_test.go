@@ -1,7 +1,6 @@
 package snaprounding
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -173,20 +172,6 @@ func TestNodeSliverPrecision(t *testing.T) {
 	assert.GreaterOrEqualf(t, vertexCount(out, xy(5, 0)), 2, "expected (5,0) shared after snap; out=%v", dump(out))
 }
 
-// TestNodeMaxIterRespected verifies that MaxIter > 0 is honoured.
-func TestNodeMaxIterRespected(t *testing.T) {
-	n := &Noder{Tolerance: 1.0, MaxIter: 1}
-	_, stats, err := n.Node([]*noding.SegmentString{
-		ss(1, xy(0, 0), xy(10, 10)),
-		ss(2, xy(0, 10), xy(10, 0)),
-	})
-	// Simple X converges in one iteration so this should still succeed.
-	if err != nil && !errors.Is(err, ErrNotConverged) {
-		require.NoErrorf(t, err, "Node")
-	}
-	assert.LessOrEqualf(t, stats.Iterations, 1, "expected ≤1 iteration with MaxIter=1; got %d", stats.Iterations)
-}
-
 // dump returns a compact representation of a noded result for test
 // failure messages.
 func dump(strs []*noding.SegmentString) string {
@@ -204,23 +189,6 @@ func dump(strs []*noding.SegmentString) string {
 		}
 	}
 	return out + "]"
-}
-
-// TestNodeSeedIntersections runs the simple X-cross with the JTS-style
-// pre-noding intersection seed enabled and asserts the same shared
-// vertex appears on both crossings, confirming the seeded hot-pixel
-// path produces the same topology as the bare fix-point loop.
-func TestNodeSeedIntersections(t *testing.T) {
-	tol := 1.0
-	n := &Noder{Tolerance: tol, SeedIntersections: true}
-	out, stats, err := n.Node([]*noding.SegmentString{
-		ss(1, xy(0, 0), xy(10, 10)),
-		ss(2, xy(0, 10), xy(10, 0)),
-	})
-	require.NoErrorf(t, err, "Node returned error")
-	assert.Truef(t, stats.Converged, "expected Converged=true, got %+v", stats)
-	mid := xy(5, 5)
-	assert.GreaterOrEqualf(t, vertexCount(out, mid), 2, "expected (5,5) shared by both segments, got %d occurrences", vertexCount(out, mid))
 }
 
 func itoa(n int) string {

@@ -93,30 +93,20 @@ func bufferPolygon(p *geom.Polygon, distance float64, cfg config) (geom.Geometry
 		return got, nil
 
 	case distance < 0:
-		// Negative buffer (inset). Two-phase strategy:
+		// Negative buffer (inset), two-phase: try the legacy single-
+		// ring-offset + overshoot-guards + per-hole overlay.Difference
+		// pipeline first; only fall through to the polygonizer when it
+		// collapses to empty.
 		//
-		//  1. LEGACY PATH FIRST. The single-ring offset + overshoot
-		//     guards + per-hole overlay.Difference pipeline produces
-		//     clean ring outputs on the typical "convex / fat-parcel"
-		//     inputs the property tests exercise. Snap-rounding the
-		//     same inputs through the polygonizer can introduce
-		//     spurious mitre-cap micro-faces (degenerate slivers)
-		//     when the polygon has many near-collinear vertices from
-		//     a previous dilation.
-		//
-		//     If the legacy path returns a non-empty result, we
-		//     return it directly — preserving every currently-working
-		//     case.
-		//
-		//  2. POLYGONIZER FALLBACK when the legacy path collapses to
-		//     empty. Many real "thin parcel" inputs really do inset
-		//     to empty, but a residual minority should still produce
-		//     a non-empty inset ring (JTS's TestBufferExternal2,
-		//     TestBufferJagged, TestBufferMitredJoin all expose this).
-		//     The polygonizer's subgraph-aware depth labeller plus a
-		//     face-validity filter (representative point INSIDE the
-		//     original AND ≥ d from any original boundary segment)
-		//     recovers these cases without admitting overshoot lobes.
+		// Legacy-first is load-bearing, NOT just an optimisation: the
+		// polygonizer's snap-rounding can emit spurious mitre-cap
+		// micro-face slivers on inputs with many near-collinear
+		// vertices (e.g. a previous dilation's output), which legacy's
+		// direct ring offset does not. The polygonizer fallback exists
+		// because a residual minority of "thin parcel" inputs really
+		// do produce a non-empty inset that legacy wrongly collapses
+		// to empty (JTS TestBufferExternal2, TestBufferJagged,
+		// TestBufferMitredJoin).
 		d := -distance
 		if bboxTooThinForInset(outer, d) {
 			return geom.NewEmptyPolygon(p.CRS(), p.Layout()), nil
@@ -128,57 +118,27 @@ func bufferPolygon(p *geom.Polygon, distance float64, cfg config) (geom.Geometry
 		if legacy != nil && !legacy.IsEmpty() {
 			return legacy, nil
 		}
-		// Polygonizer fallback. Only reached when the legacy pipeline
-		// reports empty — exactly the regime where JTS conformance is
-		// currently weakest. The face-validity filter ensures we
-		// never invent inset faces that lie outside the original or
-		// straddle its boundary.
 		segs := emitPolygonOffsetSegments(p, distance, cfg)
 		if len(segs) == 0 {
 			return geom.NewEmptyPolygon(p.CRS(), p.Layout()), nil
 		}
-		// Face-validity filter for the polygonizer: a kept ring's
-		// representative interior point must satisfy BOTH
-		//
-		//  1. windingDepth(rep, originalRings) == sign(outer)
-		//     — rep is topologically STRICTLY inside the original
-		//     polygon body. This is the JTS-standard depth-against-
-		//     original metric, generalising the legacy
-		//     pointInPolygonRings call to be orientation-aware and
-		//     numerically robust (signed ray-crossings cancel cleanly
-		//     for ULP-scale rep-point noise).
-		//
-		//  2. minDistToBoundary(rep, originalRings) >= d
-		//     — rep is at least d from any original boundary segment.
-		//     Every TRUE inset interior point has clearance >= d by
-		//     construction; phantom mitre-overshoot lobes have rep
-		//     within ULP of the original boundary and fail this check.
-		//
-		// V3.0/V3.1/V3.2 explored relaxing the distance threshold or
-		// replacing it with self-inscribed-radius checks; all degraded
-		// conformance because the rejected rings are predominantly
-		// phantom overshoot lobes whose detection by alternative
-		// metrics is brittle. V4 explored replacing the distance check
-		// with the winding-number alone; that regressed conformance
-		// from 99.0% → 98.7% because phantom subgraphs whose rep lands
-		// inside the original polygon (winding == +1) are admitted —
-		// the distance check is the load-bearing rejection criterion.
-		// The winding-number conjunction is the strictly safer
-		// composite (rejects everything either check rejects, allows
-		// nothing more) and supersedes the legacy point-in-polygon +
-		// boundary-distance validator.
+		// Face-validity filter: keep a ring only if its representative
+		// point is BOTH strictly inside the original polygon body
+		// (windingDepth == sign(outer), the JTS-standard depth metric)
+		// AND >= d from any original boundary segment
+		// (minDistToBoundary). The CONJUNCTION is the load-bearing
+		// phantom-overshoot-lobe rejector — DO NOT drop the distance
+		// check or relax it to a self-inscribed-radius test: V3.x
+		// tried relaxing it and V4 tried winding alone, both degraded
+		// conformance (winding alone: 99.0% -> 98.7%, by admitting
+		// phantom subgraphs whose rep lands inside the original). No
+		// min-area filter on purpose: legitimate inset slivers can be
+		// much smaller than d^2, and area filtering on top would throw
+		// out real geometry.
 		validate := negativeBufferHybridValidator(p, d)
-		// No min-area filter: legitimate inset slivers can be much
-		// smaller than d^2 (an inset of a thin parcel may produce a
-		// 5-vertex polygon whose area is ≪ d^2). The validator's
-		// winding+distance check is the load-bearing phantom rejector;
-		// area-based filtering on top of that throws out real geometry.
-		//
-		// JTS BufferOp.bufferReducedPrecision: try MAX_PRECISION_DIGITS
-		// first; on failure (empty result when bbox is wide enough to
-		// admit an inset) retry with coarser precision. Mirrors JTS's
-		// fixed-precision fallback used by GEOSBuffer #605 and similar
-		// near-degenerate inputs.
+		// JTS BufferOp.bufferReducedPrecision-style retry: try
+		// MAX_PRECISION_DIGITS first, then progressively coarser
+		// snap-rounding on failure.
 		got, err := bufferPolygonReducedPrecision(p, distance, segs, validate, false)
 		if err != nil {
 			return nil, fmt.Errorf("buffer: polygonize inset: %w", err)
@@ -279,6 +239,46 @@ func insetOvershoot(inset, orig []geom.XY, d float64) bool {
 	return false
 }
 
+// fusePairwise repeatedly Unions pairs of pieces, replacing a pair with
+// their union when accept approves it, until no pair fuses further.
+// Each pass restarts the scan from i=0 after a successful fuse (pieces
+// shrinks by one), matching a simple worklist fixpoint.
+//
+// accept receives the two candidate pieces, the Union result (nil if
+// Union itself errored) and that error, and decides whether to fuse
+// (dropping the second piece) and/or abort the whole walk with a
+// non-nil error. Returning (false, nil) on a Union error skips that
+// pair without aborting; returning (_, err) aborts immediately, before
+// trying any other pair — this mirrors both callers' original
+// error-handling: one swallows Union errors as "can't fuse this pair",
+// the other treats them as fatal.
+func fusePairwise(pieces []geom.Geometry, accept func(a, b, u geom.Geometry, unionErr error) (fuse bool, err error)) ([]geom.Geometry, error) {
+	for {
+		merged := false
+	pair:
+		for i := 0; i < len(pieces); i++ {
+			for j := i + 1; j < len(pieces); j++ {
+				u, uErr := overlay.Union(pieces[i], pieces[j])
+				fuse, err := accept(pieces[i], pieces[j], u, uErr)
+				if err != nil {
+					return nil, err
+				}
+				if !fuse {
+					continue
+				}
+				pieces[i] = u
+				pieces = append(pieces[:j], pieces[j+1:]...)
+				merged = true
+				break pair
+			}
+		}
+		if !merged {
+			break
+		}
+	}
+	return pieces, nil
+}
+
 // unionMultiBufferParts unions a slice of buffer polygons, falling
 // back to a MultiPolygon assembly when overlay.Union produces a
 // spurious empty/smaller result (known fragility on large-coordinate
@@ -301,41 +301,26 @@ func unionMultiBufferParts(c *crs.CRS, parts []*geom.Polygon) geom.Geometry {
 	for _, p := range parts {
 		pieces = append(pieces, p)
 	}
-	// Pairwise fuse: try Union(a,b); accept iff the result's area is
-	// at least max(area(a), area(b)) - 1e-9. Otherwise keep both.
-	for {
-		merged := false
-	pair:
-		for i := 0; i < len(pieces); i++ {
-			for j := i + 1; j < len(pieces); j++ {
-				u, err := overlay.Union(pieces[i], pieces[j])
-				if err != nil {
-					continue
-				}
-				if u == nil || u.IsEmpty() {
-					continue
-				}
-				ai := geomTotalArea(pieces[i])
-				aj := geomTotalArea(pieces[j])
-				au := geomTotalArea(u)
-				maxIn := math.Max(ai, aj)
-				sumIn := ai + aj
-				// A valid union has area in [max(a,b), a+b]. Reject if
-				// outside that band (with a small slack).
-				if au+1e-9 < maxIn || au > sumIn+1e-9 {
-					continue
-				}
-				// Replace i with u, drop j.
-				pieces[i] = u
-				pieces = append(pieces[:j], pieces[j+1:]...)
-				merged = true
-				break pair
-			}
+	// Accept iff the result's area is at least max(area(a), area(b)),
+	// within a small slack. Union errors and out-of-band areas both
+	// mean "keep both pieces separately" (never fatal here).
+	accept := func(a, b, u geom.Geometry, uErr error) (bool, error) {
+		if uErr != nil || u == nil || u.IsEmpty() {
+			return false, nil
 		}
-		if !merged {
-			break
+		ai := geomTotalArea(a)
+		aj := geomTotalArea(b)
+		au := geomTotalArea(u)
+		maxIn := math.Max(ai, aj)
+		sumIn := ai + aj
+		// A valid union has area in [max(a,b), a+b]. Reject if outside
+		// that band (with a small slack).
+		if au+1e-9 < maxIn || au > sumIn+1e-9 {
+			return false, nil
 		}
+		return true, nil
 	}
+	pieces, _ = fusePairwise(pieces, accept) // accept never returns an error
 	if len(pieces) == 1 {
 		return pieces[0]
 	}
@@ -463,39 +448,34 @@ func bufferMultiPolygon(mp *geom.MultiPolygon, distance float64, cfg config) (ge
 // This is a v0.1 implementation: pairwise Union without a sweepline. For
 // small multi-polygons (a handful of members) it is adequate.
 func unionGeometries(c *crs.CRS, a, b geom.Geometry) (geom.Geometry, error) {
-	parts := append(explodePolygons(a), explodePolygons(b)...)
-	if len(parts) == 0 {
+	exploded := append(explodePolygons(a), explodePolygons(b)...)
+	if len(exploded) == 0 {
 		return geom.NewEmptyPolygon(c, geom.LayoutXY), nil
 	}
-	// Repeatedly fuse any pair that overlap until no more fusions occur.
-	merged := true
-	for merged {
-		merged = false
-		for i := 0; i < len(parts); i++ {
-			for j := i + 1; j < len(parts); j++ {
-				u, err := overlay.Union(parts[i], parts[j])
-				if err != nil {
-					return nil, err
-				}
-				switch v := u.(type) {
-				case *geom.Polygon:
-					// They overlapped and merged into one polygon.
-					parts[i] = v
-					parts = append(parts[:j], parts[j+1:]...)
-					merged = true
-				case *geom.MultiPolygon:
-					// Disjoint: leave them separate. (Union returns
-					// MultiPolygon when the inputs don't intersect.)
-					_ = v
-				}
-				if merged {
-					break
-				}
-			}
-			if merged {
-				break
-			}
+	pieces := make([]geom.Geometry, len(exploded))
+	for i, p := range exploded {
+		pieces[i] = p
+	}
+	// Accept iff Union produced a single merged Polygon (the pair
+	// overlapped). A MultiPolygon result means the pair is disjoint —
+	// Union returns MultiPolygon when the inputs don't intersect —
+	// and both pieces are kept separately. A Union error aborts the
+	// whole walk immediately, matching the original eager return.
+	accept := func(_, _, u geom.Geometry, uErr error) (bool, error) {
+		if uErr != nil {
+			return false, uErr
 		}
+		_, ok := u.(*geom.Polygon)
+		return ok, nil
+	}
+	var err error
+	pieces, err = fusePairwise(pieces, accept)
+	if err != nil {
+		return nil, err
+	}
+	parts := make([]*geom.Polygon, len(pieces))
+	for i, g := range pieces {
+		parts[i] = g.(*geom.Polygon)
 	}
 	if len(parts) == 1 {
 		return parts[0], nil
@@ -623,18 +603,11 @@ func ringCentroid(ring []geom.XY) (float64, float64, bool) {
 	return sumX / (3 * sumA), sumY / (3 * sumA), true
 }
 
-// bboxTooThinForInset reports whether the ring's bounding box has a
-// side smaller than 2d, in which case no point inside can be at
-// distance ≥ d from every boundary segment. For an outer ring this
-// means a negative buffer of magnitude d collapses to empty; for a
-// hole ring it means a positive buffer of magnitude d fully consumes
-// the hole (see emitPolygonOffsetSegments).
-func bboxTooThinForInset(ring []geom.XY, d float64) bool {
-	if len(ring) == 0 {
-		return true
-	}
-	minX, maxX := ring[0].X, ring[0].X
-	minY, maxY := ring[0].Y, ring[0].Y
+// ringBBox returns the axis-aligned bounding box of ring's vertices.
+// Callers must ensure ring is non-empty.
+func ringBBox(ring []geom.XY) (minX, minY, maxX, maxY float64) {
+	minX, maxX = ring[0].X, ring[0].X
+	minY, maxY = ring[0].Y, ring[0].Y
 	for _, p := range ring[1:] {
 		if p.X < minX {
 			minX = p.X
@@ -649,6 +622,20 @@ func bboxTooThinForInset(ring []geom.XY, d float64) bool {
 			maxY = p.Y
 		}
 	}
+	return minX, minY, maxX, maxY
+}
+
+// bboxTooThinForInset reports whether the ring's bounding box has a
+// side smaller than 2d, in which case no point inside can be at
+// distance ≥ d from every boundary segment. For an outer ring this
+// means a negative buffer of magnitude d collapses to empty; for a
+// hole ring it means a positive buffer of magnitude d fully consumes
+// the hole (see emitPolygonOffsetSegments).
+func bboxTooThinForInset(ring []geom.XY, d float64) bool {
+	if len(ring) == 0 {
+		return true
+	}
+	minX, minY, maxX, maxY := ringBBox(ring)
 	return (maxX-minX) < 2*d || (maxY-minY) < 2*d
 }
 
@@ -658,22 +645,7 @@ func ringDegenerate(ring []geom.XY) bool {
 	if len(ring) < 4 {
 		return true
 	}
-	minX, minY := math.Inf(1), math.Inf(1)
-	maxX, maxY := math.Inf(-1), math.Inf(-1)
-	for _, p := range ring {
-		if p.X < minX {
-			minX = p.X
-		}
-		if p.X > maxX {
-			maxX = p.X
-		}
-		if p.Y < minY {
-			minY = p.Y
-		}
-		if p.Y > maxY {
-			maxY = p.Y
-		}
-	}
+	minX, minY, maxX, maxY := ringBBox(ring)
 	const eps = 1e-12
 	return (maxX-minX) < eps || (maxY-minY) < eps
 }
@@ -731,7 +703,7 @@ func bufferPolygonReducedPrecision(
 	var lastErr error
 	for digits := maxPrecisionDigits; digits >= 0; digits-- {
 		tolerance := bufferPrecisionTolerance(p, distance, digits)
-		got, err := polygonizeBufferWithFilter(p.CRS(), segs, tolerance, validate, 0)
+		got, err := polygonizeBufferWithFilter(p.CRS(), segs, tolerance, validate)
 		if err != nil {
 			lastErr = err
 			// On error, keep retrying at coarser precision.

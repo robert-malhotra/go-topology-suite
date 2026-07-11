@@ -70,76 +70,6 @@ func TestHotPixelSet_SegmentSplitsAt_OffAxisInsidePixel(t *testing.T) {
 	assert.Equal(t, xy(1, 0), splits[0])
 }
 
-// TestSnapRoundRings_GoodrichGuibasClassic: the classic case the
-// pipeline is designed to fix.
-//
-// Segment A goes from (0,0) to (4,0), passing through (2, 0).
-// Segment B is a tiny vertical bar at x=2 with endpoints rounding
-// to (2,0) — so segment B's snapped endpoints are both at (2,0)
-// and B collapses to a point. But (2,0) is now a hot pixel that A
-// must be split at. After SnapRoundRings, A is the polyline
-// (0,0)→(2,0)→(4,0).
-//
-// We package this as a degenerate "ring" so SnapRoundRings can
-// process it. (The pipeline is also invoked with a representative
-// segment-only ring for B.)
-func TestSnapRoundRings_GoodrichGuibasClassic(t *testing.T) {
-	tol := 1.0
-	r := New(tol)
-
-	// Construct two rings that exercise the GG pattern. To keep
-	// SnapRing's "≥4 distinct vertices" rule satisfied, use
-	// non-degenerate rings whose interior shares a vertex with the
-	// other's edge.
-	//
-	//   Ring A: (0,0), (4,0), (4,1), (0,1), (0,0)
-	//   Ring B: a 1×1 square at (2,0)..(3,1) — shares the vertex (2,0)
-	//           with the interior of A's bottom edge.
-	a := []geom.XY{xy(0, 0), xy(4, 0), xy(4, 1), xy(0, 1), xy(0, 0)}
-	b := []geom.XY{xy(2, 0), xy(3, 0), xy(3, 1), xy(2, 1), xy(2, 0)}
-
-	out := r.SnapRoundRings([][]geom.XY{a, b})
-	require.Len(t, out, 2, "two rings in, two rings out")
-
-	// Ring A must now contain the vertex (2,0) on its bottom edge —
-	// inserted by the hot-pixel pass because B contributed (2,0) and
-	// (3,0) as hot pixels through which A's bottom segment passes.
-	gotA := out[0]
-	assertHasVertex(t, gotA, xy(2, 0), "A should be split at (2,0)")
-	assertHasVertex(t, gotA, xy(3, 0), "A should be split at (3,0)")
-
-	// Ring B is unchanged (its vertices are themselves the hot pixels,
-	// so no interior-segment splits are added).
-	gotB := out[1]
-	assert.GreaterOrEqual(t, len(gotB), 5, "B should still be a closed 1×1 square")
-}
-
-// TestSnapRoundRings_NoSplitsWhenSeparated: when no hot pixel sits in
-// any other ring's interior segment, the output is the input
-// unchanged (modulo the snap-to-grid pass).
-func TestSnapRoundRings_NoSplitsWhenSeparated(t *testing.T) {
-	r := New(1.0)
-	a := []geom.XY{xy(0, 0), xy(2, 0), xy(2, 2), xy(0, 2), xy(0, 0)}
-	b := []geom.XY{xy(10, 10), xy(12, 10), xy(12, 12), xy(10, 12), xy(10, 10)}
-
-	out := r.SnapRoundRings([][]geom.XY{a, b})
-	require.Len(t, out, 2)
-	assert.Equal(t, len(a), len(out[0]), "A should be unchanged")
-	assert.Equal(t, len(b), len(out[1]), "B should be unchanged")
-}
-
-// TestSnapRoundRings_DropsCollapsed: a ring that collapses under snap
-// (e.g. a microscopic triangle) must be dropped.
-func TestSnapRoundRings_DropsCollapsed(t *testing.T) {
-	r := New(1.0)
-	tiny := []geom.XY{xy(0, 0), xy(0.1, 0), xy(0, 0.1), xy(0, 0)}
-	healthy := []geom.XY{xy(5, 5), xy(7, 5), xy(7, 7), xy(5, 7), xy(5, 5)}
-
-	out := r.SnapRoundRings([][]geom.XY{tiny, healthy})
-	require.Len(t, out, 1, "tiny ring should be dropped")
-	assert.Equal(t, len(healthy), len(out[0]))
-}
-
 // TestHotPixelSet_segmentIntersectsPixel_HalfOpen verifies the
 // half-open cell semantics from JTS HotPixel.intersectsScaled:
 // the bottom and left edges of the cell belong to it, the top and
@@ -179,14 +109,4 @@ func TestHotPixelSet_segmentIntersectsPixel_HalfOpen(t *testing.T) {
 
 	// Far-away segment.
 	assert.False(t, s.segmentIntersectsPixel(xy(10, 10), xy(11, 11), centre))
-}
-
-func assertHasVertex(t *testing.T, ring []geom.XY, v geom.XY, msg string) {
-	t.Helper()
-	for _, p := range ring {
-		if p.Equal(v) {
-			return
-		}
-	}
-	t.Errorf("%s: ring %v does not contain %v", msg, ring, v)
 }

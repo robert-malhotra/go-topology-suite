@@ -38,12 +38,11 @@
 // SnapRing / SnapPolygon), the package implements the Goodrich-Guibas-
 // Hershberger-Tanenbaum hot-pixel pipeline via:
 //
-//   - HotPixelSet: a deduplicated, R-tree-indexed collection of hot
-//     pixels (grid cells that contain at least one snapped vertex).
+//   - HotPixelSet: a deduplicated collection of hot pixels (grid cells
+//     that contain at least one snapped vertex), indexed as a single
+//     x-sorted array rather than an R-tree.
 //   - HotPixelSet.NodeRing: split a ring's segments at every hot
 //     pixel whose centre the segment passes within tolerance/2 of.
-//   - Rounder.SnapRoundRings: full pipeline — snap all vertices, build
-//     the hot-pixel set, node every ring against it.
 //
 // OverlayNG drives the cross-input case directly: it builds a single
 // HotPixelSet from both subj and clip rings so a vertex from one input

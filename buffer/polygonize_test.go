@@ -279,31 +279,6 @@ func TestPolygonize_SelfIntersectingOffset(t *testing.T) {
 	assert.InDelta(t, 25.0, math.Abs(measure.Area(got)), 1e-9, "single triangle kept")
 }
 
-// TestPolygonize_FilterDropsTinyRings: the min-area filter should
-// reject snap-rounding sliver rings whose area is microscopic relative
-// to the buffer distance.
-func TestPolygonize_FilterDropsTinyRings(t *testing.T) {
-	// One legitimate 10×10 inset ring (area=100), plus a 0.001×0.001
-	// sliver (area=1e-6). With minArea = 1.0 (way above the sliver),
-	// only the big ring survives.
-	segs := []offsetSegment{
-		{p0: geom.XY{X: 0, Y: 0}, p1: geom.XY{X: 10, Y: 0}, depthDelta: 1},
-		{p0: geom.XY{X: 10, Y: 0}, p1: geom.XY{X: 10, Y: 10}, depthDelta: 1},
-		{p0: geom.XY{X: 10, Y: 10}, p1: geom.XY{X: 0, Y: 10}, depthDelta: 1},
-		{p0: geom.XY{X: 0, Y: 10}, p1: geom.XY{X: 0, Y: 0}, depthDelta: 1},
-		// Disjoint sliver far from the main square.
-		{p0: geom.XY{X: 100, Y: 100}, p1: geom.XY{X: 100.001, Y: 100}, depthDelta: 1},
-		{p0: geom.XY{X: 100.001, Y: 100}, p1: geom.XY{X: 100.001, Y: 100.001}, depthDelta: 1},
-		{p0: geom.XY{X: 100.001, Y: 100.001}, p1: geom.XY{X: 100, Y: 100.001}, depthDelta: 1},
-		{p0: geom.XY{X: 100, Y: 100.001}, p1: geom.XY{X: 100, Y: 100}, depthDelta: 1},
-	}
-	got, err := polygonizeBufferWithFilter(nil, segs, 0, nil, 1.0)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.InDelta(t, 100.0, measure.Area(got), 1e-9,
-		"sliver dropped by min-area filter; main ring kept")
-}
-
 // TestPolygonize_FaceValidatorRejectsOutsideRings: the keep predicate
 // can reject extracted rings whose representative point is "outside the
 // original" — modelled here as a predicate returning false for any
@@ -322,8 +297,8 @@ func TestPolygonize_FaceValidatorRejectsOutsideRings(t *testing.T) {
 		{p0: geom.XY{X: -10, Y: 10}, p1: geom.XY{X: -20, Y: 10}, depthDelta: 1},
 		{p0: geom.XY{X: -20, Y: 10}, p1: geom.XY{X: -20, Y: 0}, depthDelta: 1},
 	}
-	keep := func(ring []geom.XY) bool { return ringInscribedRep(ring).X > 0 }
-	got, err := polygonizeBufferWithFilter(nil, segs, 0, keep, 0)
+	keep := func(ring []geom.XY) bool { return inscribedCircleRep(ring).X > 0 }
+	got, err := polygonizeBufferWithFilter(nil, segs, 0, keep)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.InDelta(t, 100.0, measure.Area(got), 1e-9,

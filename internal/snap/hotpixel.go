@@ -442,57 +442,6 @@ func segmentParam(a, b, p geom.XY) float64 {
 	return (p.Y - a.Y) / dy
 }
 
-// SnapRoundRings is the full Goodrich-Guibas pipeline: snap every
-// vertex to the grid, build a hot-pixel set from the unique snapped
-// vertices, then split each segment at every hot pixel its interior
-// passes through.
-//
-// The output is a topologically-consistent ring set: every
-// segment-segment intersection (after rounding) is a shared vertex,
-// so downstream noding sees no segment passing through a vertex it
-// doesn't share.
-//
-// Rings that collapse under snap (fewer than 4 distinct vertices) are
-// dropped, except when collapse occurs in the input's first ring (the
-// outer ring of a polygon); in that case all rings derived from that
-// polygon should be dropped, which the caller is responsible for —
-// this function operates on a flat ring list and has no per-polygon
-// awareness.
-func (r *Rounder) SnapRoundRings(rings [][]geom.XY) [][]geom.XY {
-	// Pass 1: snap each vertex; collect snapped rings.
-	snapped := make([][]geom.XY, 0, len(rings))
-	for _, ring := range rings {
-		s := r.SnapRing(ring)
-		if s == nil {
-			continue
-		}
-		snapped = append(snapped, s)
-	}
-	if len(snapped) == 0 {
-		return nil
-	}
-
-	// Pass 2: build hot pixel set from every unique snapped vertex.
-	hp := NewHotPixelSet(r.tolerance)
-	for _, ring := range snapped {
-		for _, v := range ring {
-			hp.Add(v)
-		}
-	}
-
-	// Pass 3: for each segment of each ring, find hot-pixel splits and
-	// emit the noded ring.
-	out := make([][]geom.XY, 0, len(snapped))
-	for _, ring := range snapped {
-		noded := hp.NodeRing(ring)
-		if noded == nil {
-			continue
-		}
-		out = append(out, noded)
-	}
-	return out
-}
-
 // NodeRing returns ring with any segment that passes through a hot
 // pixel split at that pixel's centre. Used by callers that want to
 // share a single HotPixelSet across multiple ring sources (e.g.

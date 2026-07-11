@@ -370,21 +370,20 @@ func polygonizeBufferRings(segs []offsetSegment, tolerance float64) ([][]geom.XY
 
 // polygonizeBufferWithFilter runs the buffer polygonizer and then drops
 // any kept ring whose representative interior point fails the supplied
-// face-validity test, or whose absolute area is below minArea. Used by
-// the negative-buffer caller to suppress "overshoot lobes" — phantom
-// faces produced when offset curves self-intersect on a thin throat —
-// and snap-rounding sliver artefacts whose area is microscopic relative
-// to the buffer distance.
+// face-validity test. Used by the negative-buffer caller to suppress
+// "overshoot lobes" — phantom faces produced when offset curves
+// self-intersect on a thin throat.
 //
-// The filter is geometric and additive (point-in-poly + boundary
-// distance + min area), so it can only ever REMOVE polygonizer output —
-// never invent faces.
+// No min-area filter: legitimate inset slivers can be much smaller than
+// d^2 (see the comment on the negative-buffer branch in
+// bufferPolygon), so the filter is geometric only (point-in-poly +
+// boundary distance via keep), and can only ever REMOVE polygonizer
+// output — never invent faces.
 func polygonizeBufferWithFilter(
 	c *crs.CRS,
 	segs []offsetSegment,
 	tolerance float64,
 	keep func(ring []geom.XY) bool,
-	minArea float64,
 ) (geom.Geometry, error) {
 	rings, err := polygonizeBufferRings(segs, tolerance)
 	if err != nil {
@@ -395,9 +394,6 @@ func polygonizeBufferWithFilter(
 	}
 	filtered := rings[:0]
 	for _, r := range rings {
-		if minArea > 0 && math.Abs(planar.Default().RingArea(r)) < minArea {
-			continue
-		}
 		// The validator receives the whole ring and picks its own
 		// representative point: the negative-buffer validator needs the
 		// inscribed-circle rep's robust interior margin (its distance-
@@ -417,58 +413,22 @@ func polygonizeBufferWithFilter(
 	return assemblePolygonizeRings(c, rings), nil
 }
 
-// windingDepth returns the integer winding number of the original
-// polygon's boundary (outer + holes) around the representative point
-// rep. It is the JTS-standard depth-against-original metric used to
-// decide whether a polygonizer-extracted face represents true buffer
-// interior or a phantom overshoot subgraph.
+// windingDepth returns the JTS-standard integer winding number of the
+// original polygon's boundary (outer + holes) around rep, computed by
+// horizontal-ray-crossing: +1 per upward-crossing segment, -1 per
+// downward-crossing segment, counting only crossings to the right of
+// rep (horizontal segments skipped; a ray-grazing vertex counts on at
+// most one incident edge, so half-open).
 //
-// Algorithm: cast a horizontal ray from rep to +∞. For every segment of
-// every original ring, if the segment crosses the ray on the right of
-// rep, contribute a signed count using the standard winding-number rule:
-//
-//	+1 when the segment runs UPWARD through the ray (b.Y > a.Y)
-//	-1 when the segment runs DOWNWARD through the ray (b.Y < a.Y)
-//
-// Note: this rule is the SAME for every ring regardless of orientation.
-// For a "polygon-with-hole" passed in the conventional JTS layout
-// (CCW outer, CW hole) the upward edges of the outer ring on the right
-// of an interior point contribute +1 and the hole's edges on the right
-// (which run downward by virtue of CW direction) contribute -1, summing
-// to 0 inside the hole and +1 inside the polygon body.
-//
-// Sum across all rings, for the conventional CCW-outer / CW-hole layout:
-//
-//	winding == 0   ⇒  rep is outside the polygon body OR inside a hole
-//	winding == +1  ⇒  rep is inside polygon (in outer, not in any hole)
-//
-// (For a CW outer ring, all signs are flipped: interior is winding -1.
-// Callers that need orientation-invariant "inside polygon" classification
-// should compare |winding| == 1 or normalise their input to JTS layout.)
-//
-// For a NEGATIVE buffer with conventional input orientation, kept faces
-// have winding == +1: their rep point lies strictly inside the original
-// polygon body. Phantom mitre-overshoot lobes whose rep landed outside
-// have winding == 0. Faces where rep landed inside a hole also have
-// winding == 0 — those are correctly rejected.
-//
-// For a POSITIVE buffer with conventional input orientation, kept faces
-// have winding >= 0: rep may be inside the original (winding +1) or
-// outside it (winding 0, but within d of the boundary since the
-// polygonizer's own depth-from-offset-curves has already flagged the
-// face as buffer interior). Faces where rep landed inside a hole are
-// also winding 0 and would be incorrectly admitted by `>= 0` — but the
-// polygonizer's depth machinery has already removed hole interiors
-// (subtractive depth labelling), so no actual face-rep ever lands there.
-//
-// originalRings is the list of rings (outer first, then holes) in their
-// natural orientation. The function does NOT normalise orientation; it
-// reports the topological winding number directly.
-//
-// Half-open ray-crossing convention: a vertex exactly at rep.Y is
-// counted on at most one of its incident edges (a.Y > rep.Y XOR
-// b.Y > rep.Y). Horizontal segments are skipped (they never strictly
-// cross a horizontal ray).
+// For conventional CCW-outer/CW-hole input: winding == +1 inside the
+// polygon body, 0 outside it or inside a hole (a CW outer ring flips
+// all signs; orientation-invariant callers should compare |winding|==1
+// instead). Negative-buffer face validation keeps winding == +1;
+// positive-buffer validation keeps winding >= 0 — hole-interior faces
+// are winding 0 too, but never reach this check because the
+// polygonizer's own depth labelling has already removed hole
+// interiors. See BENCHMARKS.md for the buffer-validator rep-point
+// rationale.
 func windingDepth(rep geom.XY, originalRings [][]geom.XY) int {
 	winding := 0
 	for _, ring := range originalRings {
@@ -541,7 +501,7 @@ func negativeBufferHybridValidator(orig *geom.Polygon, minDistance float64) func
 		// (within ULP of the offset boundary), which is precisely
 		// where the clearance check can't distinguish legitimate
 		// inset rings from overshoot lobes.
-		p := ringInscribedRep(ring)
+		p := inscribedCircleRep(ring)
 		if windingDepth(p, rings) != sign {
 			return false
 		}
@@ -603,7 +563,7 @@ func positiveBufferWindingValidator(orig *geom.Polygon) func([]geom.XY) bool {
 		// an interior point (sliver-thin or degenerate rings).
 		p, ok := ringCheapInteriorRep(ring)
 		if !ok {
-			p = ringInscribedRep(ring)
+			p = inscribedCircleRep(ring)
 		}
 		w := windingDepth(p, rings)
 		return w == 0 || w == sign
@@ -1013,60 +973,20 @@ func topmostRightmostVertex(edges []*overlayng.HalfEdge) *overlayng.Vertex {
 
 // labelOneSubgraph computes the anchor face of one subgraph, ray-casts
 // its absolute depth, and BFS-propagates depths within the subgraph.
-// Faces with depth >= 1 are marked keep=true.
+// Faces with depth >= 1 are marked keep=true. BFS only crosses edges
+// whose face is in the subgraph's face set, so depth never leaks
+// through the (conceptually shared) outer face into another subgraph.
 //
-// "Within the subgraph" means: BFS only crosses edges whose face is in
-// the subgraph's face set. This prevents depth from leaking through
-// the conceptually-shared outer face into other subgraphs.
-//
-// Comparison to JTS BufferSubgraph + SubgraphDepthLocater
-// =======================================================
-//
-// JTS's pipeline (BufferSubgraph.computeDepth +
-// SubgraphDepthLocater.getDepth) anchors a subgraph's depth at its
-// rightmost-edge's right-side, where the "outside depth" is computed
-// by stabbing a horizontal ray rightward from the rightmost coord and
-// taking the lowest stabbed segment's leftDepth from OTHER subgraphs.
-// BFS then propagates Position.LEFT/RIGHT depth across the subgraph's
-// directed-edge graph.
-//
-// Our approach anchors at the topmost-rightmost VERTEX's outermost
-// face and ray-casts depth against the GLOBAL offset segment set.
-// Behavioural differences:
-//
-//  1. Anchor selection: rightmost edge (JTS) vs topmost-rightmost
-//     vertex (ours). Both pick a point on the geometric outside of
-//     the subgraph; for non-degenerate offsets they yield the same
-//     "outside" classification.
-//  2. Outside-depth source: lowest-stabbed-segment leftDepth from
-//     other subgraphs (JTS) vs global ray-cast over all segments
-//     (ours). JTS's narrower scope avoids self-counting the
-//     subgraph's own segments — useful when subgraphs are nested
-//     (a hole-in-hole-in-buffer scenario).
-//  3. Propagation: depth-per-side on directed edges (JTS) vs
-//     depth-per-face with depthDelta crossings (ours). Equivalent
-//     for a simple planar subdivision.
-//
-// Investigated for the two remaining algorithmic gaps
-// (TestBufferExternal2 #97, GEOSBuffer #2). Findings:
-//
-//   - Case #97 (tiny inset polygon) fails the area+Hausdorff matcher
-//     by ~0.1% area divergence, not a depth-labelling miss; our
-//     ray-cast anchor depth is already correct for the single
-//     subgraph the polygonizer produces. Porting JTS's
-//     rightmost-edge anchor would not change the kept-ring set.
-//
-//   - Case #2 (UTM-scale LineString d=1000) is now also routed through
-//     the polygonizer pipeline via emitLineStringOffsetSegments — see
-//     bufferLineString in buffer.go. BufferSubgraph remains optional
-//     scope: our existing global-ray-cast anchor is functionally
-//     equivalent for the line-buffer case in practice.
-//
-// Decision: do NOT port BufferSubgraph + SubgraphDepthLocater. Our
-// existing global-ray-cast anchor is functionally equivalent for
-// the cases we care about, and the JTS ports' larger DCEL/Position
-// surface (DirectedEdgeStar.computeDepths, Label.getLocation, etc.)
-// would expand scope without changing observable conformance.
+// Anchors at the topmost-rightmost vertex's outer face and ray-casts
+// depth against the GLOBAL offset segment set — deliberately NOT JTS's
+// BufferSubgraph/SubgraphDepthLocater (rightmost-edge anchor + per-
+// subgraph ray stab + Position.LEFT/RIGHT propagation). Confirmed
+// behaviourally equivalent on both remaining conformance gaps at the
+// time of the comparison (TestBufferExternal2 #97: an area/Hausdorff
+// tolerance miss, not a depth-labelling one; GEOSBuffer #2: routed
+// through this same polygonizer via bufferLineString). Do NOT port the
+// JTS structures without a reproducing case — see BENCHMARKS.md for
+// the buffer polygonizer's performance rationale.
 func labelOneSubgraph(edges []*overlayng.HalfEdge, segs []offsetSegment, scr *subgraphScratch) {
 	if len(edges) == 0 {
 		return
@@ -1327,7 +1247,7 @@ func nextBoundaryAtPGVertex(e *overlayng.HalfEdge, isBoundary func(*overlayng.Ha
 // "skin" of the ring (just inside its own boundary), unlikely to fall
 // inside a contained child ring — which keeps the containment-depth
 // logic correct. The post-extraction face-validity filter (V3.1) uses
-// a different rep-point algorithm: see ringInscribedRep below.
+// a different rep-point algorithm: see inscribedCircleRep below.
 func assemblePolygonizeRings(c *crs.CRS, rings [][]geom.XY) geom.Geometry {
 	first, rest, err := overlayng.AssembleOutputPolygons(c, rings)
 	if err != nil {
@@ -1338,24 +1258,18 @@ func assemblePolygonizeRings(c *crs.CRS, rings [][]geom.XY) geom.Geometry {
 	return overlayng.WrapPolygonResult(c, first, rest)
 }
 
-// ringInscribedRep returns a representative interior point of ring whose
-// minimum distance to any ring segment is maximised — a.k.a. the pole of
-// inaccessibility, or the centre of the largest inscribed circle. Used
-// by the negative-buffer face-validity filter (V3.1) to robustly classify
-// extracted rings against the ORIGINAL polygon: an interior point at
-// distance ~inradius/2 from the offset boundary gives a robust margin
-// for the binary point-in-polygon test, which would otherwise be flipped
-// by ULP-scale noise on rep-points that sit right on the offset boundary.
-
-// ringInscribedRep is an alias for inscribedCircleRep documenting the
-// intended caller (post-polygonizer face-validity filter).
-func ringInscribedRep(ring []geom.XY) geom.XY { return inscribedCircleRep(ring) }
-
 // inscribedCircleRep approximates the pole of inaccessibility of a
-// closed ring — the interior point furthest from any boundary segment.
-// Returns a point guaranteed to be strictly inside the ring (positive
-// signed distance) when one exists; falls back to the centroid for
-// degenerate rings.
+// closed ring — the interior point furthest from any boundary segment
+// (a.k.a. the centre of the largest inscribed circle). Returns a point
+// guaranteed to be strictly inside the ring (positive signed distance)
+// when one exists; falls back to the centroid for degenerate rings.
+//
+// Used by the negative-buffer face-validity filter (V3.1) to robustly
+// classify extracted rings against the ORIGINAL polygon: an interior
+// point at distance ~inradius/2 from the offset boundary gives a robust
+// margin for the binary point-in-polygon test, which would otherwise be
+// flipped by ULP-scale noise on rep-points that sit right on the offset
+// boundary.
 //
 // Algorithm: polylabel-style grid subdivision. Compute the ring's bbox,
 // seed an N×N grid (N=8) of candidate cells, score each by signed
@@ -1377,22 +1291,7 @@ func inscribedCircleRep(ring []geom.XY) geom.XY {
 		}
 		return geom.XY{}
 	}
-	minX, maxX := ring[0].X, ring[0].X
-	minY, maxY := ring[0].Y, ring[0].Y
-	for _, p := range ring[1:] {
-		if p.X < minX {
-			minX = p.X
-		}
-		if p.X > maxX {
-			maxX = p.X
-		}
-		if p.Y < minY {
-			minY = p.Y
-		}
-		if p.Y > maxY {
-			maxY = p.Y
-		}
-	}
+	minX, minY, maxX, maxY := ringBBox(ring)
 	w, h := maxX-minX, maxY-minY
 	if w == 0 || h == 0 {
 		return geom.XY{X: (minX + maxX) / 2, Y: (minY + maxY) / 2}

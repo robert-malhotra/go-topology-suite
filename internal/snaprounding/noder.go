@@ -9,14 +9,16 @@
 // until no segment requires further splitting at a hot pixel. Each
 // iteration may add new hot pixels (created by re-noding produces fresh
 // intersection points), so convergence is monotone — the hot-pixel set
-// only grows. MaxIter is a safety belt for pathological inputs; if the
-// fixpoint has not converged by then, Node returns the best-effort
-// result with Stats.Converged == false and ErrNotConverged.
+// only grows. maxIter caps the iterations as a safety belt for
+// pathological inputs; if the fixpoint has not converged by then, Node
+// returns the best-effort result with Stats.Converged == false and
+// ErrNotConverged.
 //
 // This package is internal to go-topology-suite: callers are overlay/overlayng (for
 // SR overlays) and buffer (for offset-curve cleanup). It reuses
-// internal/snap.HotPixelSet for the R-tree-backed pixel index and
-// internal/noding for the underlying segment intersection primitive.
+// internal/snap.HotPixelSet (an x-sorted array, not an R-tree) for the
+// pixel index and internal/noding for the underlying segment
+// intersection primitive.
 package snaprounding
 
 import (
@@ -34,12 +36,6 @@ type Noder struct {
 	// of 0 (or negative) is rejected by Node — callers that want plain
 	// noding without snap rounding should call internal/noding directly.
 	Tolerance float64
-
-	// MaxIter caps the noding/insertion fixpoint iterations. Defaults
-	// to 5 when zero. Set higher only when convergence stalls on
-	// pathological inputs (very fine grids relative to coordinate
-	// magnitude).
-	MaxIter int
 
 	// MergeNearCollinear opts in to a post-noding pass that merges
 	// pairs of segments lying within tolerance/2 perpendicular
@@ -67,26 +63,6 @@ type Noder struct {
 	// callers that need bit-stable output between releases should
 	// leave it unset.
 	MergeNearCollinear bool
-
-	// SeedIntersections opts in to a JTS-style pre-noding intersection-
-	// seeding pass. When set, Node runs IntersectionAdder over the
-	// initial input to compute every full-precision segment-segment
-	// intersection (and "near-vertex" adjacency) and seeds those points
-	// into the hot-pixel set BEFORE the fix-point loop runs. This is
-	// what allows JTS's pipeline to converge in a single rounding pass
-	// rather than iterate until the fix-point stabilises, since every
-	// robustness-sensitive near-touch is already realised as a hot
-	// pixel up-front.
-	//
-	// When set and the post-seed strict pass converges in one round,
-	// Node short-circuits and returns immediately. Otherwise the
-	// remaining iterations of the regular fix-point loop run as a
-	// fallback.
-	//
-	// The seeding step is O(N²) in the segment count (it has no
-	// internal pruning index of its own). Callers that operate on
-	// many-thousand-segment inputs should leave it disabled.
-	SeedIntersections bool
 }
 
 // Stats reports per-Node telemetry. Useful both for tests (asserting
@@ -99,18 +75,23 @@ type Stats struct {
 	// Splits is the cumulative count of hot-pixel insertions made
 	// across all iterations.
 	Splits int
-	// Converged is true iff the noder reached a fixpoint within MaxIter
+	// Converged is true iff the noder reached a fixpoint within maxIter
 	// iterations (or one more for the final guard pass).
 	Converged bool
 }
 
 // ErrNotConverged is returned when the snap-rounding fixpoint has not
-// stabilised within MaxIter+1 iterations. Callers should treat the
+// stabilised within maxIter+1 iterations. Callers should treat the
 // returned segments as best-effort and decide whether to fall back to a
 // non-snap-rounded result.
 var ErrNotConverged = errors.New("snaprounding: fixpoint did not converge")
 
-const defaultMaxIter = 5
+// maxIter caps the noding/insertion fixpoint iterations. Production
+// code always uses this default; it exists as a plain const (rather
+// than a Noder field) because nothing needs to override it outside of
+// tests, and the pathological-input safety belt behaves the same
+// regardless of caller.
+const maxIter = 5
 
 // Node runs the snap-rounding fixpoint on input and returns the noded
 // segment strings. Tags are preserved through every transformation.
@@ -124,31 +105,11 @@ func (n *Noder) Node(input []*noding.SegmentString) ([]*noding.SegmentString, St
 	if len(input) == 0 {
 		return nil, Stats{Converged: true}, nil
 	}
-	maxIter := n.MaxIter
-	if maxIter <= 0 {
-		maxIter = defaultMaxIter
-	}
-
 	rd := snap.New(n.Tolerance)
 	// First noding pass: realise every segment-segment intersection
 	// before any rounding happens. The output is freshly allocated so
 	// subsequent in-place vertex snapping is safe.
 	noded := adaptiveNode(input)
-
-	// Pre-seed: compute all full-precision intersections + near-vertex
-	// adjacencies on the initial input and stash them so they can be
-	// folded into the hot-pixel set as soon as the first snap-and-build
-	// step runs. JTS's pipeline relies on this to converge in a single
-	// pass — every robustness-sensitive intersection point is already a
-	// hot pixel before any rounding happens.
-	var seedPoints []geom.XY
-	if n.SeedIntersections {
-		// Use the input segment-string set (post-noded but pre-snapped)
-		// so the adder sees the same edge topology the snap pass will.
-		ad := NewIntersectionAdder(n.Tolerance / 100)
-		ad.Process(noded)
-		seedPoints = ad.Points()
-	}
 
 	stats := Stats{}
 	for iter := 0; iter < maxIter; iter++ {
@@ -157,16 +118,6 @@ func (n *Noder) Node(input []*noding.SegmentString) ([]*noding.SegmentString, St
 		snapAndDedupe(noded, rd)
 
 		hp := buildHotPixelSet(noded, n.Tolerance)
-		// Seed pre-computed intersection points into the hot-pixel set
-		// on the FIRST iteration so the strict pass can converge with
-		// every interior intersection already realised as a hot pixel.
-		if iter == 0 && len(seedPoints) > 0 {
-			for _, p := range seedPoints {
-				// Snap to the same grid as the segment vertices.
-				hp.Add(rd.SnapVertex(p))
-			}
-			seedPoints = nil
-		}
 		stats.HotPixels = hp.Len()
 
 		next, inserted := insertHotPixelSplits(noded, hp)
