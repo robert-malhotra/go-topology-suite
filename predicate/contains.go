@@ -18,6 +18,15 @@ func Contains(a, b geom.Geometry, opts ...Option) (bool, error) {
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)
 	c := resolve(a, opts)
+	return containsWith(a, b, c, onceRelate{a, c.boundaryRule()})
+}
+
+// containsWith is the orchestration shared by Contains and
+// RelateNG.Contains: envelope/dim short-circuit, then the prepared and
+// direct point-in-polygon fast paths, falling back to the DE-9IM matrix
+// reached through r. See relater's doc for why this is generic instead
+// of a closure or interface value.
+func containsWith[R relater](a, b geom.Geometry, c Option, r R) (bool, error) {
 	// RelateNG short-circuit: empty/empty, dim(b) > dim(a) (e.g. a line
 	// can't contain a polygon), envelope non-coverage all resolve here
 	// without building a topology graph.
@@ -40,7 +49,7 @@ func Contains(a, b geom.Geometry, opts ...Option) (bool, error) {
 			return pointInPolygon(pb.XY(), pa, c.kernel) == kernel.Inside, nil
 		}
 	}
-	return relateViaNG(a, b, c.boundaryRule()).IsContains(), nil
+	return r.relate(b).IsContains(), nil
 }
 
 // Within is Contains with the operands swapped.

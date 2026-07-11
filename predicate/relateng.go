@@ -3,7 +3,6 @@ package predicate
 import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/internal/relateng"
-	"github.com/exergy-dev/go-topology-suite/kernel"
 )
 
 // RelateNG is the public entry point for the RelateNG topology
@@ -80,25 +79,7 @@ func (r *RelateNG) Intersects(b geom.Geometry) (bool, error) {
 		return false, err
 	}
 	b = unwrapLinearRing(b)
-	c := r.cfg
-	if sc := scIntersects(r.a, b, c.kernel.Name() == "planar"); sc.resolved {
-		return sc.get(), nil
-	}
-	if c.prepared != nil {
-		if pb, ok := b.(*geom.Point); ok {
-			return c.prepared.ContainsPoint(pb.XY()) != kernel.Outside, nil
-		}
-		if pi, ok := c.prepared.(preparedIntersector); ok {
-			return pi.Intersects(b), nil
-		}
-	}
-	if hit, handled := pointArealIntersects(b, r.a, c.kernel); handled {
-		return hit, nil
-	}
-	if hit, handled := pointArealIntersects(r.a, b, c.kernel); handled {
-		return hit, nil
-	}
-	return r.relate(b).IsIntersects(), nil
+	return intersectsWith(r.a, b, r.cfg, r)
 }
 
 // Disjoint: A and B share no points.
@@ -117,21 +98,7 @@ func (r *RelateNG) Contains(b geom.Geometry) (bool, error) {
 		return false, err
 	}
 	b = unwrapLinearRing(b)
-	c := r.cfg
-	if sc := scContains(r.a, b, c.kernel.Name() == "planar"); sc.resolved {
-		return sc.get(), nil
-	}
-	if c.prepared != nil {
-		if pb, ok := b.(*geom.Point); ok {
-			return c.prepared.ContainsPoint(pb.XY()) == kernel.Inside, nil
-		}
-	}
-	if pb, ok := b.(*geom.Point); ok {
-		if pa, ok := r.a.(*geom.Polygon); ok {
-			return pointInPolygon(pb.XY(), pa, c.kernel) == kernel.Inside, nil
-		}
-	}
-	return r.relate(b).IsContains(), nil
+	return containsWith(r.a, b, r.cfg, r)
 }
 
 // Within: every point of A lies in B's interior or boundary, and
@@ -152,32 +119,7 @@ func (r *RelateNG) Covers(b geom.Geometry) (bool, error) {
 		return false, err
 	}
 	b = unwrapLinearRing(b)
-	c := r.cfg
-	if sc := scCovers(r.a, b, c.kernel.Name() == "planar"); sc.resolved {
-		return sc.get(), nil
-	}
-	if c.prepared != nil {
-		if pc, ok := c.prepared.(preparedCoverer); ok {
-			return pc.Covers(b), nil
-		}
-		switch vb := b.(type) {
-		case *geom.Point:
-			return c.prepared.ContainsPoint(vb.XY()) != kernel.Outside, nil
-		case *geom.MultiPoint:
-			for i := 0; i < vb.NumGeometries(); i++ {
-				if c.prepared.ContainsPoint(vb.PointAt(i)) == kernel.Outside {
-					return false, nil
-				}
-			}
-			return vb.NumGeometries() > 0, nil
-		}
-	}
-	if pb, ok := b.(*geom.Point); ok {
-		if pa, ok := r.a.(*geom.Polygon); ok {
-			return pointInPolygon(pb.XY(), pa, c.kernel) != kernel.Outside, nil
-		}
-	}
-	return r.relate(b).IsCovers(), nil
+	return coversWith(r.a, b, r.cfg, r)
 }
 
 // CoveredBy: every point of A lies in B's closure. Like Within, this
@@ -193,11 +135,7 @@ func (r *RelateNG) Crosses(b geom.Geometry) (bool, error) {
 		return false, err
 	}
 	b = unwrapLinearRing(b)
-	c := r.cfg
-	if sc := scCrosses(r.a, b, c.kernel.Name() == "planar"); sc.resolved {
-		return sc.get(), nil
-	}
-	return r.relate(b).IsCrosses(dimensionOf(r.a), dimensionOf(b)), nil
+	return crossesWith(r.a, b, r.cfg, r)
 }
 
 // Overlaps: same-dimension partial intersection.
@@ -206,11 +144,7 @@ func (r *RelateNG) Overlaps(b geom.Geometry) (bool, error) {
 		return false, err
 	}
 	b = unwrapLinearRing(b)
-	c := r.cfg
-	if sc := scOverlaps(r.a, b, c.kernel.Name() == "planar"); sc.resolved {
-		return sc.get(), nil
-	}
-	return r.relate(b).IsOverlaps(dimensionOf(r.a), dimensionOf(b)), nil
+	return overlapsWith(r.a, b, r.cfg, r)
 }
 
 // Touches: shared boundary, no interior intersection.
@@ -219,11 +153,7 @@ func (r *RelateNG) Touches(b geom.Geometry) (bool, error) {
 		return false, err
 	}
 	b = unwrapLinearRing(b)
-	c := r.cfg
-	if sc := scTouches(r.a, b, c.kernel.Name() == "planar"); sc.resolved {
-		return sc.get(), nil
-	}
-	return r.relate(b).IsTouches(), nil
+	return touchesWith(r.a, b, r.cfg, r)
 }
 
 // Equals: topological equality (DE-9IM T*F**FFF*).
@@ -232,17 +162,7 @@ func (r *RelateNG) Equals(b geom.Geometry) (bool, error) {
 		return false, err
 	}
 	b = unwrapLinearRing(b)
-	c := r.cfg
-	if sc := scEquals(r.a, b, c.kernel.Name() == "planar"); sc.resolved {
-		return sc.get(), nil
-	}
-	if r.a.Type() == b.Type() && r.a.Layout() == b.Layout() && structuralEqual(r.a, b) {
-		return true, nil
-	}
-	if pointZeroLengthLinePair(r.a, b) {
-		return false, nil
-	}
-	return r.relate(b).IsEquals(), nil
+	return equalsWith(r.a, b, r.cfg, r)
 }
 
 // Relate computes the full DE-9IM intersection matrix for A vs B.
@@ -272,6 +192,38 @@ func relateViaNG(a, b geom.Geometry, rule BoundaryNodeRule) DE9IM {
 	rng := relateng.NewRelateNG(a, adaptBNR(rule))
 	im := rng.EvaluateMatrix(b)
 	return DE9IM(im.String())
+}
+
+// relater abstracts the "compute the DE-9IM matrix for b against the
+// fixed first operand" step that sits at the end of every predicate's
+// short-circuit → prepared/point fast-path → fallback sequence. Each
+// predicate has exactly one shared orchestration function (intersectsWith,
+// containsWith, coversWith, crossesWith, overlapsWith, touchesWith,
+// equalsWith — one per file, alongside the predicate they serve) that
+// runs that sequence once and reaches the matrix through a relater,
+// so both the free function (via onceRelate) and the RelateNG driver
+// method (via *RelateNG.relate below) share the same code instead of
+// duplicating it.
+//
+// The orchestration functions are generic over relater implementations
+// rather than taking a relater interface value or a closure: a generic
+// instantiation is monomorphized per concrete type at compile time, so
+// passing a stack-allocated onceRelate value on the free-function path
+// costs nothing extra — no interface boxing, no heap-escaping closure.
+type relater interface {
+	relate(b geom.Geometry) DE9IM
+}
+
+// onceRelate is the free-function relater: relate(b) builds a fresh,
+// one-shot RelateNG driver via relateViaNG, exactly as every free
+// function did inline before this shared orchestration existed.
+type onceRelate struct {
+	a   geom.Geometry
+	bnr BoundaryNodeRule
+}
+
+func (o onceRelate) relate(b geom.Geometry) DE9IM {
+	return relateViaNG(o.a, b, o.bnr)
 }
 
 // adaptBNR converts a predicate.BoundaryNodeRule to the

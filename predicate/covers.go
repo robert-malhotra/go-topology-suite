@@ -22,6 +22,15 @@ func Covers(a, b geom.Geometry, opts ...Option) (bool, error) {
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)
 	c := resolve(a, opts)
+	return coversWith(a, b, c, onceRelate{a, c.boundaryRule()})
+}
+
+// coversWith is the orchestration shared by Covers and RelateNG.Covers:
+// envelope/dim short-circuit, then the prepared and direct
+// point-in-polygon fast paths, falling back to the DE-9IM matrix
+// reached through r. See relater's doc for why this is generic instead
+// of a closure or interface value.
+func coversWith[R relater](a, b geom.Geometry, c Option, r R) (bool, error) {
 	// RelateNG short-circuit: empty/empty, dim(b) > dim(a), envelope
 	// non-coverage all resolve here without building a topology graph.
 	if sc := scCovers(a, b, c.kernel.Name() == "planar"); sc.resolved {
@@ -53,7 +62,7 @@ func Covers(a, b geom.Geometry, opts ...Option) (bool, error) {
 			return pointInPolygon(pb.XY(), pa, c.kernel) != kernel.Outside, nil
 		}
 	}
-	return relateViaNG(a, b, c.boundaryRule()).IsCovers(), nil
+	return r.relate(b).IsCovers(), nil
 }
 
 // CoveredBy is Covers with operands swapped.

@@ -26,6 +26,15 @@ func Equals(a, b geom.Geometry, opts ...Option) (bool, error) {
 	// envelope mismatch false (planar only). Mirrors JTS `equalsTopo()`
 	// `init(envA, envB)`.
 	c := resolve(a, opts)
+	return equalsWith(a, b, c, onceRelate{a, c.boundaryRule()})
+}
+
+// equalsWith is the orchestration shared by Equals and RelateNG.Equals:
+// empty/envelope short-circuit, then the structural fast path, then the
+// DE-9IM equals pattern match against the matrix reached through r. See
+// relater's doc for why this is generic instead of a closure or
+// interface value.
+func equalsWith[R relater](a, b geom.Geometry, c Option, r R) (bool, error) {
 	if sc := scEquals(a, b, c.kernel.Name() == "planar"); sc.resolved {
 		return sc.get(), nil
 	}
@@ -35,11 +44,7 @@ func Equals(a, b geom.Geometry, opts ...Option) (bool, error) {
 	if pointZeroLengthLinePair(a, b) {
 		return false, nil
 	}
-	d, err := Relate(a, b, opts...)
-	if err != nil {
-		return false, err
-	}
-	return d.Matches("T*F**FFF*"), nil
+	return r.relate(b).IsEquals(), nil
 }
 
 func pointZeroLengthLinePair(a, b geom.Geometry) bool {

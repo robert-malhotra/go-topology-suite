@@ -22,25 +22,19 @@ func Crosses(a, b geom.Geometry, opts ...Option) (bool, error) {
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)
 	c := resolve(a, opts)
+	return crossesWith(a, b, c, onceRelate{a, c.boundaryRule()})
+}
+
+// crossesWith is the orchestration shared by Crosses and
+// RelateNG.Crosses: envelope/dim short-circuit, then the dim-dependent
+// DE-9IM pattern match against the matrix reached through r. See
+// relater's doc for why this is generic instead of a closure or
+// interface value.
+func crossesWith[R relater](a, b geom.Geometry, c Option, r R) (bool, error) {
 	// RelateNG short-circuit: P/P and A/A always false; envelope-disjoint
 	// resolves false too.
 	if sc := scCrosses(a, b, c.kernel.Name() == "planar"); sc.resolved {
 		return sc.get(), nil
 	}
-	dA := dimensionOf(a)
-	dB := dimensionOf(b)
-
-	d, err := Relate(a, b, opts...)
-	if err != nil {
-		return false, err
-	}
-	switch {
-	case dA == 1 && dB == 1:
-		return d.Matches("0********"), nil
-	case dA < dB:
-		return d.Matches("T*T******"), nil
-	case dA > dB:
-		return d.Matches("T*****T**"), nil
-	}
-	return false, nil
+	return r.relate(b).IsCrosses(dimensionOf(a), dimensionOf(b)), nil
 }

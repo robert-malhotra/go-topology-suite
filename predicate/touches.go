@@ -17,13 +17,18 @@ func Touches(a, b geom.Geometry, opts ...Option) (bool, error) {
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)
 	c := resolve(a, opts)
+	return touchesWith(a, b, c, onceRelate{a, c.boundaryRule()})
+}
+
+// touchesWith is the orchestration shared by Touches and
+// RelateNG.Touches: empty/dim/envelope short-circuit, then the DE-9IM
+// touches pattern match against the matrix reached through r. See
+// relater's doc for why this is generic instead of a closure or
+// interface value.
+func touchesWith[R relater](a, b geom.Geometry, c Option, r R) (bool, error) {
 	// RelateNG short-circuit: empty, P/P, envelope-disjoint all false.
 	if sc := scTouches(a, b, c.kernel.Name() == "planar"); sc.resolved {
 		return sc.get(), nil
 	}
-	d, err := Relate(a, b, opts...)
-	if err != nil {
-		return false, err
-	}
-	return d.Matches("FT*******") || d.Matches("F**T*****") || d.Matches("F***T****"), nil
+	return r.relate(b).IsTouches(), nil
 }

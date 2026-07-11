@@ -18,6 +18,16 @@ func Intersects(a, b geom.Geometry, opts ...Option) (bool, error) {
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)
 	c := resolve(a, opts)
+	return intersectsWith(a, b, c, onceRelate{a, c.boundaryRule()})
+}
+
+// intersectsWith is the orchestration shared by Intersects and
+// RelateNG.Intersects: envelope/dim short-circuit, then the prepared and
+// point-vs-areal fast paths, falling back to the DE-9IM matrix reached
+// through r (a fresh one-shot driver for the free function, the cached
+// driver for RelateNG). See relater's doc for why this is generic
+// instead of a closure or interface value.
+func intersectsWith[R relater](a, b geom.Geometry, c Option, r R) (bool, error) {
 	// Envelope-first short-circuit is only sound when the kernel agrees
 	// with lon/lat-space rectangles — i.e. for planar. Geographic
 	// envelopes that span the antimeridian look disjoint to the planar
@@ -52,7 +62,7 @@ func Intersects(a, b geom.Geometry, opts ...Option) (bool, error) {
 	if hit, handled := pointArealIntersects(a, b, c.kernel); handled {
 		return hit, nil
 	}
-	return relateViaNG(a, b, c.boundaryRule()).IsIntersects(), nil
+	return r.relate(b).IsIntersects(), nil
 }
 
 // Disjoint is the complement of Intersects.

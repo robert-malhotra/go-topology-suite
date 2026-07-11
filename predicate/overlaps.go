@@ -20,21 +20,21 @@ func Overlaps(a, b geom.Geometry, opts ...Option) (bool, error) {
 	a = unwrapLinearRing(a)
 	b = unwrapLinearRing(b)
 	c := resolve(a, opts)
+	return overlapsWith(a, b, c, onceRelate{a, c.boundaryRule()})
+}
+
+// overlapsWith is the orchestration shared by Overlaps and
+// RelateNG.Overlaps: dim/envelope short-circuit, then the dim-dependent
+// DE-9IM pattern match against the matrix reached through r. See
+// relater's doc for why this is generic instead of a closure or
+// interface value.
+func overlapsWith[R relater](a, b geom.Geometry, c Option, r R) (bool, error) {
 	// RelateNG short-circuit: dim mismatch and envelope-disjoint cases
 	// resolve to false without building a topology graph.
 	if sc := scOverlaps(a, b, c.kernel.Name() == "planar"); sc.resolved {
 		return sc.get(), nil
 	}
-	dA := dimensionOf(a)
-	d, err := Relate(a, b, opts...)
-	if err != nil {
-		return false, err
-	}
-	if dA == 1 {
-		return d.Matches("1*T***T**"), nil
-	}
-	// 0-D and 2-D share the same OGC pattern.
-	return d.Matches("T*T***T**"), nil
+	return r.relate(b).IsOverlaps(dimensionOf(a), dimensionOf(b)), nil
 }
 
 // dimensionOf returns the topological dimension: 0 for points/multipoints,
