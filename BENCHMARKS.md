@@ -366,6 +366,34 @@ space math that fix replaced for correctness.
 - **`mcindex_noder` scratch reuse** — measured at 0.2%–11% of total time depending on workload, real but small and workload-dependent, not an outsized single-site win; moved to backlog rather than implemented.
 - **Optimistic tolerance-0 buffer first attempt** (2026-07-11) — skipping the snap-rounding fixpoint when the full-precision polygonize succeeds regressed `TestBufferJagged` buffer-5/buffer-10: jagged inputs are exactly where the digits=12 grid's stabilisation is load-bearing. Reverted; the snap path's noding cost was addressed inside the noder (monotone chains) instead.
 - **Union double-overlay hypothesis** (2026-07-11) — `canonicalizeTouchingRings`' self-union re-run never fires on the star fixtures; the cost was the `needsCanonicalize` *check* itself (fixed above). Don't chase the re-run without a profile showing `OverlayPolygonalMixedDim` twice-deep.
+- **Dropping the legacy negative-buffer pipeline** (2026-07-11 cleanup pass) — routing all insets through the polygonizer + hybrid validator fails immediately on `TestBufferNegativeGrowsHole` (10×10 outer, 4×4 hole, d=-1 → empty instead of area 28). The legacy offset+Difference path is not a quality guard but the only path handling typical hole-carrying insets; the polygonizer remains a fallback for the thin-parcel cases legacy collapses to empty (JTS TestBufferExternal2/Jagged/MitredJoin). Two-phase structure stays.
+
+### 2026-07-11 cleanup pass
+
+After the wave landed, a dedicated pass deleted everything it had
+superseded, with the full gate suite (root tests, JTS corpus
+8951/8942/9, `bench/conformance`, `TestCompareAgreement`) green after
+each commit and benchstat pre/post confirming no timed compare
+benchmark moved outside noise. Removed: the brute-force overlayng touch
+checks and the unreachable disjoint-overlay subsystem (~450 lines,
+`disjoint.go` gone entirely); `IndexedNoder` and `IntersectionAdder`
+(overlayng now shares `noding.NodeAdaptive`'s MCIndexNoder selection —
+measured -1.3% Intersection time, within noise elsewhere); the
+single-value snap-rounding knobs (`SeedIntersections`, `MaxIter`);
+test-only entry point `SnapRoundRings`.
+Consolidated: the seven duplicated predicate method/free-function
+orchestrations (generic `xxxWith` helpers, allocation-free), the two
+figure-8 ring predicates, the two pairwise-fuse union loops, and
+`dropPhantomSliverHoles`' nested closures. Net ≈ -1,350 lines.
+
+One cleanup was itself refuted: deleting the production-dead `minArea`
+branch from `polygonizeBufferWithFilter` reproducibly cost ~6% on
+`Buffer/n=1024` — interleaved A/B bisection isolated it to that exact
+deletion, comment-only edits moved nothing, and inlining decisions were
+unchanged, so the mechanism is instruction-layout displacement of the
+hot loops later in `buffer/polygonize.go`. The branch was reinstated
+byte-for-byte with a warning comment. Treat single-digit `Buffer`
+swings on this machine as layout-sensitive until proven algorithmic.
 
 ## Deferred backlog
 
