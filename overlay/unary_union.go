@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"runtime"
 	"sort"
 
 	gts "github.com/exergy-dev/go-topology-suite"
@@ -8,6 +9,27 @@ import (
 	"github.com/exergy-dev/go-topology-suite/geom"
 	"github.com/exergy-dev/go-topology-suite/predicate"
 )
+
+// unaryUnionWorkers bounds the total number of extra goroutines
+// cascadedBinaryUnion may have in flight at once, across all concurrent
+// UnaryUnion invocations that share this process: it is sized once at
+// package init to GOMAXPROCS-1, not per call, so concurrent callers
+// collectively bound their goroutine fan-out instead of each spawning
+// its own independent tree. A single token is acquired non-blockingly
+// (select/default) before spawning the left half of a subtree; on a
+// single-processor process (GOMAXPROCS==1) the channel has zero
+// capacity — it is empty and every acquire fails — so the whole
+// recursion stays fully sequential with zero goroutine overhead.
+var unaryUnionWorkers = make(chan struct{}, runtime.GOMAXPROCS(0)-1)
+
+// parallelUnionThreshold is the minimum subtree size (number of input
+// geometries spanned by a cascadedBinaryUnion call) at which the left
+// half may be spawned onto its own goroutine, provided a worker token
+// is available. Below this, or when no token is free, the call is
+// fully sequential — identical to the pre-W6 code path. It is a var
+// (not a const) so tests can dial it down to exercise the parallel
+// path on small fixtures without needing thousands of geometries.
+var parallelUnionThreshold = 64
 
 // UnaryUnion returns the union of g with itself: deduplicates and merges
 // any overlapping or touching members of a Multi* or GeometryCollection
@@ -130,6 +152,18 @@ func unionAllAreal(c *crs.CRS, polys []geom.Geometry) (geom.Geometry, error) {
 // cascadedBinaryUnion unions a slice of polygonal geometries by
 // recursing on the two halves and unioning the results. This is the
 // "binary union tree" from JTS CascadedPolygonUnion.binaryUnion.
+//
+// # Concurrency
+//
+// The two halves recurse on disjoint, immutable index ranges of geoms,
+// so they are independent and safe to compute concurrently. When the
+// subtree is at least parallelUnionThreshold geometries wide AND a
+// token is free on unaryUnionWorkers (acquired non-blockingly), the
+// left half (g0) is spawned onto its own goroutine while the right
+// half (g1) runs on the caller's goroutine; the two are then joined in
+// the same (g0, g1) order the sequential path uses, so the result is
+// byte-identical regardless of whether — or how — the spawn happened.
+// Otherwise the call is fully sequential, identical to pre-W6 code.
 func cascadedBinaryUnion(geoms []geom.Geometry, start, end int) (geom.Geometry, error) {
 	switch end - start {
 	case 0:
@@ -140,14 +174,54 @@ func cascadedBinaryUnion(geoms []geom.Geometry, start, end int) (geom.Geometry, 
 		return Union(geoms[start], geoms[start+1])
 	default:
 		mid := (start + end) / 2
-		g0, err := cascadedBinaryUnion(geoms, start, mid)
-		if err != nil {
-			return nil, err
+
+		var (
+			g0, g1     geom.Geometry
+			err0, err1 error
+		)
+
+		spawned := false
+		if end-start >= parallelUnionThreshold {
+			select {
+			case unaryUnionWorkers <- struct{}{}:
+				spawned = true
+			default:
+			}
 		}
-		g1, err := cascadedBinaryUnion(geoms, mid, end)
-		if err != nil {
-			return nil, err
+
+		if spawned {
+			done := make(chan struct{})
+			var panicVal any
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						panicVal = r
+					}
+					<-unaryUnionWorkers
+					close(done)
+				}()
+				g0, err0 = cascadedBinaryUnion(geoms, start, mid)
+			}()
+			g1, err1 = cascadedBinaryUnion(geoms, mid, end)
+			<-done
+			if panicVal != nil {
+				panic(panicVal)
+			}
+		} else {
+			g0, err0 = cascadedBinaryUnion(geoms, start, mid)
+			g1, err1 = cascadedBinaryUnion(geoms, mid, end)
 		}
+
+		// Deterministic error preference: left (g0) error wins
+		// regardless of which goroutine finished first, so the
+		// reported error is order-independent.
+		if err0 != nil {
+			return nil, err0
+		}
+		if err1 != nil {
+			return nil, err1
+		}
+
 		if g0 == nil {
 			return g1, nil
 		}

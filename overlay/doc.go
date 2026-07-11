@@ -43,4 +43,22 @@
 // Edges are straight in the local frame, not geodesics in degree space
 // (gts.Transform does not densify); the extent limit keeps the deviation
 // small.
+//
+// # Concurrency
+//
+// Every operation in this package runs on the calling goroutine and is
+// safe to invoke concurrently from multiple goroutines — but UnaryUnion
+// is the sole exception to "single-goroutine per call": its cascaded
+// binary-union tree may internally spawn up to GOMAXPROCS(0)-1 extra
+// goroutines to compute independent subtrees of the union in parallel,
+// bounded by a package-level semaphore shared across concurrent
+// UnaryUnion calls (so fan-out never exceeds GOMAXPROCS-1 total, not
+// per call). This is opportunistic: small inputs, or a process already
+// saturated with other UnaryUnion calls, run fully sequentially with no
+// goroutine overhead. Results are byte-identical to a sequential run
+// regardless of how the work was scheduled — the join order is fixed,
+// and a panic in a spawned goroutine is recovered and re-raised on the
+// caller's goroutine rather than crashing the process. Intersection,
+// Union, Difference, SymmetricDifference, and their EnhancedPrecision*
+// wrappers remain single-goroutine.
 package overlay

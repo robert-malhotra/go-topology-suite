@@ -115,7 +115,7 @@ Breaking changes require a major-version bump. Deprecations are announced one mi
 
 ## Design notes
 
-All operations are synchronous and CPU-bound; nothing takes a `context.Context`. Callers needing cancellation should run the operation in a goroutine and abandon the result — and context-accepting variants can be added compatibly later if demand materialises. Operations that can fail (CRS mismatch, unsupported input combinations, numerical failure) return `error`; total operations (e.g. `simplify.Simplify`, `hull.ConvexHull`, `densify.Densify`) do not.
+Operations remain synchronous from the caller's point of view — a call blocks the calling goroutine until it returns — and CPU-bound; nothing takes a `context.Context`. Callers needing cancellation should run the operation in a goroutine and abandon the result — and context-accepting variants can be added compatibly later if demand materialises. The one exception: `overlay.UnaryUnion` may internally parallelize its cascaded union tree across up to `GOMAXPROCS-1` additional goroutines on large inputs, bounded and byte-identical to a sequential run (see the `overlay` package doc's Concurrency section); every other operation runs single-goroutine. Operations that can fail (CRS mismatch, unsupported input combinations, numerical failure) return `error`; total operations (e.g. `simplify.Simplify`, `hull.ConvexHull`, `densify.Densify`) do not.
 
 Format support is deliberately asymmetric where the formats themselves are: GeoJSON drops M ordinates (RFC 7946 has no M), GML carries XY+Z only, and KML is write-only. CRS identity round-trips through EWKB (`wkb.WithSRID`) and EWKT (`wkt.MarshalEWKT`) only; GeoJSON output is CRS-less per RFC 7946 and GML emits only a free-text `srsName`.
 
