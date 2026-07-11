@@ -103,6 +103,8 @@ go test -C bench ./conformance/...
 go test -fuzz=FuzzUnmarshal -fuzztime=1m ./wkt/
 ```
 
+Benchmark methodology, cross-implementation comparison, and optimization history live in [BENCHMARKS.md](BENCHMARKS.md).
+
 Property-based tests via `pgregory.net/rapid` cover predicates, overlay, buffer, validate, the planar/spherical kernels, and the projection roundtrips. CI runs `go vet`, `go test`, `go test -race`, and an Address Sanitizer pass on every push.
 
 ## Versioning and stability
