@@ -374,16 +374,23 @@ func polygonizeBufferRings(segs []offsetSegment, tolerance float64) ([][]geom.XY
 // "overshoot lobes" — phantom faces produced when offset curves
 // self-intersect on a thin throat.
 //
-// No min-area filter: legitimate inset slivers can be much smaller than
-// d^2 (see the comment on the negative-buffer branch in
-// bufferPolygon), so the filter is geometric only (point-in-poly +
-// boundary distance via keep), and can only ever REMOVE polygonizer
-// output — never invent faces.
+// Every production caller passes minArea = 0: legitimate inset slivers
+// can be much smaller than d^2 (see the comment on the negative-buffer
+// branch in bufferPolygon), so the production filter is geometric only
+// (point-in-poly + boundary distance via keep) and can only ever REMOVE
+// polygonizer output — never invent faces. The minArea hook is
+// deliberately retained anyway: deleting its branch measurably slows
+// Buffer/n=1024 by ~5-6% through pure code-layout displacement of the
+// hot loops later in this file (bisected 2026-07-11; the branch is
+// dead at minArea == 0, so the effect is instruction alignment, not
+// semantics). Do not re-delete without re-running the Buffer compare
+// benchmarks.
 func polygonizeBufferWithFilter(
 	c *crs.CRS,
 	segs []offsetSegment,
 	tolerance float64,
 	keep func(ring []geom.XY) bool,
+	minArea float64,
 ) (geom.Geometry, error) {
 	rings, err := polygonizeBufferRings(segs, tolerance)
 	if err != nil {
@@ -401,6 +408,9 @@ func polygonizeBufferWithFilter(
 		// the positive-buffer winding check is ~d away from anything it
 		// tests against and gets by with a far cheaper rep. See
 		// negativeBufferHybridValidator / positiveBufferWindingValidator.
+		if minArea > 0 && math.Abs(planar.Default().RingArea(r)) < minArea {
+			continue
+		}
 		if keep != nil && !keep(r) {
 			continue
 		}

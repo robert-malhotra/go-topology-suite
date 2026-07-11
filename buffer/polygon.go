@@ -703,7 +703,7 @@ func bufferPolygonReducedPrecision(
 	var lastErr error
 	for digits := maxPrecisionDigits; digits >= 0; digits-- {
 		tolerance := bufferPrecisionTolerance(p, distance, digits)
-		got, err := polygonizeBufferWithFilter(p.CRS(), segs, tolerance, validate)
+		got, err := polygonizeBufferWithFilter(p.CRS(), segs, tolerance, validate, 0)
 		if err != nil {
 			lastErr = err
 			// On error, keep retrying at coarser precision.
