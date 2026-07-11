@@ -31,11 +31,26 @@ type HotPixel struct {
 // no-op. The set is keyed by integer grid index, so equality is
 // exact — two snapped vertices that map to the same grid cell are
 // the same hot pixel.
+//
+// HotPixelSet is not safe for concurrent use: Add stages pixels for a
+// deferred bulk index build, and the query methods perform that build
+// on first use.
 type HotPixelSet struct {
 	tolerance float64
 	half      float64 // tolerance/2; cached for envelope construction.
 	keys      map[gridKey]struct{}
 	tree      *index.RTree[HotPixel]
+
+	// pending stages Add-ed pixels until the first query, at which point
+	// the whole batch is STR-bulk-loaded into tree in one shot. Callers
+	// overwhelmingly build the full pixel set before the first
+	// QuerySegment (the snap-rounding noder's build/insert phases are
+	// strictly sequential), so this turns N incremental R-tree inserts —
+	// with their chooseLeaf/split churn — into a single Bulk build.
+	// Adds that arrive after a query are staged the same way and folded
+	// in on the next query (index.RTree.Bulk appends to a non-empty
+	// tree), so interleaved use remains correct.
+	pending []index.Item[HotPixel]
 }
 
 // gridKey is the integer-coordinate identity of a hot pixel cell.
@@ -69,7 +84,20 @@ func (s *HotPixelSet) Add(v geom.XY) {
 		return
 	}
 	s.keys[k] = struct{}{}
-	s.tree.Insert(s.envelopeFor(v), HotPixel{Centre: v})
+	s.pending = append(s.pending, index.Item[HotPixel]{
+		Env:   s.envelopeFor(v),
+		Value: HotPixel{Centre: v},
+	})
+}
+
+// flushPending bulk-loads any staged pixels into the R-tree. Called by
+// every tree-querying method; a no-op when nothing is staged.
+func (s *HotPixelSet) flushPending() {
+	if len(s.pending) == 0 {
+		return
+	}
+	s.tree.Bulk(s.pending)
+	s.pending = nil
 }
 
 // keyFor returns the integer-grid key for v. Assumes v is already
@@ -110,6 +138,7 @@ func (s *HotPixelSet) Len() int { return len(s.keys) }
 // the bounding box of the segment [a, b]. The caller must apply the
 // finer "segment passes through cell" test on the candidates.
 func (s *HotPixelSet) QuerySegment(a, b geom.XY) []HotPixel {
+	s.flushPending()
 	env := geom.SegmentEnvelope(a, b)
 	var out []HotPixel
 	s.tree.Search(env, func(it index.Item[HotPixel]) bool {
