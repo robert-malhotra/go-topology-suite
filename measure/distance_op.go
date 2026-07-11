@@ -157,16 +157,31 @@ func containmentPoint(outer, inner geom.Geometry, k kernel.Kernel) (geom.XY, boo
 }
 
 func polygonContains(p *geom.Polygon, other geom.Geometry, k kernel.Kernel) (geom.XY, bool) {
+	// Materialize the shell and hole rings once, outside the per-vertex
+	// closure below. p.Ring allocates a fresh slice on every call
+	// (RingInto(nil, ...)); calling it once per ring here instead of once
+	// per vertex of other avoids an O(vertices(other) * rings(p))
+	// allocation blow-up. Values are identical to before — p does not
+	// change across the visitVertices walk — so results are bit-identical.
+	shell := p.Ring(0)
+	var holes [][]geom.XY
+	if n := p.NumRings(); n > 1 {
+		holes = make([][]geom.XY, n-1)
+		for r := 1; r < n; r++ {
+			holes[r-1] = p.Ring(r)
+		}
+	}
+
 	var found geom.XY
 	hit := false
 	visitVertices(other, func(q geom.XY) {
 		if hit {
 			return
 		}
-		if c := k.PointInRing(q, p.Ring(0)); c != kernel.Outside {
+		if c := k.PointInRing(q, shell); c != kernel.Outside {
 			inHole := false
-			for r := 1; r < p.NumRings(); r++ {
-				if hc := k.PointInRing(q, p.Ring(r)); hc == kernel.Inside {
+			for _, hole := range holes {
+				if hc := k.PointInRing(q, hole); hc == kernel.Inside {
 					inHole = true
 					break
 				}

@@ -551,8 +551,9 @@ func visitVertices(g geom.Geometry, fn func(geom.XY)) {
 		visitVertices(v.AsLineString(), fn)
 	case *geom.Polygon:
 		for r := 0; r < v.NumRings(); r++ {
-			for _, p := range v.Ring(r) {
-				fn(p)
+			n := v.RingLen(r)
+			for j := 0; j < n; j++ {
+				fn(v.RingVertex(r, j))
 			}
 		}
 	case *geom.MultiPoint:
@@ -586,9 +587,9 @@ func visitSegments(g geom.Geometry, fn func(a, b geom.XY)) {
 		visitSegments(v.AsLineString(), fn)
 	case *geom.Polygon:
 		for r := 0; r < v.NumRings(); r++ {
-			ring := v.Ring(r)
-			for i := 0; i+1 < len(ring); i++ {
-				fn(ring[i], ring[i+1])
+			n := v.RingLen(r)
+			for i := 0; i+1 < n; i++ {
+				fn(v.RingVertex(r, i), v.RingVertex(r, i+1))
 			}
 		}
 	case *geom.MultiLineString:
