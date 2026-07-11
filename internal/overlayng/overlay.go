@@ -647,12 +647,36 @@ func polygonHasTouchingHole(p *geom.Polygon) bool {
 // symdifference, where two assembled polygons abut along a shared
 // spine of length > 0). Pure single-vertex coincidence is not flagged.
 func multiPolygonsTouch(polys []*geom.Polygon) bool {
-	for i := 0; i < len(polys); i++ {
-		ri := polys[i].Ring(0)
-		viSet := vertexSet(ri)
-		for j := i + 1; j < len(polys); j++ {
-			rj := polys[j].Ring(0)
-			vjSet := vertexSet(rj)
+	n := len(polys)
+	// Materialise each polygon's outer ring, its vertex set, and its
+	// envelope exactly once. The naive version below re-fetched
+	// polys[j].Ring(0) (and rebuilt its vertex set) on every (i, j) pair,
+	// making both the allocation count and the vertex-set construction
+	// cost O(n^2) instead of O(n); for a jagged-star intersection with
+	// thousands of output fragments that dominated overlay CPU time.
+	rings := make([][]geom.XY, n)
+	vsets := make([]map[geom.XY]struct{}, n)
+	envs := make([]geom.Envelope, n)
+	for i, p := range polys {
+		rings[i] = p.Ring(0)
+		vsets[i] = vertexSet(rings[i])
+		envs[i] = p.Envelope()
+	}
+	for i := 0; i < n; i++ {
+		ri := rings[i]
+		viSet := vsets[i]
+		ei := envs[i]
+		for j := i + 1; j < n; j++ {
+			// Two rings can only touch (share a vertex-on-segment hit
+			// or an edge) if their bounding boxes intersect. Envelope
+			// is cached on the geometry, so this check is O(1) and
+			// correctness-preserving: it never skips a pair that the
+			// segment tests below would have flagged.
+			if !ei.Intersects(envs[j]) {
+				continue
+			}
+			rj := rings[j]
+			vjSet := vsets[j]
 			// Vertex of i on interior of a j segment.
 			for v := range viSet {
 				if _, isJ := vjSet[v]; isJ {
@@ -675,7 +699,8 @@ func multiPolygonsTouch(polys []*geom.Polygon) bool {
 	}
 	// Detect identical-edge sharing across distinct polygons by
 	// canonicalising each outer-ring segment (lex-min endpoint first)
-	// and watching for any segment that appears in two polygons.
+	// and watching for any segment that appears in two polygons. Reuses
+	// the rings materialised above instead of re-fetching Ring(0).
 	type seg struct{ a, b geom.XY }
 	canon := func(p, q geom.XY) seg {
 		if p.X < q.X || (p.X == q.X && p.Y < q.Y) {
@@ -684,8 +709,7 @@ func multiPolygonsTouch(polys []*geom.Polygon) bool {
 		return seg{q, p}
 	}
 	owner := map[seg]int{}
-	for i, p := range polys {
-		ring := p.Ring(0)
+	for i, ring := range rings {
 		for k := 0; k+1 < len(ring); k++ {
 			s := canon(ring[k], ring[k+1])
 			if prev, ok := owner[s]; ok && prev != i {
