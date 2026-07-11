@@ -28,13 +28,19 @@ func classifyFacesByPolygons(d *DCEL,
 	subjRings [][]geom.XY, subjPerPoly []int,
 	clipRings [][]geom.XY, clipPerPoly []int,
 ) {
+	// Prepared (y-bucketed, x-range-shortcut) forms of the input rings:
+	// classification probes each face against the same rings, so the
+	// one-time bucket build amortises across thousands of probes while
+	// keeping geomath.PointInRing's even-odd parity (see prepared_pip.go).
+	prepSubj := preparePolygons(subjRings, subjPerPoly)
+	prepClip := preparePolygons(clipRings, clipPerPoly)
 	for _, f := range d.Faces {
 		// Sample for inSubj: prefer an edge contributed by clip only.
 		ipSubj := interiorPointPreferringTag(f, 2, 1)
-		f.inSubj = pointInAnyPolygon(ipSubj, subjRings, subjPerPoly)
+		f.inSubj = prepSubj.containsAny(ipSubj)
 		// Sample for inClip: prefer an edge contributed by subj only.
 		ipClip := interiorPointPreferringTag(f, 1, 2)
-		f.inClip = pointInAnyPolygon(ipClip, clipRings, clipPerPoly)
+		f.inClip = prepClip.containsAny(ipClip)
 
 		// Centroid-based cross-check for narrow-sliver faces.
 		// When the edge-nudge sample point lands in a region where the
@@ -65,13 +71,13 @@ func classifyFacesByPolygons(d *DCEL,
 		if !f.isOuter {
 			if !f.inSubj && faceBoundaryAllOfTag(f, 1) {
 				ipC := faceCentroid(f)
-				if pointInFace(ipC, f) && pointInAnyPolygon(ipC, subjRings, subjPerPoly) {
+				if pointInFace(ipC, f) && prepSubj.containsAny(ipC) {
 					f.inSubj = true
 				}
 			}
 			if !f.inClip && faceBoundaryAllOfTag(f, 2) {
 				ipC := faceCentroid(f)
-				if pointInFace(ipC, f) && pointInAnyPolygon(ipC, clipRings, clipPerPoly) {
+				if pointInFace(ipC, f) && prepClip.containsAny(ipC) {
 					f.inClip = true
 				}
 			}
