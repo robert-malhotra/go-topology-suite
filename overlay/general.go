@@ -108,62 +108,53 @@ func overlayResultIsAcceptable(g geom.Geometry, op overlayng.Op, subj, clip []*g
 	return true
 }
 
-// dropPhantomSliverHoles removes "noder-failure" holes from a Union
-// result: small holes whose every vertex sits in a grid cell scaled
-// to `mag * 1e-9` shared with two or more distinct input outer rings.
-// Such holes are closed boundary loops that snake between two near-
-// coincident input outer boundaries — JTS's OverlayNGRobust suppresses
-// them via snap-rounding; we post-filter at floating precision.
-//
-// Conservative: only drops holes whose area is below `outerArea * 1e-6`
-// AND whose every vertex traces to ≥2 distinct input outer rings.
-// Legitimate input holes have vertices traceable to a single source
-// ring (the input hole vertex set), so they survive the filter.
-func dropPhantomSliverHoles(g geom.Geometry, subj, clip []*geom.Polygon) geom.Geometry {
-	// No holes anywhere in the result → nothing to filter. Bail before
-	// building the input-vertex grid below, which costs a hashed insert
-	// per input outer-ring vertex.
-	hasHole := false
+// sliverCell is a grid cell key (scaled to `mag * 1e-9`) for hashing
+// input outer-ring vertices in the phantom-sliver-hole probe below.
+type sliverCell struct{ x, y int64 }
+
+func sliverCellOf(p geom.XY, scale float64) sliverCell {
+	return sliverCell{int64(math.Floor(p.X * scale)), int64(math.Floor(p.Y * scale))}
+}
+
+// resultHasHole is the cheap (no vertex traversal) existence probe
+// used to bail out before the grid build in dropPhantomSliverHoles.
+func resultHasHole(g geom.Geometry) bool {
 	switch v := g.(type) {
 	case *geom.Polygon:
-		hasHole = v.NumRings() > 1
+		return v.NumRings() > 1
 	case *geom.MultiPolygon:
-		for i := 0; i < v.NumGeometries() && !hasHole; i++ {
-			hasHole = v.PolygonAt(i).NumRings() > 1
+		for i := 0; i < v.NumGeometries(); i++ {
+			if v.PolygonAt(i).NumRings() > 1 {
+				return true
+			}
 		}
-	default:
-		return g
 	}
-	if !hasHole {
-		return g
+	return false
+}
+
+// ringArea returns the unsigned shoelace area of a closed ring.
+func ringArea(ring []geom.XY) float64 {
+	signedA2 := 0.0
+	for j := 0; j+1 < len(ring); j++ {
+		signedA2 += ring[j].X*ring[j+1].Y - ring[j+1].X*ring[j].Y
 	}
-	mag := maxCoordMagnitude(subj)
-	if m := maxCoordMagnitude(clip); m > mag {
-		mag = m
-	}
-	if mag <= 0 {
-		return g
-	}
-	tol := mag * 1e-9
-	if tol < 1e-9 {
-		tol = 1e-9
-	}
-	scale := 1 / tol
-	type cell struct{ x, y int64 }
-	hashCell := func(p geom.XY) cell {
-		return cell{int64(math.Floor(p.X * scale)), int64(math.Floor(p.Y * scale))}
-	}
-	outerCells := make(map[cell]map[int]struct{})
-	// Iterate outer rings via RingLen/RingVertex — Ring(0) would copy
-	// every input ring into a fresh []XY per Union call.
+	return math.Abs(signedA2 / 2)
+}
+
+// buildOuterCellIndex hashes every outer-ring vertex of subj then clip
+// into sliverCell buckets tagged with the source polygon's index, via
+// RingLen/RingVertex (Ring(0) would copy every ring per Union call).
+// Returns the index and the count of non-empty source polygons seen.
+func buildOuterCellIndex(subj, clip []*geom.Polygon, scale float64) (map[sliverCell]map[int]struct{}, int) {
+	cells := make(map[sliverCell]map[int]struct{})
 	addOuter := func(idx int, pp *geom.Polygon) {
 		n := pp.RingLen(0)
 		for j := 0; j < n; j++ {
-			c := hashCell(pp.RingVertex(0, j))
-			if outerCells[c] == nil {
-				outerCells[c] = map[int]struct{}{}
+			c := sliverCellOf(pp.RingVertex(0, j), scale)
+			if cells[c] == nil {
+				cells[c] = map[int]struct{}{}
 			}
-			outerCells[c][idx] = struct{}{}
+			cells[c][idx] = struct{}{}
 		}
 	}
 	idx := 0
@@ -181,82 +172,106 @@ func dropPhantomSliverHoles(g geom.Geometry, subj, clip []*geom.Polygon) geom.Ge
 		addOuter(idx, pp)
 		idx++
 	}
-	if idx < 2 {
-		return g
+	return cells, idx
+}
+
+// isPhantomSliverHole reports whether ring is a noder-failure hole:
+// area below smallFrac AND every vertex (direct or 3x3-neighbor cell
+// lookup) traces to ≥2 distinct input outer rings — i.e. it snakes
+// between two near-coincident input boundaries (GEOS#737). Legitimate
+// holes trace to a single source ring and survive the filter.
+func isPhantomSliverHole(ring []geom.XY, smallFrac, scale float64, cells map[sliverCell]map[int]struct{}) bool {
+	if ringArea(ring) > smallFrac {
+		return false
 	}
-	isPhantomHole := func(ring []geom.XY, smallFrac float64) bool {
-		// Small-hole gate: only inspect holes below the threshold.
-		signedA2 := 0.0
-		for j := 0; j+1 < len(ring); j++ {
-			signedA2 += ring[j].X*ring[j+1].Y - ring[j+1].X*ring[j].Y
-		}
-		holeArea := math.Abs(signedA2 / 2)
-		if holeArea > smallFrac {
-			return false
-		}
-		polysSeen := map[int]struct{}{}
-		for _, v := range ring {
-			c := hashCell(v)
-			owners, ok := outerCells[c]
-			if !ok {
-				for ddx := int64(-1); ddx <= 1 && !ok; ddx++ {
-					for ddy := int64(-1); ddy <= 1 && !ok; ddy++ {
-						owners, ok = outerCells[cell{c.x + ddx, c.y + ddy}]
-					}
+	polysSeen := map[int]struct{}{}
+	for _, v := range ring {
+		c := sliverCellOf(v, scale)
+		owners, ok := cells[c]
+		if !ok {
+			for ddx := int64(-1); ddx <= 1 && !ok; ddx++ {
+				for ddy := int64(-1); ddy <= 1 && !ok; ddy++ {
+					owners, ok = cells[sliverCell{c.x + ddx, c.y + ddy}]
 				}
 			}
-			if !ok {
-				return false
-			}
-			for k := range owners {
-				polysSeen[k] = struct{}{}
-			}
 		}
-		return len(polysSeen) >= 2
+		if !ok {
+			return false
+		}
+		for k := range owners {
+			polysSeen[k] = struct{}{}
+		}
 	}
-	cleanPolygon := func(poly *geom.Polygon) *geom.Polygon {
-		if poly == nil || poly.IsEmpty() {
-			return poly
+	return len(polysSeen) >= 2
+}
+
+// cleanSliverHoles drops poly's phantom sliver holes (isPhantomSliverHole),
+// keeping the outer ring and any legitimate holes. Threshold is 1e-6 of
+// outer area: catches slivers up to ~1mm×1m in a 1km×1km polygon.
+func cleanSliverHoles(poly *geom.Polygon, scale float64, cells map[sliverCell]map[int]struct{}) *geom.Polygon {
+	if poly == nil || poly.IsEmpty() || poly.NumRings() < 2 {
+		return poly
+	}
+	outer := poly.Ring(0)
+	outerArea := ringArea(outer)
+	if outerArea <= 0 {
+		return poly
+	}
+	smallFrac := outerArea * 1e-6
+	kept := [][]geom.XY{outer}
+	dropped := false
+	for r := 1; r < poly.NumRings(); r++ {
+		ring := poly.Ring(r)
+		if isPhantomSliverHole(ring, smallFrac, scale, cells) {
+			dropped = true
+			continue
 		}
-		nr := poly.NumRings()
-		if nr < 2 {
-			return poly
-		}
-		outer := poly.Ring(0)
-		// Compute outer area for threshold.
-		signedA2 := 0.0
-		for j := 0; j+1 < len(outer); j++ {
-			signedA2 += outer[j].X*outer[j+1].Y - outer[j+1].X*outer[j].Y
-		}
-		outerArea := math.Abs(signedA2 / 2)
-		if outerArea <= 0 {
-			return poly
-		}
-		// 1e-6 of outer area: catches phantom slivers up to a square ~1mm×1m
-		// in 1km × 1km polygons; legitimate holes are typically larger.
-		smallFrac := outerArea * 1e-6
-		kept := [][]geom.XY{outer}
-		dropped := false
-		for r := 1; r < nr; r++ {
-			ring := poly.Ring(r)
-			if isPhantomHole(ring, smallFrac) {
-				dropped = true
-				continue
-			}
-			kept = append(kept, ring)
-		}
-		if !dropped {
-			return poly
-		}
-		return geom.NewPolygon(poly.CRS(), kept...)
+		kept = append(kept, ring)
+	}
+	if !dropped {
+		return poly
+	}
+	return geom.NewPolygon(poly.CRS(), kept...)
+}
+
+// dropPhantomSliverHoles removes noder-failure phantom holes (see
+// isPhantomSliverHole) from a Union result — JTS suppresses these via
+// snap-rounding; this is the floating-precision post-filter. Bails
+// out (via resultHasHole) before the grid build when there's nothing
+// to filter, avoiding a hashed insert per input outer-ring vertex on
+// the common no-hole path.
+func dropPhantomSliverHoles(g geom.Geometry, subj, clip []*geom.Polygon) geom.Geometry {
+	switch g.(type) {
+	case *geom.Polygon, *geom.MultiPolygon:
+	default:
+		return g
+	}
+	if !resultHasHole(g) {
+		return g
+	}
+	mag := maxCoordMagnitude(subj)
+	if m := maxCoordMagnitude(clip); m > mag {
+		mag = m
+	}
+	if mag <= 0 {
+		return g
+	}
+	tol := mag * 1e-9
+	if tol < 1e-9 {
+		tol = 1e-9
+	}
+	scale := 1 / tol
+	cells, numSources := buildOuterCellIndex(subj, clip, scale)
+	if numSources < 2 {
+		return g
 	}
 	switch v := g.(type) {
 	case *geom.Polygon:
-		return cleanPolygon(v)
+		return cleanSliverHoles(v, scale, cells)
 	case *geom.MultiPolygon:
 		parts := make([]*geom.Polygon, 0, v.NumGeometries())
 		for i := 0; i < v.NumGeometries(); i++ {
-			parts = append(parts, cleanPolygon(v.PolygonAt(i)))
+			parts = append(parts, cleanSliverHoles(v.PolygonAt(i), scale, cells))
 		}
 		return geom.NewMultiPolygon(v.CRS(), parts...)
 	}
