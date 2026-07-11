@@ -1,9 +1,12 @@
 package overlayng
 
 import (
+	"slices"
+
 	"github.com/exergy-dev/go-topology-suite"
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
+	"github.com/exergy-dev/go-topology-suite/index"
 	"github.com/exergy-dev/go-topology-suite/internal/noding"
 	"github.com/exergy-dev/go-topology-suite/internal/snap"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
@@ -587,12 +590,17 @@ func ringHasRepeatedInteriorVertex(ring []geom.XY) bool {
 	if ring[0] == ring[end-1] {
 		end--
 	}
-	seen := make(map[geom.XY]struct{}, end)
+	// Insert and lookup are interleaved (each vertex is checked against
+	// what's already seen, then recorded), so this stays a map — but
+	// keyed on the packed vertexKey (two uint64 compares) rather than
+	// the 16-byte geom.XY pair.
+	seen := make(map[vertexKey]struct{}, end)
 	for i := 0; i < end; i++ {
-		if _, ok := seen[ring[i]]; ok {
+		k := makeKey(ring[i])
+		if _, ok := seen[k]; ok {
 			return true
 		}
-		seen[ring[i]] = struct{}{}
+		seen[k] = struct{}{}
 	}
 	return false
 }
@@ -619,8 +627,8 @@ func polygonHasTouchingHole(p *geom.Polygon) bool {
 		hole := p.Ring(r)
 		holeVerts := vertexSet(hole)
 		// Hole vertex on interior of outer segment.
-		for v := range holeVerts {
-			if _, isOuterVertex := outerVerts[v]; isOuterVertex {
+		for _, v := range holeVerts.pts {
+			if outerVerts.contains(makeKey(v)) {
 				continue
 			}
 			if pointOnAnySegmentInterior(v, outer) {
@@ -628,8 +636,8 @@ func polygonHasTouchingHole(p *geom.Polygon) bool {
 			}
 		}
 		// Outer vertex on interior of hole segment (symmetric).
-		for v := range outerVerts {
-			if _, isHoleVertex := holeVerts[v]; isHoleVertex {
+		for _, v := range outerVerts.pts {
+			if holeVerts.contains(makeKey(v)) {
 				continue
 			}
 			if pointOnAnySegmentInterior(v, hole) {
@@ -655,60 +663,108 @@ func multiPolygonsTouch(polys []*geom.Polygon) bool {
 	// cost O(n^2) instead of O(n); for a jagged-star intersection with
 	// thousands of output fragments that dominated overlay CPU time.
 	rings := make([][]geom.XY, n)
-	vsets := make([]map[geom.XY]struct{}, n)
+	vsets := make([]vertexKeySet, n)
 	envs := make([]geom.Envelope, n)
 	for i, p := range polys {
 		rings[i] = p.Ring(0)
 		vsets[i] = vertexSet(rings[i])
 		envs[i] = p.Envelope()
 	}
-	for i := 0; i < n; i++ {
-		ri := rings[i]
-		viSet := vsets[i]
-		ei := envs[i]
-		for j := i + 1; j < n; j++ {
-			// Two rings can only touch (share a vertex-on-segment hit
-			// or an edge) if their bounding boxes intersect. Envelope
-			// is cached on the geometry, so this check is O(1) and
-			// correctness-preserving: it never skips a pair that the
-			// segment tests below would have flagged.
-			if !ei.Intersects(envs[j]) {
+
+	// testPair reports whether ring i and ring j (i != j) share a
+	// vertex-on-segment-interior hit. Order-symmetric: callers may pass
+	// either (i, j) or (j, i).
+	testPair := func(i, j int) bool {
+		ri, rj := rings[i], rings[j]
+		viSet, vjSet := vsets[i], vsets[j]
+		// Vertex of i on interior of a j segment.
+		for _, v := range viSet.pts {
+			if vjSet.contains(makeKey(v)) {
 				continue
 			}
-			rj := rings[j]
-			vjSet := vsets[j]
-			// Vertex of i on interior of a j segment.
-			for v := range viSet {
-				if _, isJ := vjSet[v]; isJ {
-					continue
-				}
-				if pointOnAnySegmentInterior(v, rj) {
-					return true
-				}
+			if pointOnAnySegmentInterior(v, rj) {
+				return true
 			}
-			// Vertex of j on interior of an i segment.
-			for v := range vjSet {
-				if _, isI := viSet[v]; isI {
+		}
+		// Vertex of j on interior of an i segment.
+		for _, v := range vjSet.pts {
+			if viSet.contains(makeKey(v)) {
+				continue
+			}
+			if pointOnAnySegmentInterior(v, ri) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// The all-pairs envelope-then-vertex scan below used to be a plain
+	// O(n^2) double loop over output polygons (5.5M bbox pairs at
+	// P=3306 on the jagged-star fixture — 21% of overlay CPU). An
+	// STR-bulk-loaded R-tree over the ring envelopes turns the O(n)
+	// envelope-intersects candidates per ring into an index query,
+	// same as the brute-force loop's `ei.Intersects(envs[j])` guard —
+	// a pure short-circuit, so results are unchanged. Below the
+	// threshold, building the tree costs more than it saves.
+	if n < smallRingCount {
+		for i := 0; i < n; i++ {
+			for j := i + 1; j < n; j++ {
+				if !envs[i].Intersects(envs[j]) {
 					continue
 				}
-				if pointOnAnySegmentInterior(v, ri) {
+				if testPair(i, j) {
 					return true
 				}
 			}
 		}
+	} else {
+		items := make([]index.Item[int], n)
+		for i := range rings {
+			items[i] = index.Item[int]{Env: envs[i], Value: i}
+		}
+		tree := index.New[int]()
+		tree.Bulk(items)
+
+		for i := 0; i < n; i++ {
+			hit := false
+			tree.Search(envs[i], func(it index.Item[int]) bool {
+				j := it.Value
+				if j <= i {
+					// j < i already tested when i was the outer index;
+					// j == i is self.
+					return true
+				}
+				if testPair(i, j) {
+					hit = true
+					return false
+				}
+				return true
+			})
+			if hit {
+				return true
+			}
+		}
 	}
+
 	// Detect identical-edge sharing across distinct polygons by
-	// canonicalising each outer-ring segment (lex-min endpoint first)
-	// and watching for any segment that appears in two polygons. Reuses
-	// the rings materialised above instead of re-fetching Ring(0).
-	type seg struct{ a, b geom.XY }
-	canon := func(p, q geom.XY) seg {
-		if p.X < q.X || (p.X == q.X && p.Y < q.Y) {
-			return seg{p, q}
+	// canonicalising each outer-ring segment (lex-min endpoint first,
+	// keyed on the NaN-safe Float64bits packing already used for DCEL
+	// vertex dedup) and watching for any segment that appears in two
+	// polygons. Reuses the rings materialised above instead of
+	// re-fetching Ring(0). Insertion and lookup are interleaved here
+	// (a segment's owner is checked, then recorded, as rings are
+	// walked in order), so this stays a map rather than a sorted
+	// slice — but keyed on the cheaper 2x-uint64 vertexKey instead of
+	// the 2x-float64 geom.XY pair.
+	type segKey struct{ a, b vertexKey }
+	canon := func(p, q geom.XY) segKey {
+		pk, qk := makeKey(p), makeKey(q)
+		if compareVertexKey(pk, qk) < 0 {
+			return segKey{pk, qk}
 		}
-		return seg{q, p}
+		return segKey{qk, pk}
 	}
-	owner := map[seg]int{}
+	owner := map[segKey]int{}
 	for i, ring := range rings {
 		for k := 0; k+1 < len(ring); k++ {
 			s := canon(ring[k], ring[k+1])
@@ -760,21 +816,72 @@ func pointOnSegmentInterior(p, a, b geom.XY) bool {
 	return t > 0 && t < 1
 }
 
+// vertexKeySet is a deduplicated collection of a ring's vertices, built
+// once and then probed by membership via contains. A sorted slice +
+// binary search beats a map[geom.XY]struct{} for this build-once,
+// probe-many access pattern: comparisons work on the packed vertexKey
+// (two uint64 compares) rather than hashing a 16-byte float pair, and
+// the whole set is a single flat allocation instead of map buckets.
+// Keys are recomputed on the fly during search — makeKey is a pure bit
+// cast (math.Float64bits), so storing them alongside the points would
+// only double the memory for no time win.
+type vertexKeySet struct {
+	pts []geom.XY // sorted ascending by compareVertexKey(makeKey(p)), deduplicated
+}
+
+// compareVertexKey totally orders vertexKeys (the Float64bits packing
+// from dcel.go). Equal keys imply bit-identical coordinates, so which
+// order relation is used doesn't matter for correctness — only that it
+// is total and consistent, which a plain uint64 comparison is.
+func compareVertexKey(a, b vertexKey) int {
+	if a.x != b.x {
+		if a.x < b.x {
+			return -1
+		}
+		return 1
+	}
+	if a.y != b.y {
+		if a.y < b.y {
+			return -1
+		}
+		return 1
+	}
+	return 0
+}
+
+// contains reports whether k is a vertex in the set.
+func (s vertexKeySet) contains(k vertexKey) bool {
+	_, ok := slices.BinarySearchFunc(s.pts, k, func(p geom.XY, target vertexKey) int {
+		return compareVertexKey(makeKey(p), target)
+	})
+	return ok
+}
+
 // vertexSet returns the set of unique vertices in ring (excluding the
 // closing duplicate, since rings are stored with first==last).
-func vertexSet(ring []geom.XY) map[geom.XY]struct{} {
+func vertexSet(ring []geom.XY) vertexKeySet {
 	if len(ring) == 0 {
-		return nil
+		return vertexKeySet{}
 	}
 	end := len(ring)
 	if end > 1 && ring[0] == ring[end-1] {
 		end--
 	}
-	out := make(map[geom.XY]struct{}, end)
-	for i := 0; i < end; i++ {
-		out[ring[i]] = struct{}{}
+	pts := make([]geom.XY, end)
+	copy(pts, ring[:end])
+	slices.SortFunc(pts, func(a, b geom.XY) int {
+		return compareVertexKey(makeKey(a), makeKey(b))
+	})
+	// Dedup in place (bit-identical coordinates sort adjacently).
+	w := 1
+	for i := 1; i < end; i++ {
+		if makeKey(pts[i]) == makeKey(pts[i-1]) {
+			continue
+		}
+		pts[w] = pts[i]
+		w++
 	}
-	return out
+	return vertexKeySet{pts: pts[:w]}
 }
 
 // CanonicalizeTouchingRings is the public entry point for the
@@ -1012,11 +1119,16 @@ func splitSelfTouchingRing(ring []geom.XY) [][]geom.XY {
 		end--
 	}
 	stack := make([]geom.XY, 0, end)
-	pos := map[geom.XY]int{}
+	// Insert, lookup, and delete are all interleaved here (stack push,
+	// membership probe, and truncation-driven eviction), so this stays
+	// a map — keyed on the packed vertexKey rather than the 16-byte
+	// geom.XY pair.
+	pos := map[vertexKey]int{}
 	var loops [][]geom.XY
 	for i := 0; i < end; i++ {
 		v := ring[i]
-		if idx, ok := pos[v]; ok {
+		vk := makeKey(v)
+		if idx, ok := pos[vk]; ok {
 			// Pop the loop [idx..len(stack)-1] and close it.
 			loop := make([]geom.XY, 0, len(stack)-idx+1)
 			loop = append(loop, stack[idx:]...)
@@ -1026,14 +1138,14 @@ func splitSelfTouchingRing(ring []geom.XY) [][]geom.XY {
 			}
 			// Truncate stack and rebuild pos for what remains.
 			for k := idx; k < len(stack); k++ {
-				delete(pos, stack[k])
+				delete(pos, makeKey(stack[k]))
 			}
 			stack = stack[:idx]
-			pos[v] = len(stack)
+			pos[vk] = len(stack)
 			stack = append(stack, v)
 			continue
 		}
-		pos[v] = len(stack)
+		pos[vk] = len(stack)
 		stack = append(stack, v)
 	}
 	if len(stack) >= 3 {
