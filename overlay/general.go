@@ -120,6 +120,23 @@ func overlayResultIsAcceptable(g geom.Geometry, op overlayng.Op, subj, clip []*g
 // Legitimate input holes have vertices traceable to a single source
 // ring (the input hole vertex set), so they survive the filter.
 func dropPhantomSliverHoles(g geom.Geometry, subj, clip []*geom.Polygon) geom.Geometry {
+	// No holes anywhere in the result → nothing to filter. Bail before
+	// building the input-vertex grid below, which costs a hashed insert
+	// per input outer-ring vertex.
+	hasHole := false
+	switch v := g.(type) {
+	case *geom.Polygon:
+		hasHole = v.NumRings() > 1
+	case *geom.MultiPolygon:
+		for i := 0; i < v.NumGeometries() && !hasHole; i++ {
+			hasHole = v.PolygonAt(i).NumRings() > 1
+		}
+	default:
+		return g
+	}
+	if !hasHole {
+		return g
+	}
 	mag := maxCoordMagnitude(subj)
 	if m := maxCoordMagnitude(clip); m > mag {
 		mag = m
@@ -137,9 +154,12 @@ func dropPhantomSliverHoles(g geom.Geometry, subj, clip []*geom.Polygon) geom.Ge
 		return cell{int64(math.Floor(p.X * scale)), int64(math.Floor(p.Y * scale))}
 	}
 	outerCells := make(map[cell]map[int]struct{})
-	addOuter := func(idx int, ring []geom.XY) {
-		for _, v := range ring {
-			c := hashCell(v)
+	// Iterate outer rings via RingLen/RingVertex — Ring(0) would copy
+	// every input ring into a fresh []XY per Union call.
+	addOuter := func(idx int, pp *geom.Polygon) {
+		n := pp.RingLen(0)
+		for j := 0; j < n; j++ {
+			c := hashCell(pp.RingVertex(0, j))
 			if outerCells[c] == nil {
 				outerCells[c] = map[int]struct{}{}
 			}
@@ -151,14 +171,14 @@ func dropPhantomSliverHoles(g geom.Geometry, subj, clip []*geom.Polygon) geom.Ge
 		if pp == nil || pp.IsEmpty() {
 			continue
 		}
-		addOuter(idx, pp.Ring(0))
+		addOuter(idx, pp)
 		idx++
 	}
 	for _, pp := range clip {
 		if pp == nil || pp.IsEmpty() {
 			continue
 		}
-		addOuter(idx, pp.Ring(0))
+		addOuter(idx, pp)
 		idx++
 	}
 	if idx < 2 {
