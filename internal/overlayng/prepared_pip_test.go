@@ -100,3 +100,27 @@ func TestPreparedPolygonsMatchesPointInAnyPolygon(t *testing.T) {
 		}
 	}
 }
+
+// pointInAnyPolygon iterates over the per-polygon partitions and
+// returns true iff p is inside any of them. Each partition is one
+// polygon's ring list ([outer, holes...]); pointInPolygonRings handles
+// the per-polygon "inside outer AND not inside any hole" semantics.
+//
+// Production code now classifies faces via the prepared PIP
+// (preparePolygons/containsAny in prepared_pip.go); this unprepared,
+// brute-force version survives only as a differential-test oracle
+// (here and in symdiff_case9_regression_test.go).
+func pointInAnyPolygon(p geom.XY, rings [][]geom.XY, perPoly []int) bool {
+	off := 0
+	for _, n := range perPoly {
+		if n == 0 || off+n > len(rings) {
+			off += n
+			continue
+		}
+		if geomath.PointInPolygonRings(p, rings[off:off+n]) {
+			return true
+		}
+		off += n
+	}
+	return false
+}

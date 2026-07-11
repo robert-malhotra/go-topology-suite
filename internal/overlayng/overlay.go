@@ -239,18 +239,6 @@ func overlayCorePolygonalMixed(
 	d := buildDCEL(depthSegs)
 	d.traceFaces()
 
-	if !d.isConnected() && !mayHandleMultiComponent(d, subjRings, subjPerPoly, clipRings, clipPerPoly) {
-		first, rest, err := overlayDisjointPolygonal(c,
-			rebuildPolygons(c, subjRings, subjPerPoly),
-			rebuildPolygons(c, clipRings, clipPerPoly),
-			op,
-		)
-		if err != nil {
-			return nil, err
-		}
-		return WrapPolygonResult(c, first, rest), nil
-	}
-
 	classifyFacesByPolygons(d, subjRings, subjPerPoly, clipRings, clipPerPoly)
 	applyOp(d, op)
 	rings := extractResultRings(d)
@@ -397,14 +385,6 @@ func overlayCorePolygonal(
 	// against the original input rings, so containment relations are
 	// resolved correctly even when the components are nested or
 	// strictly disjoint.
-	if !d.isConnected() && !mayHandleMultiComponent(d, subjRings, subjPerPoly, clipRings, clipPerPoly) {
-		return overlayDisjointPolygonal(c,
-			rebuildPolygons(c, subjRings, subjPerPoly),
-			rebuildPolygons(c, clipRings, clipPerPoly),
-			op,
-		)
-	}
-
 	classifyFacesByPolygons(d, subjRings, subjPerPoly, clipRings, clipPerPoly)
 	applyOp(d, op)
 	rings := extractResultRings(d)
@@ -412,22 +392,6 @@ func overlayCorePolygonal(
 		return geom.NewEmptyPolygon(c, geom.LayoutXY), nil, nil
 	}
 	return AssembleOutputPolygons(c, rings)
-}
-
-// mayHandleMultiComponent returns true when the multi-component DCEL
-// path is safe: every face's representative interior point sits in a
-// region whose subj/clip membership is unambiguous from the input
-// rings. The check is conservative — it returns true unconditionally
-// for now, since classifyFacesByPolygons uses pointInPolygonRings on
-// the original input geometry (not on the DCEL), so multi-component
-// classification is correct as long as the DCEL is built without
-// vertex aliasing. The disjoint helper remains as a defensive
-// fallback for true outliers.
-func mayHandleMultiComponent(d *DCEL,
-	subjRings [][]geom.XY, subjPerPoly []int,
-	clipRings [][]geom.XY, clipPerPoly []int,
-) bool {
-	return true
 }
 
 // needsCanonicalize reports whether (first, rest) contains any polygon
@@ -439,11 +403,10 @@ func mayHandleMultiComponent(d *DCEL,
 // same by re-running the polygons through a self-Union, which the
 // overlay-NG noding step decomposes cleanly.
 // The scan is index-accelerated: one R-tree over every result-ring
-// segment envelope, probed once per result vertex, replaces the
-// brute-force per-pair O(V×L) sweeps of polygonHasTouchingHole /
-// multiPolygonsTouch (which dominated Union/Intersection CPU on
-// many-fragment results). The predicates evaluated are identical —
-// same pair eligibility, same vertex-set skip, same
+// segment envelope, probed once per result vertex, replaces a
+// brute-force per-pair O(V×L) sweep (which dominated Union/Intersection
+// CPU on many-fragment results). The predicates evaluated are the same
+// — same pair eligibility, same vertex-set skip, same
 // pointOnSegmentInterior test — so the answer is unchanged.
 func needsCanonicalize(first *geom.Polygon, rest []*geom.Polygon) bool {
 	all := make([]*geom.Polygon, 0, 1+len(rest))
@@ -591,12 +554,15 @@ func needsCanonicalize(first *geom.Polygon, rest []*geom.Polygon) bool {
 	return false
 }
 
-// ringRepeatsInteriorVertex is ringHasRepeatedInteriorVertex with a
-// caller-owned sort buffer: same predicate (any vertex visited twice in
-// the ring interior), evaluated by sort + adjacent-duplicate scan
-// instead of a freshly allocated map per ring — needsCanonicalize runs
-// it on every result polygon, and many-fragment intersections produce
-// thousands of them.
+// ringRepeatsInteriorVertex reports whether the closed ring visits the
+// same vertex twice in its interior (excluding the closing duplicate)
+// — a figure-8 topology that JTS canonicalises into two separate
+// polygons that touch at the repeated vertex. It takes a caller-owned
+// sort buffer and evaluates the predicate by sort + adjacent-duplicate
+// scan instead of a freshly allocated map per ring: both
+// needsCanonicalize and canonicalizeTouchingRings run it on every
+// result polygon, and many-fragment intersections produce thousands of
+// them.
 func ringRepeatsInteriorVertex(ring []geom.XY, scratch *[]vertexKey) bool {
 	if len(ring) < 5 {
 		return false
@@ -729,218 +695,6 @@ func polygonHoleCrossesOuter(p *geom.Polygon) bool {
 					return true
 				}
 			}
-		}
-	}
-	return false
-}
-
-// ringHasRepeatedInteriorVertex returns true when the closed ring
-// visits the same vertex twice in its interior (excluding the
-// closing duplicate). Such a ring is a figure-8 topology that JTS
-// canonicalises into two separate polygons that touch at the
-// repeated vertex.
-func ringHasRepeatedInteriorVertex(ring []geom.XY) bool {
-	if len(ring) < 5 {
-		return false
-	}
-	end := len(ring)
-	if ring[0] == ring[end-1] {
-		end--
-	}
-	// Insert and lookup are interleaved (each vertex is checked against
-	// what's already seen, then recorded), so this stays a map — but
-	// keyed on the packed vertexKey (two uint64 compares) rather than
-	// the 16-byte geom.XY pair.
-	seen := make(map[vertexKey]struct{}, end)
-	for i := 0; i < end; i++ {
-		k := makeKey(ring[i])
-		if _, ok := seen[k]; ok {
-			return true
-		}
-		seen[k] = struct{}{}
-	}
-	return false
-}
-
-// polygonHasTouchingHole returns true when an outer ring and a hole
-// share a boundary segment (rather than just a vertex). The diagnostic
-// signal is a hole vertex lying STRICTLY on the interior of an outer
-// segment (or vice versa) — that vertex represents a hot pixel where
-// the noder split one ring at the other's vertex, producing two rings
-// that share a finite-length edge.
-//
-// A hole that merely touches the outer at a single vertex (case #3 of
-// TestOverlayAA, where two diamond cavities meet at a corner of the
-// outer) is geometrically valid and must not be flagged here, since
-// the canonicalisation pass would erase the hole and corrupt the
-// result.
-func polygonHasTouchingHole(p *geom.Polygon) bool {
-	if p == nil || p.NumRings() < 2 {
-		return false
-	}
-	outer := p.Ring(0)
-	outerVerts := vertexSet(outer)
-	for r := 1; r < p.NumRings(); r++ {
-		hole := p.Ring(r)
-		holeVerts := vertexSet(hole)
-		// Hole vertex on interior of outer segment.
-		for _, v := range holeVerts.pts {
-			if outerVerts.contains(makeKey(v)) {
-				continue
-			}
-			if pointOnAnySegmentInterior(v, outer) {
-				return true
-			}
-		}
-		// Outer vertex on interior of hole segment (symmetric).
-		for _, v := range outerVerts.pts {
-			if holeVerts.contains(makeKey(v)) {
-				continue
-			}
-			if pointOnAnySegmentInterior(v, hole) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// multiPolygonsTouch returns true when any two outer rings of distinct
-// polygons share a boundary segment — either as a strict
-// "vertex on segment interior" hit (case#11 hole-vs-shell) or as an
-// identical edge that appears in both outer rings (case#3
-// symdifference, where two assembled polygons abut along a shared
-// spine of length > 0). Pure single-vertex coincidence is not flagged.
-func multiPolygonsTouch(polys []*geom.Polygon) bool {
-	n := len(polys)
-	// Materialise each polygon's outer ring, its vertex set, and its
-	// envelope exactly once. The naive version below re-fetched
-	// polys[j].Ring(0) (and rebuilt its vertex set) on every (i, j) pair,
-	// making both the allocation count and the vertex-set construction
-	// cost O(n^2) instead of O(n); for a jagged-star intersection with
-	// thousands of output fragments that dominated overlay CPU time.
-	rings := make([][]geom.XY, n)
-	vsets := make([]vertexKeySet, n)
-	envs := make([]geom.Envelope, n)
-	for i, p := range polys {
-		rings[i] = p.Ring(0)
-		vsets[i] = vertexSet(rings[i])
-		envs[i] = p.Envelope()
-	}
-
-	// testPair reports whether ring i and ring j (i != j) share a
-	// vertex-on-segment-interior hit. Order-symmetric: callers may pass
-	// either (i, j) or (j, i).
-	testPair := func(i, j int) bool {
-		ri, rj := rings[i], rings[j]
-		viSet, vjSet := vsets[i], vsets[j]
-		// Vertex of i on interior of a j segment.
-		for _, v := range viSet.pts {
-			if vjSet.contains(makeKey(v)) {
-				continue
-			}
-			if pointOnAnySegmentInterior(v, rj) {
-				return true
-			}
-		}
-		// Vertex of j on interior of an i segment.
-		for _, v := range vjSet.pts {
-			if viSet.contains(makeKey(v)) {
-				continue
-			}
-			if pointOnAnySegmentInterior(v, ri) {
-				return true
-			}
-		}
-		return false
-	}
-
-	// The all-pairs envelope-then-vertex scan below used to be a plain
-	// O(n^2) double loop over output polygons (5.5M bbox pairs at
-	// P=3306 on the jagged-star fixture — 21% of overlay CPU). An
-	// STR-bulk-loaded R-tree over the ring envelopes turns the O(n)
-	// envelope-intersects candidates per ring into an index query,
-	// same as the brute-force loop's `ei.Intersects(envs[j])` guard —
-	// a pure short-circuit, so results are unchanged. Below the
-	// threshold, building the tree costs more than it saves.
-	if n < smallRingCount {
-		for i := 0; i < n; i++ {
-			for j := i + 1; j < n; j++ {
-				if !envs[i].Intersects(envs[j]) {
-					continue
-				}
-				if testPair(i, j) {
-					return true
-				}
-			}
-		}
-	} else {
-		items := make([]index.Item[int], n)
-		for i := range rings {
-			items[i] = index.Item[int]{Env: envs[i], Value: i}
-		}
-		tree := index.New[int]()
-		tree.Bulk(items)
-
-		for i := 0; i < n; i++ {
-			hit := false
-			tree.Search(envs[i], func(it index.Item[int]) bool {
-				j := it.Value
-				if j <= i {
-					// j < i already tested when i was the outer index;
-					// j == i is self.
-					return true
-				}
-				if testPair(i, j) {
-					hit = true
-					return false
-				}
-				return true
-			})
-			if hit {
-				return true
-			}
-		}
-	}
-
-	// Detect identical-edge sharing across distinct polygons by
-	// canonicalising each outer-ring segment (lex-min endpoint first,
-	// keyed on the NaN-safe Float64bits packing already used for DCEL
-	// vertex dedup) and watching for any segment that appears in two
-	// polygons. Reuses the rings materialised above instead of
-	// re-fetching Ring(0). Insertion and lookup are interleaved here
-	// (a segment's owner is checked, then recorded, as rings are
-	// walked in order), so this stays a map rather than a sorted
-	// slice — but keyed on the cheaper 2x-uint64 vertexKey instead of
-	// the 2x-float64 geom.XY pair.
-	type segKey struct{ a, b vertexKey }
-	canon := func(p, q geom.XY) segKey {
-		pk, qk := makeKey(p), makeKey(q)
-		if compareVertexKey(pk, qk) < 0 {
-			return segKey{pk, qk}
-		}
-		return segKey{qk, pk}
-	}
-	owner := map[segKey]int{}
-	for i, ring := range rings {
-		for k := 0; k+1 < len(ring); k++ {
-			s := canon(ring[k], ring[k+1])
-			if prev, ok := owner[s]; ok && prev != i {
-				return true
-			}
-			owner[s] = i
-		}
-	}
-	return false
-}
-
-// pointOnAnySegmentInterior reports whether p lies strictly inside any
-// segment of the closed ring (between two consecutive vertices,
-// excluding the endpoints themselves).
-func pointOnAnySegmentInterior(p geom.XY, ring []geom.XY) bool {
-	for j := 0; j+1 < len(ring); j++ {
-		if pointOnSegmentInterior(p, ring[j], ring[j+1]) {
-			return true
 		}
 	}
 	return false
@@ -1222,11 +976,12 @@ func canonicalizeTouchingRings(c *crs.CRS, first *geom.Polygon, rest []*geom.Pol
 	// Split any figure-8 outer ring in place.
 	expanded := make([]*geom.Polygon, 0, len(polys))
 	splitAny := false
+	var scratch []vertexKey
 	for _, p := range polys {
 		if p == nil || p.IsEmpty() {
 			continue
 		}
-		if !ringHasRepeatedInteriorVertex(p.Ring(0)) {
+		if !ringRepeatsInteriorVertex(p.Ring(0), &scratch) {
 			expanded = append(expanded, p)
 			continue
 		}
@@ -1315,22 +1070,6 @@ func splitSelfTouchingRing(ring []geom.XY) [][]geom.XY {
 		return [][]geom.XY{ring}
 	}
 	return loops
-}
-
-// rebuildPolygons reconstructs the per-polygon slice from a flat ring
-// list and a per-polygon ring-count partition. Used by the disjoint
-// fallback, which needs per-polygon containment tests.
-func rebuildPolygons(c *crs.CRS, rings [][]geom.XY, perPoly []int) []*geom.Polygon {
-	out := make([]*geom.Polygon, 0, len(perPoly))
-	off := 0
-	for _, n := range perPoly {
-		if n == 0 || off+n > len(rings) {
-			continue
-		}
-		out = append(out, geom.NewPolygon(c, rings[off:off+n]...))
-		off += n
-	}
-	return out
 }
 
 // flattenNoded turns a slice of noded SegmentStrings into DepthSegment,

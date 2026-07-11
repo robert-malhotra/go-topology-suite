@@ -37,9 +37,9 @@ type HalfEdge struct {
 	next   *HalfEdge // next edge in face walk
 	Face   *Face
 	angle  float64 // pseudo-angle of (target - origin) from +X; order-isomorphic to atan2's (-π, π], NOT its numeric value. Read only by the sort in buildDCELCore.
-	outIdx int      // this half-edge's position in its Origin vertex's angularly-sorted Out slice, set right after that sort finalizes. Lets next-pointer wiring look up a twin's angular position in O(1) instead of scanning Out.
-	index  int32    // position in dcel.Edges, set by buildDCELCore; keys dense per-edge state in consumers
-	tags   uint8    // bitset: 1=subj, 2=clip (overlay builds only)
+	outIdx int     // this half-edge's position in its Origin vertex's angularly-sorted Out slice, set right after that sort finalizes. Lets next-pointer wiring look up a twin's angular position in O(1) instead of scanning Out.
+	index  int32   // position in dcel.Edges, set by buildDCELCore; keys dense per-edge state in consumers
+	tags   uint8   // bitset: 1=subj, 2=clip (overlay builds only)
 	// DepthDelta is the signed interior-crossing count used by the
 	// buffer polygonizer (depth-mode builds only): +1 if walking
 	// origin→target crosses INTO the buffer interior. Zero for
@@ -214,6 +214,27 @@ func BuildDepthDCEL(segs []DepthSegment) *DCEL {
 	return d
 }
 
+// emitEdgePair allocates the forward/backward half-edge pair for a
+// segment between va and vb, wires up Twin/angle/index, and appends
+// both halves to their origin's Out slice and to d.Edges. This is the
+// byte-identical tail shared by buildDCELCore's edgeMap and no-map
+// branches (the two differ only in whether the new pair also gets
+// registered in edgeMap).
+func (d *DCEL) emitEdgePair(va, vb *Vertex, s DepthSegment) (eFwd, eBack *HalfEdge) {
+	eFwd = d.allocEdge(HalfEdge{Origin: va, Target: vb, tags: s.Tag, DepthDelta: s.DepthDelta})
+	eBack = d.allocEdge(HalfEdge{Origin: vb, Target: va, tags: s.Tag, DepthDelta: -s.DepthDelta})
+	eFwd.Twin = eBack
+	eBack.Twin = eFwd
+	eFwd.angle = pseudoAngle(vb.P.X-va.P.X, vb.P.Y-va.P.Y)
+	eBack.angle = pseudoAngle(va.P.X-vb.P.X, va.P.Y-vb.P.Y)
+	eFwd.index = int32(len(d.Edges))
+	eBack.index = int32(len(d.Edges) + 1)
+	va.Out = append(va.Out, eFwd)
+	vb.Out = append(vb.Out, eBack)
+	d.Edges = append(d.Edges, eFwd, eBack)
+	return eFwd, eBack
+}
+
 // buildDCELCore builds a planar subdivision from the noded segments.
 // Vertices are deduplicated by exact coordinate; coincident segments
 // (segments with identical endpoints) merge into a single half-edge
@@ -348,32 +369,12 @@ func buildDCELCore(segs []DepthSegment, depthMode bool) *DCEL {
 				e.Twin.tags |= s.Tag
 				continue
 			}
-			eFwd := d.allocEdge(HalfEdge{Origin: va, Target: vb, tags: s.Tag, DepthDelta: s.DepthDelta})
-			eBack := d.allocEdge(HalfEdge{Origin: vb, Target: va, tags: s.Tag, DepthDelta: -s.DepthDelta})
-			eFwd.Twin = eBack
-			eBack.Twin = eFwd
-			eFwd.angle = pseudoAngle(vb.P.X-va.P.X, vb.P.Y-va.P.Y)
-			eBack.angle = pseudoAngle(va.P.X-vb.P.X, va.P.Y-vb.P.Y)
-			eFwd.index = int32(len(d.Edges))
-			eBack.index = int32(len(d.Edges) + 1)
-			va.Out = append(va.Out, eFwd)
-			vb.Out = append(vb.Out, eBack)
-			d.Edges = append(d.Edges, eFwd, eBack)
+			eFwd, eBack := d.emitEdgePair(va, vb, s)
 			edgeMap[fk] = eFwd
 			edgeMap[bk] = eBack
 			continue
 		}
-		eFwd := d.allocEdge(HalfEdge{Origin: va, Target: vb, tags: s.Tag, DepthDelta: s.DepthDelta})
-		eBack := d.allocEdge(HalfEdge{Origin: vb, Target: va, tags: s.Tag, DepthDelta: -s.DepthDelta})
-		eFwd.Twin = eBack
-		eBack.Twin = eFwd
-		eFwd.angle = pseudoAngle(vb.P.X-va.P.X, vb.P.Y-va.P.Y)
-		eBack.angle = pseudoAngle(va.P.X-vb.P.X, va.P.Y-vb.P.Y)
-		eFwd.index = int32(len(d.Edges))
-		eBack.index = int32(len(d.Edges) + 1)
-		va.Out = append(va.Out, eFwd)
-		vb.Out = append(vb.Out, eBack)
-		d.Edges = append(d.Edges, eFwd, eBack)
+		d.emitEdgePair(va, vb, s)
 	}
 
 	// Sort outgoing half-edges at each vertex by angle (CCW from +X),
@@ -488,29 +489,4 @@ func signedAreaOfFace(f *Face) float64 {
 		sum += x0*y1 - x1*y0
 	}
 	return sum / 2
-}
-
-// isConnected reports whether the DCEL is a single connected component.
-// Two polygons whose boundaries don't intersect produce disjoint
-// components, and our ray-cast face classification can't correctly
-// resolve the "annulus" face between them. Overlay uses this to
-// short-circuit and request a fallback.
-func (d *DCEL) isConnected() bool {
-	if len(d.Vertices) <= 1 {
-		return true
-	}
-	visited := make(map[*Vertex]bool, len(d.Vertices))
-	queue := []*Vertex{d.Vertices[0]}
-	visited[d.Vertices[0]] = true
-	for len(queue) > 0 {
-		v := queue[0]
-		queue = queue[1:]
-		for _, e := range v.Out {
-			if !visited[e.Target] {
-				visited[e.Target] = true
-				queue = append(queue, e.Target)
-			}
-		}
-	}
-	return len(visited) == len(d.Vertices)
 }

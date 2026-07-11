@@ -2,7 +2,6 @@ package overlayng
 
 import (
 	"github.com/exergy-dev/go-topology-suite/geom"
-	"github.com/exergy-dev/go-topology-suite/internal/geomath"
 )
 
 // classifyFacesByPolygons is the multi-aware classifier: it tags each
@@ -204,25 +203,6 @@ func edgeNudgePoint(e *HalfEdge) geom.XY {
 	dx, dy := x1-x0, y1-y0
 	const eps = 1e-9
 	return geom.XY{X: mx + -dy*eps, Y: my + dx*eps}
-}
-
-// pointInAnyPolygon iterates over the per-polygon partitions and
-// returns true iff p is inside any of them. Each partition is one
-// polygon's ring list ([outer, holes...]); pointInPolygonRings handles
-// the per-polygon "inside outer AND not inside any hole" semantics.
-func pointInAnyPolygon(p geom.XY, rings [][]geom.XY, perPoly []int) bool {
-	off := 0
-	for _, n := range perPoly {
-		if n == 0 || off+n > len(rings) {
-			off += n
-			continue
-		}
-		if geomath.PointInPolygonRings(p, rings[off:off+n]) {
-			return true
-		}
-		off += n
-	}
-	return false
 }
 
 // interiorPoint returns a point guaranteed to be strictly inside the
