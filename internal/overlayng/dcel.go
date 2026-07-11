@@ -18,6 +18,11 @@ type Vertex struct {
 	index int         // position in dcel.vertices
 }
 
+// Index returns the vertex's position in DCEL.Vertices. Consumers use
+// it to key dense per-vertex state (visited sets, union-find) instead
+// of pointer-keyed maps in hot loops.
+func (v *Vertex) Index() int { return v.index }
+
 // HalfEdge is one direction of an undirected edge in the subdivision.
 // Two half-edges form a twin pair: e.twin is the reverse direction.
 //
@@ -33,6 +38,7 @@ type HalfEdge struct {
 	Face   *Face
 	angle  float64 // pseudo-angle of (target - origin) from +X; order-isomorphic to atan2's (-π, π], NOT its numeric value. Read only by the sort in buildDCELCore.
 	outIdx int      // this half-edge's position in its Origin vertex's angularly-sorted Out slice, set right after that sort finalizes. Lets next-pointer wiring look up a twin's angular position in O(1) instead of scanning Out.
+	index  int32    // position in dcel.Edges, set by buildDCELCore; keys dense per-edge state in consumers
 	tags   uint8    // bitset: 1=subj, 2=clip (overlay builds only)
 	// DepthDelta is the signed interior-crossing count used by the
 	// buffer polygonizer (depth-mode builds only): +1 if walking
@@ -53,7 +59,16 @@ type Face struct {
 	// Depth is the buffer polygonizer's signed topological depth
 	// (depth-mode builds only); overlay leaves it zero.
 	Depth int
+	index int // position in dcel.Faces, set by traceFaceCycles
 }
+
+// Index returns the face's position in DCEL.Faces. Same dense-keying
+// role as Vertex.Index.
+func (f *Face) Index() int { return f.index }
+
+// Index returns the half-edge's position in DCEL.Edges. Same
+// dense-keying role as Vertex.Index.
+func (e *HalfEdge) Index() int { return int(e.index) }
 
 // DCEL is the doubly-connected edge list for one overlay computation.
 type DCEL struct {
@@ -224,54 +239,128 @@ func buildDCELCore(segs []DepthSegment, depthMode bool) *DCEL {
 	// The face slab is sized in traceFaceCycles, which runs after
 	// construction and can use the ACTUAL vertex/edge counts (Euler's
 	// formula) instead of a pre-construction bound.
-	d.vertBacking = make([]Vertex, 0, n)
 	d.edgeBacking = make([]HalfEdge, 0, 2*n)
-	d.Vertices = make([]*Vertex, 0, n)
 	d.Edges = make([]*HalfEdge, 0, 2*n)
-	vmap := make(map[vertexKey]*Vertex, n)
 
-	getVertex := func(p geom.XY) (*Vertex, vertexKey) {
-		k := makeKey(p)
-		if v, ok := vmap[k]; ok {
-			return v, k
+	// Vertex dedup by sort: collect every non-degenerate endpoint's
+	// packed key, sort, and materialise each unique coordinate once.
+	// Endpoint→vertex resolution below is then a binary search on the
+	// sorted key array — measurably cheaper than hashing a 16-byte
+	// struct key per endpoint into a map, and the slab can be sized to
+	// the exact unique count. (Vertices end up ordered by packed key
+	// instead of first encounter; nothing reads d.Vertices order —
+	// angular sorting, next-wiring, and face tracing key off d.Edges,
+	// whose order is unchanged.)
+	// The packed key IS the coordinate (bit-cast), so the sort records
+	// carry no separate XY payload — the vertex coordinate is
+	// reconstructed from the key bits at materialisation.
+	vrecs := make([]vertexKey, 0, 2*n)
+	for _, s := range segs {
+		if s.P0 == s.P1 {
+			continue
 		}
+		vrecs = append(vrecs, makeKey(s.P0), makeKey(s.P1))
+	}
+	slices.SortFunc(vrecs, compareVertexKey)
+	unique := 0
+	for i := range vrecs {
+		if i == 0 || vrecs[i] != vrecs[i-1] {
+			unique++
+		}
+	}
+	d.vertBacking = make([]Vertex, 0, unique)
+	d.Vertices = make([]*Vertex, 0, unique)
+	vkeys := make([]vertexKey, 0, unique)
+	// One shared arena backs every vertex's Out slice: each vertex's
+	// key-run length in the sorted vrecs is exactly its incident-
+	// endpoint count, an upper bound on its out-degree (coincident-edge
+	// merges only reduce it). Full-slice expressions pin each vertex's
+	// cap so appends can't bleed into a neighbour's window; the rare
+	// overflow (never, given the bound) would fall back to a heap copy.
+	// This replaces two grow-reallocs per vertex with one allocation.
+	outArena := make([]*HalfEdge, len(vrecs))
+	arenaOff := 0
+	runStart := 0
+	for i := range vrecs {
+		if i > 0 && vrecs[i] == vrecs[i-1] {
+			continue
+		}
+		if i > 0 {
+			run := i - runStart
+			d.Vertices[len(d.Vertices)-1].Out = outArena[arenaOff : arenaOff : arenaOff+run]
+			arenaOff += run
+		}
+		runStart = i
+		p := geom.XY{X: math.Float64frombits(vrecs[i].x), Y: math.Float64frombits(vrecs[i].y)}
 		v := d.allocVertex(Vertex{P: p, index: len(d.Vertices)})
-		vmap[k] = v
 		d.Vertices = append(d.Vertices, v)
-		return v, k
+		vkeys = append(vkeys, vrecs[i])
+	}
+	if len(vrecs) > 0 {
+		run := len(vrecs) - runStart
+		d.Vertices[len(d.Vertices)-1].Out = outArena[arenaOff : arenaOff : arenaOff+run]
+	}
+	getVertex := func(k vertexKey) *Vertex {
+		i, _ := slices.BinarySearchFunc(vkeys, k, compareVertexKey)
+		return d.Vertices[i]
 	}
 
-	// Coincident-edge merge: a map keyed by ordered (origin,target) pair.
-	// If the same directed edge appears twice (same source AND same
-	// direction), tags merge — same for the reverse direction.
-	type edgeKey struct{ a, b vertexKey }
-	edgeMap := make(map[edgeKey]*HalfEdge, 2*n)
+	// Coincident-edge merge: a map keyed by the ordered (origin,target)
+	// vertex-id pair packed into one uint64 — vertex ids fit in 32 bits,
+	// and the packed key takes the runtime's fast 64-bit map path
+	// instead of hashing a 32-byte two-vertexKey struct.
+	//
+	// Depth-mode builds skip the map entirely: their single caller
+	// (buffer's polygonizer, via flattenChains) canonicalises and
+	// merges coincident segments before the build, so every lookup
+	// would miss — the map would be pure alloc + hash overhead.
+	var edgeMap map[uint64]*HalfEdge
+	if !depthMode {
+		edgeMap = make(map[uint64]*HalfEdge, 2*n)
+	}
 
+	// Consecutive noded segments overwhelmingly chain (this segment's
+	// P0 is the previous segment's P1), so cache the last resolved
+	// endpoint and skip its binary search.
+	var lastP geom.XY
+	var lastV *Vertex
 	for _, s := range segs {
 		if s.P0 == s.P1 {
 			continue // skip degenerate
 		}
-		// getVertex already computed each point's vertexKey internally
-		// (to probe/populate vmap); reuse it here instead of re-hashing
-		// va.P/vb.P — they're bit-identical to s.P0/s.P1 by construction
-		// (a vmap hit only occurs on an exact Float64bits match).
-		va, ka := getVertex(s.P0)
-		vb, kb := getVertex(s.P1)
+		var va *Vertex
+		if lastV != nil && s.P0 == lastP {
+			va = lastV
+		} else {
+			va = getVertex(makeKey(s.P0))
+		}
+		vb := getVertex(makeKey(s.P1))
+		lastP, lastV = s.P1, vb
 
-		fk := edgeKey{ka, kb}
-		bk := edgeKey{kb, ka}
-		// Both directions are registered in edgeMap, so a repeated
-		// segment finds its CO-DIRECTED half-edge here regardless of
-		// which direction was inserted first.
-		if e, exists := edgeMap[fk]; exists {
-			if depthMode {
-				// Coincident edge: depths add, so opposite-direction
-				// duplicates cancel on the co-directed half.
-				e.DepthDelta += s.DepthDelta
-			} else {
+		if edgeMap != nil {
+			fk := uint64(uint32(va.index))<<32 | uint64(uint32(vb.index))
+			bk := uint64(uint32(vb.index))<<32 | uint64(uint32(va.index))
+			// Both directions are registered in edgeMap, so a repeated
+			// segment finds its CO-DIRECTED half-edge here regardless
+			// of which direction was inserted first.
+			if e, exists := edgeMap[fk]; exists {
 				e.tags |= s.Tag
 				e.Twin.tags |= s.Tag
+				continue
 			}
+			eFwd := d.allocEdge(HalfEdge{Origin: va, Target: vb, tags: s.Tag, DepthDelta: s.DepthDelta})
+			eBack := d.allocEdge(HalfEdge{Origin: vb, Target: va, tags: s.Tag, DepthDelta: -s.DepthDelta})
+			eFwd.Twin = eBack
+			eBack.Twin = eFwd
+			eFwd.angle = pseudoAngle(vb.P.X-va.P.X, vb.P.Y-va.P.Y)
+			eBack.angle = pseudoAngle(va.P.X-vb.P.X, va.P.Y-vb.P.Y)
+			eFwd.index = int32(len(d.Edges))
+			eBack.index = int32(len(d.Edges) + 1)
+			va.Out = append(va.Out, eFwd)
+			vb.Out = append(vb.Out, eBack)
+			d.Edges = append(d.Edges, eFwd, eBack)
+			edgeMap[fk] = eFwd
+			edgeMap[bk] = eBack
 			continue
 		}
 		eFwd := d.allocEdge(HalfEdge{Origin: va, Target: vb, tags: s.Tag, DepthDelta: s.DepthDelta})
@@ -280,11 +369,11 @@ func buildDCELCore(segs []DepthSegment, depthMode bool) *DCEL {
 		eBack.Twin = eFwd
 		eFwd.angle = pseudoAngle(vb.P.X-va.P.X, vb.P.Y-va.P.Y)
 		eBack.angle = pseudoAngle(va.P.X-vb.P.X, va.P.Y-vb.P.Y)
+		eFwd.index = int32(len(d.Edges))
+		eBack.index = int32(len(d.Edges) + 1)
 		va.Out = append(va.Out, eFwd)
 		vb.Out = append(vb.Out, eBack)
 		d.Edges = append(d.Edges, eFwd, eBack)
-		edgeMap[fk] = eFwd
-		edgeMap[bk] = eBack
 	}
 
 	// Sort outgoing half-edges at each vertex by angle (CCW from +X),
@@ -292,9 +381,20 @@ func buildDCELCore(segs []DepthSegment, depthMode bool) *DCEL {
 	// slice: this is what lets the next-pointer wiring below look up a
 	// twin's angular position in O(1) instead of scanning Out.
 	for _, v := range d.Vertices {
-		slices.SortFunc(v.Out, func(a, b *HalfEdge) int {
-			return cmp.Compare(a.angle, b.angle)
-		})
+		// Degree ≤ 2 covers almost every vertex of a noded arrangement
+		// (chains); a manual compare-swap avoids the SortFunc call
+		// overhead that dominated this loop.
+		switch len(v.Out) {
+		case 0, 1:
+		case 2:
+			if v.Out[0].angle > v.Out[1].angle {
+				v.Out[0], v.Out[1] = v.Out[1], v.Out[0]
+			}
+		default:
+			slices.SortFunc(v.Out, func(a, b *HalfEdge) int {
+				return cmp.Compare(a.angle, b.angle)
+			})
+		}
 		for i, e := range v.Out {
 			e.outIdx = i
 		}
@@ -366,6 +466,7 @@ func (d *DCEL) traceFaceCycles() {
 			continue
 		}
 		f := d.allocFace()
+		f.index = len(d.Faces)
 		cur := e
 		for {
 			cur.Face = f

@@ -66,7 +66,7 @@ func strPackLeaves[T any](items []Item[T], maxEntries int) []*node[T] {
 	itemsPerSlice := int(math.Ceil(float64(n) / float64(sliceCount)))
 
 	// Sort by centre X.
-	slices.SortStableFunc(items, func(a, b Item[T]) int {
+	slices.SortFunc(items, func(a, b Item[T]) int {
 		return cmp.Compare(centreX(a.Env), centreX(b.Env))
 	})
 
@@ -81,7 +81,7 @@ func strPackLeaves[T any](items []Item[T], maxEntries int) []*node[T] {
 			hi = n
 		}
 		strip := items[lo:hi]
-		slices.SortStableFunc(strip, func(a, b Item[T]) int {
+		slices.SortFunc(strip, func(a, b Item[T]) int {
 			return cmp.Compare(centreY(a.Env), centreY(b.Env))
 		})
 		for i := 0; i < len(strip); i += maxEntries {
@@ -113,7 +113,7 @@ func strPackInternal[T any](children []*node[T], maxEntries int) []*node[T] {
 	}
 	perSlice := int(math.Ceil(float64(n) / float64(sliceCount)))
 
-	slices.SortStableFunc(children, func(a, b *node[T]) int {
+	slices.SortFunc(children, func(a, b *node[T]) int {
 		return cmp.Compare(centreX(a.env), centreX(b.env))
 	})
 
@@ -128,7 +128,7 @@ func strPackInternal[T any](children []*node[T], maxEntries int) []*node[T] {
 			hi = n
 		}
 		strip := children[lo:hi]
-		slices.SortStableFunc(strip, func(a, b *node[T]) int {
+		slices.SortFunc(strip, func(a, b *node[T]) int {
 			return cmp.Compare(centreY(a.env), centreY(b.env))
 		})
 		for i := 0; i < len(strip); i += maxEntries {

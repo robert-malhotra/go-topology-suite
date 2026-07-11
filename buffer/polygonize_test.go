@@ -322,7 +322,7 @@ func TestPolygonize_FaceValidatorRejectsOutsideRings(t *testing.T) {
 		{p0: geom.XY{X: -10, Y: 10}, p1: geom.XY{X: -20, Y: 10}, depthDelta: 1},
 		{p0: geom.XY{X: -20, Y: 10}, p1: geom.XY{X: -20, Y: 0}, depthDelta: 1},
 	}
-	keep := func(rep geom.XY) bool { return rep.X > 0 }
+	keep := func(ring []geom.XY) bool { return ringInscribedRep(ring).X > 0 }
 	got, err := polygonizeBufferWithFilter(nil, segs, 0, keep, 0)
 	require.NoError(t, err)
 	require.NotNil(t, got)
@@ -483,7 +483,18 @@ func TestPositiveBufferWindingValidator_KeepsValidWindings(t *testing.T) {
 		[]geom.XY{{X: 5, Y: 5}, {X: 5, Y: 15}, {X: 15, Y: 15}, {X: 15, Y: 5}, {X: 5, Y: 5}},
 	)
 	v := positiveBufferWindingValidator(withHole)
-	assert.True(t, v(geom.XY{X: 2, Y: 2}), "polygon body kept (winding +1)")
-	assert.True(t, v(geom.XY{X: 25, Y: 10}), "outside polygon kept (winding 0)")
-	assert.True(t, v(geom.XY{X: 10, Y: 10}), "hole interior accepted (winding 0)")
+	// The validator receives candidate rings and derives its own
+	// interior representative point; probe with small squares whose
+	// interiors sit at the classic winding cases.
+	sq := func(cx, cy float64) []geom.XY {
+		const h = 0.5
+		return []geom.XY{
+			{X: cx - h, Y: cy - h}, {X: cx + h, Y: cy - h},
+			{X: cx + h, Y: cy + h}, {X: cx - h, Y: cy + h},
+			{X: cx - h, Y: cy - h},
+		}
+	}
+	assert.True(t, v(sq(2, 2)), "polygon body kept (winding +1)")
+	assert.True(t, v(sq(25, 10)), "outside polygon kept (winding 0)")
+	assert.True(t, v(sq(10, 10)), "hole interior accepted (winding 0)")
 }

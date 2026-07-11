@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
-	"github.com/exergy-dev/go-topology-suite/index"
 	"github.com/exergy-dev/go-topology-suite/kernel/planar"
 )
 
@@ -24,40 +23,37 @@ type HotPixel struct {
 	Centre geom.XY
 }
 
-// HotPixelSet is a deduplicated, R-tree-indexed collection of hot
-// pixels.
+// HotPixelSet is a deduplicated collection of hot pixels indexed as a
+// single x-sorted array.
 //
 // "Deduplicated" means: inserting the same grid coordinate twice is a
-// no-op. The set is keyed by integer grid index, so equality is
-// exact — two snapped vertices that map to the same grid cell are
-// the same hot pixel.
+// no-op. Add requires grid-snapped input, so two vertices in the same
+// grid cell carry bit-identical coordinates; deduplication is exact
+// coordinate equality, applied during the sort-flush.
 //
-// HotPixelSet is not safe for concurrent use: Add stages pixels for a
-// deferred bulk index build, and the query methods perform that build
-// on first use.
+// Pixels are points (cells of fixed ±tolerance/2 extent), so a
+// rectangle query reduces to a binary search on the sorted x
+// coordinates plus a short scan with y filtering — far cheaper per
+// query than the R-tree descent this replaces, and the one-shot
+// sort-and-dedupe replaces both the dedup hash map and the STR bulk
+// build.
+//
+// HotPixelSet is not safe for concurrent use: Add stages pixels and
+// the query methods sort them on first use.
 type HotPixelSet struct {
 	tolerance float64
 	half      float64 // tolerance/2; cached for envelope construction.
-	keys      map[gridKey]struct{}
-	tree      *index.RTree[HotPixel]
 
-	// pending stages Add-ed pixels until the first query, at which point
-	// the whole batch is STR-bulk-loaded into tree in one shot. Callers
-	// overwhelmingly build the full pixel set before the first
-	// QuerySegment (the snap-rounding noder's build/insert phases are
-	// strictly sequential), so this turns N incremental R-tree inserts —
-	// with their chooseLeaf/split churn — into a single Bulk build.
-	// Adds that arrive after a query are staged the same way and folded
-	// in on the next query (index.RTree.Bulk appends to a non-empty
-	// tree), so interleaved use remains correct.
-	pending []index.Item[HotPixel]
-}
+	// pixels holds every Add-ed centre; sorted by (X, Y) and
+	// deduplicated at flush. Adds arriving after a flush mark the set
+	// dirty and the next query re-sorts (rare: the snap-rounding
+	// noder's build/insert phases are strictly sequential).
+	pixels []geom.XY
+	dirty  bool
 
-// gridKey is the integer-coordinate identity of a hot pixel cell.
-// Using integer coordinates rather than the float Centre avoids any
-// floating-point ambiguity in deduplication.
-type gridKey struct {
-	ix, iy int64
+	// scratch backs QuerySegment's result slice; valid until the next
+	// query. In-module consumers consume candidates immediately.
+	scratch []HotPixel
 }
 
 // NewHotPixelSet returns an empty set with the given snap tolerance.
@@ -67,58 +63,53 @@ func NewHotPixelSet(tolerance float64) *HotPixelSet {
 	return &HotPixelSet{
 		tolerance: tolerance,
 		half:      tolerance / 2,
-		keys:      make(map[gridKey]struct{}),
-		tree:      index.New[HotPixel](),
+	}
+}
+
+// Grow pre-reserves capacity for n additional pixels, saving the
+// append growth chain when the caller knows the total up front.
+func (s *HotPixelSet) Grow(n int) {
+	if n > 0 {
+		s.pixels = slices.Grow(s.pixels, n)
 	}
 }
 
 // Add records v as a hot pixel. v must already be grid-snapped (i.e.
 // produced by Rounder.SnapVertex with the matching tolerance). Adding
-// a duplicate vertex is a no-op.
+// a duplicate vertex is a no-op (applied at the flush dedupe).
 func (s *HotPixelSet) Add(v geom.XY) {
 	if !isFinite(v.X) || !isFinite(v.Y) {
 		return
 	}
-	k := s.keyFor(v)
-	if _, exists := s.keys[k]; exists {
+	s.pixels = append(s.pixels, v)
+	s.dirty = true
+}
+
+// cmpPixel orders pixels by X, then Y.
+func cmpPixel(a, b geom.XY) int {
+	if a.X != b.X {
+		return cmp.Compare(a.X, b.X)
+	}
+	return cmp.Compare(a.Y, b.Y)
+}
+
+// flush sorts the pixel array by (X, Y) and removes exact duplicates.
+// Called by every querying method; a no-op when nothing changed.
+func (s *HotPixelSet) flush() {
+	if !s.dirty {
 		return
 	}
-	s.keys[k] = struct{}{}
-	s.pending = append(s.pending, index.Item[HotPixel]{
-		Env:   s.envelopeFor(v),
-		Value: HotPixel{Centre: v},
-	})
-}
-
-// flushPending bulk-loads any staged pixels into the R-tree. Called by
-// every tree-querying method; a no-op when nothing is staged.
-func (s *HotPixelSet) flushPending() {
-	if len(s.pending) == 0 {
-		return
+	s.dirty = false
+	slices.SortFunc(s.pixels, cmpPixel)
+	w := 0
+	for i := range s.pixels {
+		if w > 0 && s.pixels[i] == s.pixels[w-1] {
+			continue
+		}
+		s.pixels[w] = s.pixels[i]
+		w++
 	}
-	s.tree.Bulk(s.pending)
-	s.pending = nil
-}
-
-// keyFor returns the integer-grid key for v. Assumes v is already
-// snapped, so v / tolerance rounds to an integer; we still apply
-// math.Round for robustness against minor float drift.
-func (s *HotPixelSet) keyFor(v geom.XY) gridKey {
-	return gridKey{
-		ix: int64(math.Round(v.X / s.tolerance)),
-		iy: int64(math.Round(v.Y / s.tolerance)),
-	}
-}
-
-// envelopeFor returns the bounding envelope of the hot pixel cell
-// centred at v.
-func (s *HotPixelSet) envelopeFor(v geom.XY) geom.Envelope {
-	return geom.Envelope{
-		MinX: v.X - s.half,
-		MinY: v.Y - s.half,
-		MaxX: v.X + s.half,
-		MaxY: v.Y + s.half,
-	}
+	s.pixels = s.pixels[:w]
 }
 
 // Has reports whether v is a hot pixel in the set. v must be grid-
@@ -127,24 +118,48 @@ func (s *HotPixelSet) Has(v geom.XY) bool {
 	if !isFinite(v.X) || !isFinite(v.Y) {
 		return false
 	}
-	_, ok := s.keys[s.keyFor(v)]
+	s.flush()
+	_, ok := slices.BinarySearchFunc(s.pixels, v, cmpPixel)
 	return ok
 }
 
 // Len returns the number of distinct hot pixels in the set.
-func (s *HotPixelSet) Len() int { return len(s.keys) }
+func (s *HotPixelSet) Len() int {
+	s.flush()
+	return len(s.pixels)
+}
 
 // QuerySegment returns every hot pixel whose cell envelope intersects
 // the bounding box of the segment [a, b]. The caller must apply the
 // finer "segment passes through cell" test on the candidates.
+//
+// The returned slice is backed by an internal scratch buffer and is
+// only valid until the next QuerySegment call.
 func (s *HotPixelSet) QuerySegment(a, b geom.XY) []HotPixel {
-	s.flushPending()
+	s.flush()
 	env := geom.SegmentEnvelope(a, b)
-	var out []HotPixel
-	s.tree.Search(env, func(it index.Item[HotPixel]) bool {
-		out = append(out, it.Value)
-		return true
+	// A pixel cell [cx±half, cy±half] intersects env iff
+	// cx+half >= env.MinX && cx-half <= env.MaxX (same for y) — the
+	// identical float expressions the old per-pixel cell envelopes
+	// used, so the candidate set matches the R-tree form exactly.
+	half := s.half
+	lo, _ := slices.BinarySearchFunc(s.pixels, env.MinX, func(p geom.XY, minX float64) int {
+		if p.X+half >= minX {
+			return 1 // candidate or beyond: keep searching left
+		}
+		return -1
 	})
+	out := s.scratch[:0]
+	for i := lo; i < len(s.pixels); i++ {
+		p := s.pixels[i]
+		if p.X-half > env.MaxX {
+			break
+		}
+		if p.Y+half >= env.MinY && p.Y-half <= env.MaxY {
+			out = append(out, HotPixel{Centre: p})
+		}
+	}
+	s.scratch = out
 	return out
 }
 

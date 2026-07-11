@@ -438,6 +438,13 @@ func mayHandleMultiComponent(d *DCEL,
 // rectangular hole. JTS normalises these into a single ring; we do the
 // same by re-running the polygons through a self-Union, which the
 // overlay-NG noding step decomposes cleanly.
+// The scan is index-accelerated: one R-tree over every result-ring
+// segment envelope, probed once per result vertex, replaces the
+// brute-force per-pair O(V×L) sweeps of polygonHasTouchingHole /
+// multiPolygonsTouch (which dominated Union/Intersection CPU on
+// many-fragment results). The predicates evaluated are identical —
+// same pair eligibility, same vertex-set skip, same
+// pointOnSegmentInterior test — so the answer is unchanged.
 func needsCanonicalize(first *geom.Polygon, rest []*geom.Polygon) bool {
 	all := make([]*geom.Polygon, 0, 1+len(rest))
 	if first != nil && !first.IsEmpty() {
@@ -448,16 +455,166 @@ func needsCanonicalize(first *geom.Polygon, rest []*geom.Polygon) bool {
 			all = append(all, p)
 		}
 	}
-	for _, p := range all {
-		if polygonHasTouchingHole(p) {
-			return true
+	if len(all) == 0 {
+		return false
+	}
+	multi := len(all) >= 2
+
+	// Materialise every ring once, tagged with its owning polygon and
+	// hole-ness.
+	type ringRec struct {
+		pts  []geom.XY
+		poly int32
+		hole bool
+	}
+	rings := make([]ringRec, 0, len(all))
+	anyHoles := false
+	totalSegs := 0
+	var scratch []vertexKey
+	for pi, p := range all {
+		nr := p.NumRings()
+		if nr > 1 {
+			anyHoles = true
 		}
-		if ringHasRepeatedInteriorVertex(p.Ring(0)) {
-			return true
+		for r := 0; r < nr; r++ {
+			ring := p.Ring(r)
+			rings = append(rings, ringRec{pts: ring, poly: int32(pi), hole: r > 0})
+			totalSegs += len(ring) - 1
+			if r == 0 && ringRepeatsInteriorVertex(ring, &scratch) {
+				// Figure-8 outer ring.
+				return true
+			}
 		}
 	}
-	if len(all) >= 2 && multiPolygonsTouch(all) {
-		return true
+
+	// Vertex-on-segment-interior scans only apply to outer↔hole pairs
+	// within a polygon and outer↔outer pairs across polygons; without
+	// holes or a second polygon there is no eligible pair.
+	if anyHoles || multi {
+		type segVal struct{ ring, seg int32 }
+		items := make([]index.Item[segVal], 0, totalSegs)
+		for ri := range rings {
+			pts := rings[ri].pts
+			for s := 0; s+1 < len(pts); s++ {
+				items = append(items, index.Item[segVal]{
+					Env:   geom.SegmentEnvelope(pts[s], pts[s+1]),
+					Value: segVal{ring: int32(ri), seg: int32(s)},
+				})
+			}
+		}
+		tree := index.New[segVal]()
+		tree.Bulk(items)
+
+		// Per-ring vertex sets, built lazily: only rings that actually
+		// receive a candidate probe pay for their set.
+		vsets := make([]vertexKeySet, len(rings))
+		vset := func(ri int32) vertexKeySet {
+			if vsets[ri].pts == nil {
+				vsets[ri] = vertexSet(rings[ri].pts)
+			}
+			return vsets[ri]
+		}
+
+		for xi := range rings {
+			x := &rings[xi]
+			pts := x.pts
+			end := len(pts)
+			if end > 1 && pts[0] == pts[end-1] {
+				end--
+			}
+			for vi := 0; vi < end; vi++ {
+				v := pts[vi]
+				hit := false
+				tree.Search(geom.Envelope{MinX: v.X, MinY: v.Y, MaxX: v.X, MaxY: v.Y}, func(it index.Item[segVal]) bool {
+					yi := it.Value.ring
+					if int(yi) == xi {
+						return true
+					}
+					y := &rings[yi]
+					if x.poly == y.poly {
+						// Same polygon: only outer↔hole pairs are probed
+						// (hole↔hole sharing is not a canonicalisation
+						// signature).
+						if x.hole == y.hole {
+							return true
+						}
+					} else if x.hole || y.hole || !multi {
+						// Across polygons: only outer↔outer pairs.
+						return true
+					}
+					// A vertex the two rings share is a legitimate
+					// single-point touch, not an edge-sharing signature.
+					if vset(yi).contains(makeKey(v)) {
+						return true
+					}
+					a, b := y.pts[it.Value.seg], y.pts[it.Value.seg+1]
+					if pointOnSegmentInterior(v, a, b) {
+						hit = true
+						return false
+					}
+					return true
+				})
+				if hit {
+					return true
+				}
+			}
+		}
+	}
+
+	// Identical-edge sharing across distinct polygons' outer rings
+	// (case#3 symdifference: two assembled polygons abutting along a
+	// shared spine of length > 0).
+	if multi {
+		type segKey struct{ a, b vertexKey }
+		canon := func(p, q geom.XY) segKey {
+			pk, qk := makeKey(p), makeKey(q)
+			if compareVertexKey(pk, qk) < 0 {
+				return segKey{pk, qk}
+			}
+			return segKey{qk, pk}
+		}
+		owner := map[segKey]int32{}
+		for ri := range rings {
+			if rings[ri].hole {
+				continue
+			}
+			pts := rings[ri].pts
+			for k := 0; k+1 < len(pts); k++ {
+				s := canon(pts[k], pts[k+1])
+				if prev, ok := owner[s]; ok && prev != rings[ri].poly {
+					return true
+				}
+				owner[s] = rings[ri].poly
+			}
+		}
+	}
+	return false
+}
+
+// ringRepeatsInteriorVertex is ringHasRepeatedInteriorVertex with a
+// caller-owned sort buffer: same predicate (any vertex visited twice in
+// the ring interior), evaluated by sort + adjacent-duplicate scan
+// instead of a freshly allocated map per ring — needsCanonicalize runs
+// it on every result polygon, and many-fragment intersections produce
+// thousands of them.
+func ringRepeatsInteriorVertex(ring []geom.XY, scratch *[]vertexKey) bool {
+	if len(ring) < 5 {
+		return false
+	}
+	end := len(ring)
+	if ring[0] == ring[end-1] {
+		end--
+	}
+	keys := (*scratch)[:0]
+	for i := 0; i < end; i++ {
+		keys = append(keys, makeKey(ring[i]))
+	}
+	*scratch = keys
+	slices.SortFunc(keys, compareVertexKey)
+	for i := 1; i < len(keys); i++ {
+		if keys[i] == keys[i-1] {
+			return true
+		}
 	}
 	return false
 }

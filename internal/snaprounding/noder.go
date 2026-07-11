@@ -411,6 +411,11 @@ func snapAndDedupe(strs []*noding.SegmentString, rd *snap.Rounder) {
 // of every string. Inputs must already be grid-snapped.
 func buildHotPixelSet(strs []*noding.SegmentString, tolerance float64) *snap.HotPixelSet {
 	hp := snap.NewHotPixelSet(tolerance)
+	total := 0
+	for _, s := range strs {
+		total += len(s.Coords)
+	}
+	hp.Grow(total)
 	for _, s := range strs {
 		for _, v := range s.Coords {
 			hp.Add(v)
@@ -433,6 +438,12 @@ func insertHotPixelSplits(strs []*noding.SegmentString, hp *snap.HotPixelSet) ([
 		}
 		newCoords, ins := insertSplitsInto(s.Coords, hp)
 		totalIns += ins
+		if ins == 0 {
+			// Nothing split: insertSplitsInto returned the input chain
+			// unchanged, so the string can be reused as-is.
+			out = append(out, s)
+			continue
+		}
 		out = append(out, &noding.SegmentString{Coords: newCoords, Tag: s.Tag})
 	}
 	return out, totalIns
@@ -450,12 +461,31 @@ func insertSplitsInto(pts []geom.XY, hp *snap.HotPixelSet) ([]geom.XY, int) {
 	if len(pts) < 2 {
 		return pts, 0
 	}
-	out := make([]geom.XY, 0, len(pts))
-	out = append(out, pts[0])
+	// Lazy copy: the output chain is only materialised at the first
+	// actual insertion. In the (overwhelmingly common) zero-split case
+	// the input slice is returned unchanged — callers treat a 0 count
+	// as "unchanged". The prefix copy below is exact because pts has no
+	// consecutive duplicates (snapAndDedupe runs immediately before the
+	// split pass), so the would-have-been output equals the prefix.
+	var out []geom.XY
 	inserted := 0
 	for i := 0; i+1 < len(pts); i++ {
 		a, b := pts[i], pts[i+1]
 		splits := hp.SegmentSplitsAt(a, b)
+		hasNew := false
+		for _, sp := range splits {
+			if sp != a && sp != b {
+				hasNew = true
+				break
+			}
+		}
+		if out == nil {
+			if !hasNew {
+				continue
+			}
+			out = make([]geom.XY, 0, len(pts)+8)
+			out = append(out, pts[:i+1]...)
+		}
 		for _, sp := range splits {
 			if sp == a || sp == b {
 				continue
@@ -469,6 +499,9 @@ func insertSplitsInto(pts []geom.XY, hp *snap.HotPixelSet) ([]geom.XY, int) {
 		if n := len(out); n == 0 || out[n-1] != b {
 			out = append(out, b)
 		}
+	}
+	if out == nil {
+		return pts, 0
 	}
 	return out, inserted
 }
@@ -502,9 +535,12 @@ func dedupeConsecutive(pts []geom.XY) []geom.XY {
 	return out
 }
 
-// adaptiveNode picks SimpleNoder for small inputs and IndexedNoder once
-// the segment count crosses the empirical threshold (matched to
-// overlay/overlayng's tuning).
+// adaptiveNode picks SimpleNoder for small inputs and the monotone-
+// chain index noder once the segment count crosses the empirical
+// threshold. Snap-rounding inputs (offset curves, ring chains) form
+// long angularly coherent runs, so the chain index is far smaller than
+// a per-segment R-tree and the chain-vs-chain descent does a fraction
+// of the envelope tests for the same split set.
 func adaptiveNode(strs []*noding.SegmentString) []*noding.SegmentString {
 	const indexThreshold = 64
 	total := 0
@@ -514,5 +550,5 @@ func adaptiveNode(strs []*noding.SegmentString) []*noding.SegmentString {
 	if total < indexThreshold {
 		return noding.SimpleNoder{}.Node(strs)
 	}
-	return noding.IndexedNoder{}.Node(strs)
+	return noding.MCIndexNoder{}.Node(strs)
 }

@@ -1,7 +1,9 @@
 package buffer
 
 import (
+	"cmp"
 	"math"
+	"slices"
 
 	"github.com/exergy-dev/go-topology-suite/crs"
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -381,7 +383,7 @@ func polygonizeBufferWithFilter(
 	c *crs.CRS,
 	segs []offsetSegment,
 	tolerance float64,
-	keep func(rep geom.XY) bool,
+	keep func(ring []geom.XY) bool,
 	minArea float64,
 ) (geom.Geometry, error) {
 	rings, err := polygonizeBufferRings(segs, tolerance)
@@ -396,18 +398,15 @@ func polygonizeBufferWithFilter(
 		if minArea > 0 && math.Abs(planar.Default().RingArea(r)) < minArea {
 			continue
 		}
-		if keep != nil {
-			// V3.1: use inscribed-circle rep point so the validator's
-			// point-in-original-polygon and distance-to-original-boundary
-			// checks have a robust interior margin. The old midpoint-
-			// nudge rep point landed on the ring "skin" (within ULP of
-			// the offset boundary), which is precisely where the
-			// validator can't decide reliably between legitimate inset
-			// rings and overshoot lobes.
-			rep := ringInscribedRep(r)
-			if !keep(rep) {
-				continue
-			}
+		// The validator receives the whole ring and picks its own
+		// representative point: the negative-buffer validator needs the
+		// inscribed-circle rep's robust interior margin (its distance-
+		// to-original-boundary check breaks on "skin" points), while
+		// the positive-buffer winding check is ~d away from anything it
+		// tests against and gets by with a far cheaper rep. See
+		// negativeBufferHybridValidator / positiveBufferWindingValidator.
+		if keep != nil && !keep(r) {
+			continue
 		}
 		filtered = append(filtered, r)
 	}
@@ -529,13 +528,20 @@ func originalRingsOf(orig *geom.Polygon) [][]geom.XY {
 //
 // minDistance is the inset magnitude d (always positive). Pass 0 to
 // skip the distance check (winding-only).
-func negativeBufferHybridValidator(orig *geom.Polygon, minDistance float64) func(geom.XY) bool {
+func negativeBufferHybridValidator(orig *geom.Polygon, minDistance float64) func([]geom.XY) bool {
 	rings := originalRingsOf(orig)
 	sign := outerOrientationSign(orig)
 	if len(rings) == 0 || sign == 0 {
-		return func(geom.XY) bool { return false }
+		return func([]geom.XY) bool { return false }
 	}
-	return func(p geom.XY) bool {
+	return func(ring []geom.XY) bool {
+		// V3.1: inscribed-circle rep point so the winding and
+		// distance-to-original-boundary checks have a robust interior
+		// margin. A midpoint-nudge rep lands on the ring "skin"
+		// (within ULP of the offset boundary), which is precisely
+		// where the clearance check can't distinguish legitimate
+		// inset rings from overshoot lobes.
+		p := ringInscribedRep(ring)
 		if windingDepth(p, rings) != sign {
 			return false
 		}
@@ -580,17 +586,65 @@ func outerOrientationSign(orig *geom.Polygon) int {
 //
 // orig is the original input polygon. The returned predicate captures a
 // snapshot of orig's rings at construction time.
-func positiveBufferWindingValidator(orig *geom.Polygon) func(geom.XY) bool {
+func positiveBufferWindingValidator(orig *geom.Polygon) func([]geom.XY) bool {
 	rings := originalRingsOf(orig)
 	sign := outerOrientationSign(orig)
 	if len(rings) == 0 || sign == 0 {
 		// No original to compare against — pass everything through.
-		return func(geom.XY) bool { return true }
+		return func([]geom.XY) bool { return true }
 	}
-	return func(p geom.XY) bool {
+	return func(ring []geom.XY) bool {
+		// Unlike the negative-buffer validator, the winding test here
+		// runs against the ORIGINAL rings, which sit a full buffer
+		// distance away from any interior point of an offset ring — a
+		// cheap O(ring) rep point is as robust as the inscribed-circle
+		// search (97 double ring scans) for this check. Fall back to
+		// the inscribed circle only when the cheap rep can't certify
+		// an interior point (sliver-thin or degenerate rings).
+		p, ok := ringCheapInteriorRep(ring)
+		if !ok {
+			p = ringInscribedRep(ring)
+		}
 		w := windingDepth(p, rings)
 		return w == 0 || w == sign
 	}
+}
+
+// ringCheapInteriorRep returns a point strictly inside ring at O(ring)
+// cost: the midpoint of the longest segment nudged perpendicular, with
+// the interior side confirmed by a point-in-ring parity test. ok=false
+// when neither side verifies (degenerate or sliver-thin rings);
+// callers fall back to the inscribed-circle search.
+func ringCheapInteriorRep(ring []geom.XY) (geom.XY, bool) {
+	if len(ring) < 4 {
+		return geom.XY{}, false
+	}
+	bi := -1
+	var bl2 float64
+	for i := 0; i+1 < len(ring); i++ {
+		dx, dy := ring[i+1].X-ring[i].X, ring[i+1].Y-ring[i].Y
+		l2 := dx*dx + dy*dy
+		if l2 > bl2 {
+			bl2, bi = l2, i
+		}
+	}
+	if bi < 0 || bl2 == 0 {
+		return geom.XY{}, false
+	}
+	a, b := ring[bi], ring[bi+1]
+	mx, my := (a.X+b.X)/2, (a.Y+b.Y)/2
+	dx, dy := b.X-a.X, b.Y-a.Y
+	// Nudge by 1e-7 of the edge length: orders of magnitude above the
+	// parity test's rounding noise, orders of magnitude below any
+	// feature the winding validator could straddle.
+	const eps = 1e-7
+	for _, s := range []float64{+eps, -eps} {
+		p := geom.XY{X: mx - dy*s, Y: my + dx*s}
+		if geomath.PointInRing(p, ring) {
+			return p, true
+		}
+	}
+	return geom.XY{}, false
 }
 
 // minDistToBoundary returns the minimum perpendicular distance from p
@@ -668,8 +722,10 @@ func snapRoundOffsets(segs []offsetSegment, tolerance float64) []offsetSegment {
 
 	strings := make([]*noding.SegmentString, 0, len(chains))
 	for _, ch := range chains {
+		// ch.coords is freshly built above and never reused — hand it
+		// to the SegmentString directly instead of copying.
 		strings = append(strings, &noding.SegmentString{
-			Coords: append([]geom.XY(nil), ch.coords...),
+			Coords: ch.coords,
 			Tag:    int(ch.delta) + 128,
 		})
 	}
@@ -685,7 +741,12 @@ func snapRoundOffsets(segs []offsetSegment, tolerance float64) []offsetSegment {
 		return flattenChains(out)
 	}
 
-	out := noding.IndexedNoder{}.Node(strings)
+	// Monotone-chain noder: offset curves are long runs of angularly
+	// coherent segments (ring arcs), which chain into few monotone
+	// pieces — the chain index is far smaller than IndexedNoder's
+	// per-segment R-tree and the chain-vs-chain overlap descent does a
+	// fraction of the envelope tests on this workload.
+	out := noding.MCIndexNoder{}.Node(strings)
 	return flattenChains(out)
 }
 
@@ -713,26 +774,28 @@ func flattenChains(strings []*noding.SegmentString) []offsetSegment {
 		}
 		return canonKey{bx, by, ax, ay}, -1
 	}
-	type accum struct {
-		p0, p1 geom.XY
-		net    int // sum of (depthDelta * sign) across all coincident occurrences
+	// Sort-and-merge accumulation: append every segment in canonical
+	// direction, sort by canonical key, then sum coincident runs. One
+	// flat allocation replaces the map's per-edge *accum heap records
+	// and 32-byte-key hashing, and the output order becomes
+	// deterministic (canonical-key order) instead of map-random — the
+	// downstream DCEL build dedupes by the same key, so results are
+	// unchanged.
+	// The canonical key IS the segment (endpoint bit-patterns in
+	// canonical order), so the sort records carry only the key plus the
+	// signed delta; endpoints are reconstructed from the key bits when
+	// emitting.
+	type entry struct {
+		key canonKey
+		net int32
 	}
-	by := map[canonKey]*accum{}
-	add := func(p0, p1 geom.XY, delta int8) {
-		k, sign := canon(p0, p1)
-		if a, ok := by[k]; ok {
-			a.net += int(sign) * int(delta)
-			return
-		}
-		// Store the segment in its CANONICAL direction (forward in
-		// canonKey ordering). sign flips delta accordingly.
-		switch sign {
-		case +1:
-			by[k] = &accum{p0: p0, p1: p1, net: int(delta)}
-		default:
-			by[k] = &accum{p0: p1, p1: p0, net: -int(delta)}
+	total := 0
+	for _, s := range strings {
+		if len(s.Coords) >= 2 {
+			total += len(s.Coords) - 1
 		}
 	}
+	entries := make([]entry, 0, total)
 	for _, s := range strings {
 		if len(s.Coords) < 2 {
 			continue
@@ -743,15 +806,39 @@ func flattenChains(strings []*noding.SegmentString) []offsetSegment {
 			if a == b {
 				continue
 			}
-			add(a, b, delta)
+			k, sign := canon(a, b)
+			entries = append(entries, entry{key: k, net: int32(sign) * int32(delta)})
 		}
 	}
-	out := make([]offsetSegment, 0, len(by))
-	for _, a := range by {
-		if a.net == 0 {
-			continue
+	slices.SortFunc(entries, func(x, y entry) int {
+		switch {
+		case x.key.ax != y.key.ax:
+			return cmp.Compare(x.key.ax, y.key.ax)
+		case x.key.ay != y.key.ay:
+			return cmp.Compare(x.key.ay, y.key.ay)
+		case x.key.bx != y.key.bx:
+			return cmp.Compare(x.key.bx, y.key.bx)
+		default:
+			return cmp.Compare(x.key.by, y.key.by)
 		}
-		out = append(out, offsetSegment{p0: a.p0, p1: a.p1, depthDelta: int8(a.net)})
+	})
+	out := make([]offsetSegment, 0, len(entries))
+	for i := 0; i < len(entries); {
+		j := i + 1
+		net := entries[i].net
+		for j < len(entries) && entries[j].key == entries[i].key {
+			net += entries[j].net
+			j++
+		}
+		if net != 0 {
+			k := entries[i].key
+			out = append(out, offsetSegment{
+				p0:         geom.XY{X: math.Float64frombits(k.ax), Y: math.Float64frombits(k.ay)},
+				p1:         geom.XY{X: math.Float64frombits(k.bx), Y: math.Float64frombits(k.by)},
+				depthDelta: int8(net),
+			})
+		}
+		i = j
 	}
 	return out
 }
@@ -817,11 +904,32 @@ func labelSubgraphDepths(g *overlayng.DCEL, segs []offsetSegment) {
 	if len(subgraphs) == 0 {
 		return
 	}
+	// Shared dense scratch, epoch-stamped per subgraph: face membership
+	// and BFS-visited state keyed by Face.Index instead of pointer maps
+	// (the maps dominated the labelling stage's CPU on arc-dense
+	// offsets).
+	scr := &subgraphScratch{
+		subEpoch: make([]int32, len(g.Faces)),
+		visEpoch: make([]int32, len(g.Faces)),
+	}
 	for _, sub := range subgraphs {
-		labelOneSubgraph(sub, segs)
+		scr.epoch++
+		labelOneSubgraph(sub, segs, scr)
 	}
 	// Faces not touched by any subgraph (degenerate / spur-only) keep
 	// their zero-init depth and keep=false.
+}
+
+// subgraphScratch carries labelOneSubgraph's reusable dense state.
+// subEpoch/visEpoch hold the epoch at which a face (by Face.Index)
+// was last marked; comparing against the current epoch replaces
+// clearing between subgraphs.
+type subgraphScratch struct {
+	subEpoch []int32
+	visEpoch []int32
+	epoch    int32
+	faces    []*overlayng.Face
+	queue    []*overlayng.Face
 }
 
 // findSubgraphs partitions g.Edges into connected components by
@@ -833,47 +941,50 @@ func findSubgraphs(g *overlayng.DCEL) [][]*overlayng.HalfEdge {
 	if len(g.Edges) == 0 {
 		return nil
 	}
-	// Union-Find over vertices: two vertices are merged when they are
-	// connected by an edge.
-	parent := map[*overlayng.Vertex]*overlayng.Vertex{}
-	var find func(v *overlayng.Vertex) *overlayng.Vertex
-	find = func(v *overlayng.Vertex) *overlayng.Vertex {
-		p, ok := parent[v]
-		if !ok {
-			parent[v] = v
-			return v
-		}
-		if p == v {
-			return v
-		}
-		root := find(p)
-		parent[v] = root
-		return root
+	// Union-Find over vertex indices (dense, path-halving): two
+	// vertices are merged when they are connected by an edge. Replaces
+	// the pointer-keyed map version, whose hashing dominated this
+	// stage.
+	parent := make([]int32, len(g.Vertices))
+	for i := range parent {
+		parent[i] = int32(i)
 	}
-	union := func(a, b *overlayng.Vertex) {
-		ra, rb := find(a), find(b)
-		if ra != rb {
-			parent[ra] = rb
+	find := func(i int32) int32 {
+		for parent[i] != i {
+			parent[i] = parent[parent[i]]
+			i = parent[i]
 		}
+		return i
 	}
 	for _, e := range g.Edges {
 		if e.Origin == nil || e.Target == nil {
 			continue
 		}
-		union(e.Origin, e.Target)
+		ra, rb := find(int32(e.Origin.Index())), find(int32(e.Target.Index()))
+		if ra != rb {
+			parent[ra] = rb
+		}
 	}
-	// Group edges by their root vertex.
-	groups := map[*overlayng.Vertex][]*overlayng.HalfEdge{}
+	// Group edges by their root vertex, in first-encounter order
+	// (deterministic, unlike the map-iteration order it replaces; the
+	// per-subgraph labelling is order-independent).
+	groupOf := make([]int32, len(g.Vertices))
+	for i := range groupOf {
+		groupOf[i] = -1
+	}
+	var out [][]*overlayng.HalfEdge
 	for _, e := range g.Edges {
 		if e.Origin == nil {
 			continue
 		}
-		root := find(e.Origin)
-		groups[root] = append(groups[root], e)
-	}
-	out := make([][]*overlayng.HalfEdge, 0, len(groups))
-	for _, edges := range groups {
-		out = append(out, edges)
+		root := find(int32(e.Origin.Index()))
+		gi := groupOf[root]
+		if gi < 0 {
+			gi = int32(len(out))
+			groupOf[root] = gi
+			out = append(out, nil)
+		}
+		out[gi] = append(out[gi], e)
 	}
 	return out
 }
@@ -956,30 +1067,28 @@ func topmostRightmostVertex(edges []*overlayng.HalfEdge) *overlayng.Vertex {
 // the cases we care about, and the JTS ports' larger DCEL/Position
 // surface (DirectedEdgeStar.computeDepths, Label.getLocation, etc.)
 // would expand scope without changing observable conformance.
-func labelOneSubgraph(edges []*overlayng.HalfEdge, segs []offsetSegment) {
+func labelOneSubgraph(edges []*overlayng.HalfEdge, segs []offsetSegment, scr *subgraphScratch) {
 	if len(edges) == 0 {
 		return
 	}
-	// Collect the subgraph's faces.
-	subFaces := map[*overlayng.Face]bool{}
+	// Collect the subgraph's faces (dense epoch-stamped membership).
+	faces := scr.faces[:0]
 	for _, e := range edges {
-		if e.Face != nil {
-			subFaces[e.Face] = true
+		if e.Face != nil && scr.subEpoch[e.Face.Index()] != scr.epoch {
+			scr.subEpoch[e.Face.Index()] = scr.epoch
+			faces = append(faces, e.Face)
 		}
 	}
-	if len(subFaces) == 0 {
+	scr.faces = faces
+	if len(faces) == 0 {
 		return
 	}
+	inSub := func(f *overlayng.Face) bool { return scr.subEpoch[f.Index()] == scr.epoch }
 	// Find anchor: topmost-rightmost vertex's CCW-first outgoing edge.
 	anchorVertex := topmostRightmostVertex(edges)
 	if anchorVertex == nil || len(anchorVertex.Out) == 0 {
-		// Defensive fallback: pick any face and ray-cast.
-		var any *overlayng.Face
-		for f := range subFaces {
-			any = f
-			break
-		}
-		fallbackLabelSubgraph(subFaces, any, segs)
+		// Defensive fallback: ray-cast every face.
+		fallbackLabelSubgraph(faces, segs)
 		return
 	}
 	// CCW-first outgoing edge from the anchor vertex. v.Out is sorted
@@ -993,25 +1102,20 @@ func labelOneSubgraph(edges []*overlayng.HalfEdge, segs []offsetSegment) {
 	// component). We use that face as the anchor.
 	var anchor *overlayng.HalfEdge
 	for _, oe := range anchorVertex.Out {
-		if oe.Face != nil && subFaces[oe.Face] {
+		if oe.Face != nil && inSub(oe.Face) {
 			anchor = oe
 			break
 		}
 	}
 	if anchor == nil {
-		var any *overlayng.Face
-		for f := range subFaces {
-			any = f
-			break
-		}
-		fallbackLabelSubgraph(subFaces, any, segs)
+		fallbackLabelSubgraph(faces, segs)
 		return
 	}
 	anchorFace := anchor.Face
 	// Ray-cast anchor face's depth against all offset segments.
 	ip, ok := faceRepresentativePoint(anchorFace)
 	if !ok {
-		fallbackLabelSubgraph(subFaces, anchorFace, segs)
+		fallbackLabelSubgraph(faces, segs)
 		return
 	}
 	anchorDepth := rayCastDepth(ip, segs)
@@ -1025,29 +1129,29 @@ func labelOneSubgraph(edges []*overlayng.HalfEdge, segs []offsetSegment) {
 	// Either way, BFS within the subgraph propagates depth differentials
 	// edge-by-edge so each interior face gets its correct absolute
 	// depth.
-	queue := []*overlayng.Face{anchorFace}
-	visited := map[*overlayng.Face]bool{anchorFace: true}
-	for len(queue) > 0 {
-		f := queue[0]
-		queue = queue[1:]
+	scr.queue = append(scr.queue[:0], anchorFace)
+	scr.visEpoch[anchorFace.Index()] = scr.epoch
+	for head := 0; head < len(scr.queue); head++ {
+		f := scr.queue[head]
 		for _, e := range f.Edges {
 			twin := e.Twin
 			if twin == nil || twin.Face == nil {
 				continue
 			}
-			if !subFaces[twin.Face] || visited[twin.Face] {
+			tf := twin.Face
+			if !inSub(tf) || scr.visEpoch[tf.Index()] == scr.epoch {
 				continue
 			}
-			twin.Face.Depth = f.Depth - int(e.DepthDelta)
-			twin.Face.Keep = twin.Face.Depth >= 1
-			visited[twin.Face] = true
-			queue = append(queue, twin.Face)
+			tf.Depth = f.Depth - int(e.DepthDelta)
+			tf.Keep = tf.Depth >= 1
+			scr.visEpoch[tf.Index()] = scr.epoch
+			scr.queue = append(scr.queue, tf)
 		}
 	}
 	// Any subgraph face not reached (disconnected via twin/face links
 	// — possible with degenerate spur edges) gets a fallback ray-cast.
-	for f := range subFaces {
-		if visited[f] {
+	for _, f := range faces {
+		if scr.visEpoch[f.Index()] == scr.epoch {
 			continue
 		}
 		ip, ok := faceRepresentativePoint(f)
@@ -1061,8 +1165,8 @@ func labelOneSubgraph(edges []*overlayng.HalfEdge, segs []offsetSegment) {
 
 // fallbackLabelSubgraph ray-casts every face's depth independently.
 // Used when anchor selection fails (degenerate subgraph topology).
-func fallbackLabelSubgraph(subFaces map[*overlayng.Face]bool, _ *overlayng.Face, segs []offsetSegment) {
-	for f := range subFaces {
+func fallbackLabelSubgraph(faces []*overlayng.Face, segs []offsetSegment) {
+	for _, f := range faces {
 		ip, ok := faceRepresentativePoint(f)
 		if !ok {
 			continue
@@ -1158,19 +1262,19 @@ func extractKeptRings(g *overlayng.DCEL) [][]geom.XY {
 		return e.Face.Keep && !e.Twin.Face.Keep
 	}
 	var rings [][]geom.XY
-	visited := map[*overlayng.HalfEdge]bool{}
+	visited := make([]bool, len(g.Edges))
 	for _, start := range g.Edges {
-		if !isBoundary(start) || visited[start] {
+		if !isBoundary(start) || visited[start.Index()] {
 			continue
 		}
 		var ring []geom.XY
 		cur := start
 		const maxSteps = 1 << 20
 		for steps := 0; steps < maxSteps; steps++ {
-			if visited[cur] {
+			if visited[cur.Index()] {
 				break
 			}
-			visited[cur] = true
+			visited[cur.Index()] = true
 			ring = append(ring, cur.Origin.P)
 			next := nextBoundaryAtPGVertex(cur, isBoundary)
 			if next == nil || next == start {

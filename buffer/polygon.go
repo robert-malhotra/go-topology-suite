@@ -706,7 +706,7 @@ func bufferPolygonReducedPrecision(
 	p *geom.Polygon,
 	distance float64,
 	segs []offsetSegment,
-	validate func(geom.XY) bool,
+	validate func([]geom.XY) bool,
 	positive bool,
 ) (geom.Geometry, error) {
 	const maxPrecisionDigits = 12
@@ -721,6 +721,12 @@ func bufferPolygonReducedPrecision(
 			canProduceResult = !bboxTooThinForInset(p.Ring(0), d)
 		}
 	}
+	// NOTE: an optimistic tolerance-0 first attempt (skipping the
+	// snap-rounding fixpoint entirely) was tried here and reverted: it
+	// regressed TestBufferJagged buffer-5/buffer-10 — jagged inputs are
+	// exactly where the digits=12 grid's stabilisation is load-bearing.
+	// The snap path's noding cost is addressed inside the noder
+	// (monotone-chain index) instead.
 	var last geom.Geometry
 	var lastErr error
 	for digits := maxPrecisionDigits; digits >= 0; digits-- {
