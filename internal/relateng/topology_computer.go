@@ -1,6 +1,7 @@
 package relateng
 
 import (
+	"math"
 	"sort"
 
 	"github.com/exergy-dev/go-topology-suite/geom"
@@ -27,8 +28,14 @@ type TopologyComputer struct {
 	geomA     *Geometry
 	geomB     *Geometry
 	// nodeMap stores per-coordinate sections discovered by
-	// AddIntersection, keyed by node point.
+	// AddIntersection, keyed by node point. This is the authoritative
+	// store; nodeIndex (below) is a secondary lookup structure kept in
+	// sync with it.
 	nodeMap map[geom.XY]*NodeSections
+	// nodeIndex buckets the same keys as nodeMap by grid cell (cell
+	// size nodeSnapTol) so snapNodePt can probe a 3x3 neighbourhood
+	// instead of scanning every node. See nodeGridKey.
+	nodeIndex map[gridKey][]geom.XY
 }
 
 // NewTopologyComputer constructs a TopologyComputer bound to the
@@ -40,6 +47,7 @@ func NewTopologyComputer(p TopologyPredicate, a, b *Geometry) *TopologyComputer 
 		geomA:     a,
 		geomB:     b,
 		nodeMap:   make(map[geom.XY]*NodeSections),
+		nodeIndex: make(map[gridKey][]geom.XY),
 	}
 	tc.initExteriorDims()
 	return tc
@@ -286,22 +294,95 @@ func (tc *TopologyComputer) AddIntersection(a, b *NodeSection) {
 // produce; topologically distinct nodes will always be far further apart.
 const nodeSnapTol = 1e-12
 
+// gridKey is the integer-coordinate identity of the tolerance cell a
+// node coordinate falls into. Cell size is nodeSnapTol; see
+// nodeGridKey. Pattern mirrors internal/snap/hotpixel.go's gridKey.
+type gridKey struct {
+	ix, iy int64
+}
+
+// nodeGridKey returns the grid cell containing pt, using cell size
+// nodeSnapTol. math.Floor (not a truncating int conversion) is used
+// so coordinates on either side of zero bucket correctly; a naive
+// int64(x/tol) truncates toward zero and would put -0.5*tol and
+// +0.5*tol in the same cell while splitting -1.5*tol from -0.5*tol
+// incorrectly.
+//
+// nodeSnapTol is a positive compile-time constant, so cell size is
+// never zero/degenerate here; nodeGridKey does not need to guard
+// against a zero tolerance.
+func nodeGridKey(pt geom.XY) gridKey {
+	return gridKey{
+		ix: int64(math.Floor(pt.X / nodeSnapTol)),
+		iy: int64(math.Floor(pt.Y / nodeSnapTol)),
+	}
+}
+
+// snapNodePt used to scan the entire nodeMap (O(nodes) per call, so
+// O(nodes^2) over a relate run) looking for a within-tolerance
+// existing key. It now probes nodeIndex, a grid index bucketed at
+// cell size nodeSnapTol: since the tolerance box has half-width
+// nodeSnapTol (<= the cell width), any existing key within tolerance
+// of pt can only live in pt's own cell or one of its 8 neighbours (a
+// coordinate offset by at most one cell width can cross at most one
+// cell boundary per axis) — so a fixed 3x3 probe is exhaustive
+// without touching nodes outside the neighbourhood.
+//
+// Determinism note: it was already possible — before this change —
+// for more than one existing key to be within tolerance of pt. The
+// tolerance test is symmetric and per-axis (Chebyshev box), and the
+// map only guarantees newly-inserted keys aren't within tolerance of
+// an *existing* key at insertion time; it does not guarantee all
+// pairs of keys are more than 2*tol apart. Example: keys at X=0 and
+// X=1.5e-12 are each fine on insertion (1.5e-12 > tol so neither
+// snapped to the other), but a later point at X=0.75e-12 is within
+// tol of *both*. The original implementation resolved such ties via
+// Go's randomised map-iteration order — i.e. it was nondeterministic
+// across runs (though almost never triggered, since it requires
+// sub-2e-12 clustering). This rewrite resolves ties deterministically:
+// the candidate nearest to pt by Chebyshev distance wins; exact
+// distance ties are broken by lexicographic (X, then Y) order of the
+// candidate coordinate via geom.XY.Compare. Behavior is unchanged in
+// the single-candidate case, which is the overwhelming majority.
 func (tc *TopologyComputer) snapNodePt(pt geom.XY) (geom.XY, bool) {
 	if _, ok := tc.nodeMap[pt]; ok {
 		return pt, false
 	}
-	for k := range tc.nodeMap {
-		dx := k.X - pt.X
-		dy := k.Y - pt.Y
-		if dx < 0 {
-			dx = -dx
+
+	key := nodeGridKey(pt)
+	var best geom.XY
+	bestDist := math.Inf(1)
+	found := false
+	for dx := int64(-1); dx <= 1; dx++ {
+		for dy := int64(-1); dy <= 1; dy++ {
+			cell := gridKey{ix: key.ix + dx, iy: key.iy + dy}
+			for _, k := range tc.nodeIndex[cell] {
+				ddx := k.X - pt.X
+				if ddx < 0 {
+					ddx = -ddx
+				}
+				ddy := k.Y - pt.Y
+				if ddy < 0 {
+					ddy = -ddy
+				}
+				if ddx > nodeSnapTol || ddy > nodeSnapTol {
+					continue
+				}
+				dist := ddx
+				if ddy > dist {
+					dist = ddy
+				}
+				switch {
+				case dist < bestDist:
+					best, bestDist, found = k, dist, true
+				case dist == bestDist && found && k.Compare(best) < 0:
+					best = k
+				}
+			}
 		}
-		if dy < 0 {
-			dy = -dy
-		}
-		if dx <= nodeSnapTol && dy <= nodeSnapTol {
-			return k, true
-		}
+	}
+	if found {
+		return best, true
 	}
 	return pt, false
 }
@@ -311,6 +392,8 @@ func (tc *TopologyComputer) getNodeSections(pt geom.XY) *NodeSections {
 	if !ok {
 		ns = NewNodeSections(pt)
 		tc.nodeMap[pt] = ns
+		key := nodeGridKey(pt)
+		tc.nodeIndex[key] = append(tc.nodeIndex[key], pt)
 	}
 	return ns
 }
