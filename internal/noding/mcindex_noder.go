@@ -12,7 +12,7 @@ import (
 
 // MCIndexNoder is a noder that uses MonotoneChains indexed by an R-tree.
 // On long polylines whose direction changes infrequently this is
-// substantially faster than IndexedNoder: each chain envelope replaces
+// substantially faster than a per-segment R-tree: each chain envelope replaces
 // dozens or hundreds of per-segment envelopes in the tree, and the
 // chain-pair binary subdivision (computeOverlaps) drills directly to
 // the candidate segment pair without scanning the whole chain.
@@ -20,7 +20,7 @@ import (
 // This is a Go port of org.locationtech.jts.noding.MCIndexNoder.
 //
 // On short / direction-noisy inputs the constant overhead of building
-// chains can make this slower than IndexedNoder; choose between them
+// chains can erode that advantage; choose between noders
 // based on input shape. The output is the same noded substring set
 // either way (same kernel intersection primitive, same epsilon-based
 // endpoint filter, same split-and-emit construction).
@@ -154,7 +154,7 @@ func (n MCIndexNoder) Node(input []*SegmentString) []*SegmentString {
 		})
 	}
 
-	// Emit pieces — identical construction to SimpleNoder/IndexedNoder.
+	// Emit pieces — identical construction to SimpleNoder.
 	//
 	// Piece coordinates are carved out of one arena slab per Node() call
 	// instead of a per-piece make+copy: adjacent pieces share a boundary

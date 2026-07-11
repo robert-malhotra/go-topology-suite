@@ -109,7 +109,7 @@ func (n *Noder) Node(input []*noding.SegmentString) ([]*noding.SegmentString, St
 	// First noding pass: realise every segment-segment intersection
 	// before any rounding happens. The output is freshly allocated so
 	// subsequent in-place vertex snapping is safe.
-	noded := adaptiveNode(input)
+	noded := noding.NodeAdaptive(input)
 
 	stats := Stats{}
 	for iter := 0; iter < maxIter; iter++ {
@@ -138,7 +138,7 @@ func (n *Noder) Node(input []*noding.SegmentString) ([]*noding.SegmentString, St
 				if ins2 > 0 {
 					// Re-node and re-snap; then run another strict
 					// fixpoint pass to resolve any new intersections.
-					noded = adaptiveNode(next2)
+					noded = noding.NodeAdaptive(next2)
 					snapAndDedupe(noded, rd)
 					hp2 := buildHotPixelSet(noded, n.Tolerance)
 					stats.HotPixels = hp2.Len()
@@ -160,7 +160,7 @@ func (n *Noder) Node(input []*noding.SegmentString) ([]*noding.SegmentString, St
 
 		// Re-node so cross-segment intersections at the new vertices
 		// are realised as shared endpoints.
-		noded = adaptiveNode(next)
+		noded = noding.NodeAdaptive(next)
 	}
 
 	// Guard pass: snap, build pixel set, see if anything still wants to
@@ -348,7 +348,7 @@ func insertSplitsRelaxedInto(pts []geom.XY, hp *snap.HotPixelSet) ([]geom.XY, in
 
 // snapAndDedupe rounds every vertex of every string to the grid and
 // drops consecutive-duplicate vertices that result. Operates in place
-// because the strings were freshly allocated by adaptiveNode.
+// because the strings were freshly allocated by the noder.
 func snapAndDedupe(strs []*noding.SegmentString, rd *snap.Rounder) {
 	for _, s := range strs {
 		for i, v := range s.Coords {
@@ -484,22 +484,4 @@ func dedupeConsecutive(pts []geom.XY) []geom.XY {
 		}
 	}
 	return out
-}
-
-// adaptiveNode picks SimpleNoder for small inputs and the monotone-
-// chain index noder once the segment count crosses the empirical
-// threshold. Snap-rounding inputs (offset curves, ring chains) form
-// long angularly coherent runs, so the chain index is far smaller than
-// a per-segment R-tree and the chain-vs-chain descent does a fraction
-// of the envelope tests for the same split set.
-func adaptiveNode(strs []*noding.SegmentString) []*noding.SegmentString {
-	const indexThreshold = 64
-	total := 0
-	for _, s := range strs {
-		total += s.NumSegments()
-	}
-	if total < indexThreshold {
-		return noding.SimpleNoder{}.Node(strs)
-	}
-	return noding.MCIndexNoder{}.Node(strs)
 }

@@ -703,7 +703,7 @@ func snapRoundOffsets(segs []offsetSegment, tolerance float64) []offsetSegment {
 
 	// Monotone-chain noder: offset curves are long runs of angularly
 	// coherent segments (ring arcs), which chain into few monotone
-	// pieces — the chain index is far smaller than IndexedNoder's
+	// pieces — the chain index is far smaller than a per-segment R-tree's
 	// per-segment R-tree and the chain-vs-chain overlap descent does a
 	// fraction of the envelope tests on this workload.
 	out := noding.MCIndexNoder{}.Node(strings)

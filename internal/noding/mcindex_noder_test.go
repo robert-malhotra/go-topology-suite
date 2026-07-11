@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MCIndexNoder must produce the same noded output as SimpleNoder /
-// IndexedNoder on every supported input. We piggy-back on the existing
+// MCIndexNoder must produce the same noded output as SimpleNoder on
+// every supported input. We piggy-back on the existing
 // shared collinear-overlap test harness.
 func TestMCIndexNoder_PartialCollinearOverlap(t *testing.T) {
 	ssA := &SegmentString{Coords: []geom.XY{xy(0, 0), xy(4, 0)}, Tag: 1}
@@ -62,8 +62,9 @@ func TestMCIndexNoder_RingClosed(t *testing.T) {
 }
 
 // Performance smoke test: a long monotone polyline crossed by a single
-// transverse segment must produce the same output as IndexedNoder. This
-// exercises the chain-pair binary subdivision and the index lookup.
+// transverse segment must produce the same output as the brute-force
+// SimpleNoder. This exercises the chain-pair binary subdivision and
+// the index lookup.
 func TestMCIndexNoder_LongMonotonePolyline(t *testing.T) {
 	const N = 256
 	pts := make([]geom.XY, N+1)
@@ -74,12 +75,12 @@ func TestMCIndexNoder_LongMonotonePolyline(t *testing.T) {
 	b := &SegmentString{Coords: []geom.XY{xy(128, -10), xy(128, 1000)}, Tag: 2}
 
 	mci := MCIndexNoder{}.Node([]*SegmentString{a, b})
-	idx := IndexedNoder{}.Node([]*SegmentString{a, b})
+	idx := SimpleNoder{}.Node([]*SegmentString{a, b})
 
 	// Same number of pieces, same total vertex count, same per-tag
 	// counts. (Order between the two noders may differ — we don't
 	// require positional equality.)
-	require.Equal(t, len(idx), len(mci), "MCIndexNoder must emit same number of pieces as IndexedNoder")
+	require.Equal(t, len(idx), len(mci), "MCIndexNoder must emit same number of pieces as SimpleNoder")
 
 	totalVerticesMCI, totalVerticesIDX := 0, 0
 	tagsMCI, tagsIDX := map[int]int{}, map[int]int{}

@@ -177,7 +177,7 @@ func TestSimpleNoder_PartialCollinearOverlap(t *testing.T) {
 		noder Noder
 	}{
 		{"SimpleNoder", SimpleNoder{}},
-		{"IndexedNoder", IndexedNoder{}},
+		{"MCIndexNoder", MCIndexNoder{}},
 	} {
 		t.Run(n.name, func(t *testing.T) {
 			testCollinearOverlapNoding(t, n.noder, ssA, ssB)

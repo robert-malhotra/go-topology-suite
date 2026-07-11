@@ -24,11 +24,11 @@
 //   - SimpleNoder: a brute-force O(n^2) pairwise noder. Correct on all
 //     supported inputs and suitable for small-to-medium polygons.
 //
-//   - IndexedNoder: an R-tree-indexed equivalent of SimpleNoder
-//     (O((n+m) log n)) for larger inputs. Output is byte-for-byte
-//     identical to SimpleNoder.
+//   - MCIndexNoder: a monotone-chain-indexed equivalent of SimpleNoder
+//     for larger inputs. Output is byte-for-byte identical to
+//     SimpleNoder; NodeAdaptive picks between the two by input size.
 //
-// Both noders use planar.SegmentIntersect, which distinguishes
+// All noders use planar.SegmentIntersect, which distinguishes
 // PointIntersection from CollinearOverlap, so segments that share a
 // non-trivial sub-segment are split at the overlap endpoints — the
 // adjacent-polygon-shared-edge case that previously left the DCEL

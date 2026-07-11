@@ -43,11 +43,11 @@ func TestValidatingNoder_RejectsCrossingPair(t *testing.T) {
 }
 
 func TestValidatingNoder_AcceptsRealNoderOutput(t *testing.T) {
-	// IndexedNoder produces a properly-noded result for the same input
+	// MCIndexNoder produces a properly-noded result for the same input
 	// the pass-through case rejects.
 	a := &SegmentString{Coords: []geom.XY{{X: 0, Y: 0}, {X: 10, Y: 10}}}
 	b := &SegmentString{Coords: []geom.XY{{X: 0, Y: 10}, {X: 10, Y: 0}}}
-	n := NewValidatingNoder(IndexedNoder{})
+	n := NewValidatingNoder(MCIndexNoder{})
 	n.Node([]*SegmentString{a, b})
 	assert.NoError(t, n.Err())
 }

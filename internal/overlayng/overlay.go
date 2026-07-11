@@ -374,7 +374,7 @@ func overlayCorePolygonal(
 			Tag:    2,
 		})
 	}
-	noded := nodeAdaptive(segs)
+	noded := noding.NodeAdaptive(segs)
 	depthSegs := flattenNoded(noded)
 	d := buildDCEL(depthSegs)
 	d.traceFaces()

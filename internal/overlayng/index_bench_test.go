@@ -46,14 +46,14 @@ func BenchmarkSimpleNoder_Small(b *testing.B) {
 	}
 }
 
-// BenchmarkIndexedNoder_Small is the indexed counterpart at ~50 segs/side.
+// BenchmarkMCIndexNoder_Small is the indexed counterpart at ~50 segs/side.
 // Expectation: comparable to SimpleNoder_Small (the O(n^2) constant is
-// small enough that an R-tree build doesn't yet pay off).
-func BenchmarkIndexedNoder_Small(b *testing.B) {
+// small enough that a chain-index build doesn't yet pay off).
+func BenchmarkMCIndexNoder_Small(b *testing.B) {
 	segs := twoOverlappingRings(50)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = noding.IndexedNoder{}.Node(segs)
+		_ = noding.MCIndexNoder{}.Node(segs)
 	}
 }
 
@@ -68,21 +68,21 @@ func BenchmarkSimpleNoder_Large(b *testing.B) {
 	}
 }
 
-// BenchmarkIndexedNoder_Large is the indexed counterpart at ~1000
+// BenchmarkMCIndexNoder_Large is the indexed counterpart at ~1000
 // segs/side. Expectation: substantially faster than SimpleNoder_Large
-// — most segment pairs have non-overlapping envelopes and never reach
+// — most chain pairs have non-overlapping envelopes and never reach
 // the kernel intersection test.
-func BenchmarkIndexedNoder_Large(b *testing.B) {
+func BenchmarkMCIndexNoder_Large(b *testing.B) {
 	segs := twoOverlappingRings(1000)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = noding.IndexedNoder{}.Node(segs)
+		_ = noding.MCIndexNoder{}.Node(segs)
 	}
 }
 
 // BenchmarkOverlayNG_Large exercises the full overlay-NG pipeline at
 // the large workload (1000 vertices per ring) — measures the
-// end-to-end win once nodeAdaptive routes through the indexed path.
+// end-to-end win once noding.NodeAdaptive routes through the indexed path.
 func BenchmarkOverlayNG_Large(b *testing.B) {
 	a := geom.NewPolygon(nil, makeRing(1000, 0, 0, 100))
 	c := geom.NewPolygon(nil, makeRing(1000, 50, 0, 100))
