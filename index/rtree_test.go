@@ -3,6 +3,7 @@ package index
 import (
 	"math"
 	"math/rand"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -183,6 +184,112 @@ func TestRStarSplitQuality(t *testing.T) {
 	// regresses meaningfully.
 	assert.LessOrEqual(t, avg, 150.0, "avg nodes visited = %.1f, want <= 150 (split quality regressed)", avg)
 	t.Logf("avg nodes visited per small query: %.1f", avg)
+}
+
+// checkEnvelopeTightness walks the tree and asserts every node's stored
+// envelope exactly equals the envelope recomputed from its current
+// children/items (via the same shallow recomputeEnvelope helper str.go and
+// rstar.go use post-split). This is the invariant the fast insert path
+// (path-based ExpandToInclude, no full-tree recompute) must preserve: if an
+// ancestor on the insertion path were skipped, its stored envelope would be
+// stale (too small, missing the new item) and this check would catch it
+// immediately at that ancestor rather than only manifesting as a missed
+// Search hit somewhere unrelated.
+func checkEnvelopeTightness[T any](t *testing.T, n *node[T], path string) {
+	t.Helper()
+	want := n.env
+	recomputeEnvelope(n)
+	assert.Equal(t, want, n.env, "node at %s: stored envelope != recomputed envelope (stale ancestor envelope after insert)", path)
+	n.env = want // recomputeEnvelope is non-destructive to children, restore to be safe
+	if !n.leaf {
+		for i, c := range n.children {
+			checkEnvelopeTightness(t, c, path+"/"+strconv.Itoa(i))
+		}
+	}
+}
+
+// bruteEnvelope returns the union envelope of a set of items, computed
+// independently of any tree code.
+func bruteEnvelope(items []Item[int]) geom.Envelope {
+	e := geom.EmptyEnvelope()
+	for _, it := range items {
+		e = e.ExpandToInclude(it.Env)
+	}
+	return e
+}
+
+// TestInsertEnvelopeInvariant is the differential test for the
+// adjustEnvelopes fix (index/rtree.go): the single-insert path used to call
+// recomputeEnvelopeRecursive(root) — a full-tree deep walk — after every
+// insert, making sequential Insert O(N^2). The fix instead expands
+// envelopes along only the root-to-leaf descent path (chooseLeafPath),
+// falling back to a shallow recomputeEnvelope on the split path where an
+// envelope can shrink.
+//
+// This test builds a tree via N random Insert calls (with a chunk of forced
+// splits, since N well exceeds maxEntries) and, at several checkpoints
+// during construction, verifies:
+//  1. every node's stored envelope is bit-exact with the envelope
+//     recomputed from its current children (catches stale/under-expanded
+//     ancestor envelopes — the exact failure mode of an incomplete path
+//     walk);
+//  2. Search over many random query windows returns exactly the same item
+//     set as brute-force filtering over all inserted items so far (catches
+//     both false negatives from stale envelopes and false positives from a
+//     corrupted tree);
+//  3. the root envelope is bit-exact with the brute-force union of all
+//     items inserted so far.
+func TestInsertEnvelopeInvariant(t *testing.T) {
+	const N = 6000
+	checkpoints := map[int]bool{50: true, 200: true, 1000: true, 3000: true, N: true}
+
+	tr := New[int]()
+	rng := rand.New(rand.NewSource(1234))
+	var inserted []Item[int]
+
+	for i := 1; i <= N; i++ {
+		x := rng.Float64() * 5000
+		y := rng.Float64() * 5000
+		w := rng.Float64() * 20
+		h := rng.Float64() * 20
+		it := Item[int]{Env: env(x, y, x+w, y+h), Value: i}
+		tr.Insert(it.Env, it.Value)
+		inserted = append(inserted, it)
+
+		if !checkpoints[i] {
+			continue
+		}
+
+		// (1) Every node's envelope is exactly recomputable from its
+		// current children — no stale ancestors.
+		checkEnvelopeTightness(t, tr.root, "root")
+
+		// (3) Root envelope matches brute-force union.
+		want := bruteEnvelope(inserted)
+		require.Equal(t, want, tr.root.env, "checkpoint %d: root envelope mismatch", i)
+
+		// (2) Search matches brute force over random windows.
+		for q := 0; q < 200; q++ {
+			qx := rng.Float64() * 5000
+			qy := rng.Float64() * 5000
+			qw := rng.Float64()*200 + 1
+			qh := rng.Float64()*200 + 1
+			query := env(qx, qy, qx+qw, qy+qh)
+
+			wantHits := map[int]bool{}
+			for _, it := range inserted {
+				if it.Env.Intersects(query) {
+					wantHits[it.Value] = true
+				}
+			}
+			gotHits := map[int]bool{}
+			tr.Search(query, func(it Item[int]) bool {
+				gotHits[it.Value] = true
+				return true
+			})
+			assert.Equal(t, wantHits, gotHits, "checkpoint %d, query %d: Search result mismatch vs brute force", i, q)
+		}
+	}
 }
 
 func TestConcurrentRead(t *testing.T) {

@@ -33,6 +33,14 @@ type RTree[T any] struct {
 	maxEntries int
 	minEntries int
 	count      int
+
+	// insertPath is a reusable scratch buffer holding the root-to-leaf
+	// descent path built by chooseLeafPath. All mutating methods hold mu for
+	// their duration, so reusing this buffer across Insert/Bulk calls is
+	// safe and avoids a fresh slice allocation on every insert; its
+	// contents are only meaningful for the duration of a single
+	// insertItem call.
+	insertPath []*node[T]
 }
 
 type node[T any] struct {
@@ -66,20 +74,36 @@ func (t *RTree[T]) Insert(env geom.Envelope, value T) {
 }
 
 func (t *RTree[T]) insertItem(it Item[T]) {
-	leaf := chooseLeaf(t.root, it.Env)
+	path := t.chooseLeafPath(it.Env)
+	leaf := path[len(path)-1]
 	leaf.items = append(leaf.items, it)
 	leaf.env = leaf.env.ExpandToInclude(it.Env)
 	t.count++
 	if len(leaf.items) > t.maxEntries {
-		t.splitAndPropagate(leaf)
-	} else {
-		t.adjustEnvelopes(leaf)
+		t.splitAndPropagate(path)
+		return
+	}
+	// No split: envelopes only ever GROW on a plain insert, so it is
+	// sufficient (and correct) to expand each ancestor on the descent path
+	// to include the new item's envelope, rather than recomputing the
+	// whole tree. The leaf itself was already expanded above.
+	for i := len(path) - 2; i >= 0; i-- {
+		path[i].env = path[i].env.ExpandToInclude(it.Env)
 	}
 }
 
-// chooseLeaf walks the tree picking the child whose envelope expands least
-// to include env. On ties, smaller-area child wins.
-func chooseLeaf[T any](n *node[T], env geom.Envelope) *node[T] {
+// chooseLeafPath walks the tree picking, at each level, the child whose
+// envelope expands least to include env (ties broken by smaller area), and
+// records the full root-to-leaf descent path. The tree keeps no parent
+// pointers, so callers that need to walk back up after an insert (to expand
+// ancestor envelopes, or to find a split node's parent) use this path
+// instead of a full-tree search.
+//
+// The returned slice aliases t.insertPath, a reusable scratch buffer; it is
+// only valid until the next call to chooseLeafPath on the same tree.
+func (t *RTree[T]) chooseLeafPath(env geom.Envelope) []*node[T] {
+	n := t.root
+	path := append(t.insertPath[:0], n)
 	for !n.leaf {
 		var best *node[T]
 		var bestEnlargement, bestArea float64
@@ -95,15 +119,10 @@ func chooseLeaf[T any](n *node[T], env geom.Envelope) *node[T] {
 			}
 		}
 		n = best
+		path = append(path, n)
 	}
-	return n
-}
-
-// adjustEnvelopes refreshes envelopes top-down from the root after a
-// leaf-only change. The deep variant is necessary because we don't keep
-// parent pointers — without them we can't walk just the affected path.
-func (t *RTree[T]) adjustEnvelopes(_ *node[T]) {
-	recomputeEnvelopeRecursive(t.root)
+	t.insertPath = path
+	return path
 }
 
 // recomputeEnvelope refreshes n.env from its CURRENT children's envelopes
@@ -125,29 +144,17 @@ func recomputeEnvelope[T any](n *node[T]) {
 	n.env = env
 }
 
-// recomputeEnvelopeRecursive does a deep refresh — only used after bulk
-// rebuilds (STR packing) where children's envelopes haven't been computed
-// yet. The single-insert path uses recomputeEnvelope shallow.
-func recomputeEnvelopeRecursive[T any](n *node[T]) {
-	if n.leaf {
-		env := geom.EmptyEnvelope()
-		for _, it := range n.items {
-			env = env.ExpandToInclude(it.Env)
-		}
-		n.env = env
-		return
-	}
-	env := geom.EmptyEnvelope()
-	for _, c := range n.children {
-		recomputeEnvelopeRecursive(c)
-		env = env.ExpandToInclude(c.env)
-	}
-	n.env = env
-}
-
-// splitAndPropagate splits a saturated node and may recursively split the
-// path back up to the root.
-func (t *RTree[T]) splitAndPropagate(n *node[T]) {
+// splitAndPropagate splits a saturated node — the last node on path — and
+// may recursively split the path back up to the root. A split can SHRINK an
+// envelope (the two halves are tighter than the original), so unlike the
+// no-split case above, affected nodes are recomputed (shallow, from their
+// now-correct children) rather than merely expanded.
+//
+// path is the root-to-node descent path produced by chooseLeafPath for the
+// item that triggered this insert; it gives the split node's parent in O(1)
+// without a full-tree search.
+func (t *RTree[T]) splitAndPropagate(path []*node[T]) {
+	n := path[len(path)-1]
 	if n == t.root {
 		left, right := rstarSplit(n, t.minEntries)
 		newRoot := &node[T]{leaf: false, children: []*node[T]{left, right}}
@@ -155,7 +162,7 @@ func (t *RTree[T]) splitAndPropagate(n *node[T]) {
 		t.root = newRoot
 		return
 	}
-	parent := findParent(t.root, n)
+	parent := path[len(path)-2]
 	left, right := rstarSplit(n, t.minEntries)
 	for i, c := range parent.children {
 		if c == n {
@@ -166,25 +173,8 @@ func (t *RTree[T]) splitAndPropagate(n *node[T]) {
 	}
 	recomputeEnvelope(parent)
 	if len(parent.children) > t.maxEntries {
-		t.splitAndPropagate(parent)
+		t.splitAndPropagate(path[:len(path)-1])
 	}
-}
-
-func findParent[T any](root, target *node[T]) *node[T] {
-	if root.leaf {
-		return nil
-	}
-	for _, c := range root.children {
-		if c == target {
-			return root
-		}
-		if !c.leaf {
-			if p := findParent(c, target); p != nil {
-				return p
-			}
-		}
-	}
-	return nil
 }
 
 // Search invokes fn for every item whose envelope intersects query.
