@@ -31,8 +31,9 @@ type HalfEdge struct {
 	Twin   *HalfEdge
 	next   *HalfEdge // next edge in face walk
 	Face   *Face
-	angle  float64 // angle of (target - origin) from +X, in (-π, π]
-	tags   uint8   // bitset: 1=subj, 2=clip (overlay builds only)
+	angle  float64 // pseudo-angle of (target - origin) from +X; order-isomorphic to atan2's (-π, π], NOT its numeric value. Read only by the sort in buildDCELCore.
+	outIdx int      // this half-edge's position in its Origin vertex's angularly-sorted Out slice, set right after that sort finalizes. Lets next-pointer wiring look up a twin's angular position in O(1) instead of scanning Out.
+	tags   uint8    // bitset: 1=subj, 2=clip (overlay builds only)
 	// DepthDelta is the signed interior-crossing count used by the
 	// buffer polygonizer (depth-mode builds only): +1 if walking
 	// origin→target crosses INTO the buffer interior. Zero for
@@ -59,6 +60,93 @@ type DCEL struct {
 	Vertices []*Vertex
 	Edges    []*HalfEdge
 	Faces    []*Face
+
+	// vertBacking/edgeBacking/faceBacking are the slab arenas that back
+	// the *Vertex/*HalfEdge/*Face records this DCEL hands out:
+	// buildDCELCore (and traceFaceCycles, for faces) append a record
+	// and take &backing[len-1], instead of a per-record heap
+	// allocation. Each slab is pre-sized to a typical-case estimate,
+	// NOT the worst-case bound — sizing everything to the 2n hard
+	// bound measurably regressed workloads that run many small builds
+	// (cascaded UnaryUnion) on allocating/zeroing memory that was
+	// never used.
+	//
+	// CRITICAL INVARIANT: these slices may never be REALLOCATED after
+	// a pointer into them has been taken — a reallocation would leave
+	// already-taken pointers referencing the orphaned old array, and
+	// every downstream consumer (map[*HalfEdge] visited sets in
+	// extract_lineal.go/result.go, e.Twin.Face==f in classify.go,
+	// union-find over *Vertex/*Face in buffer/polygonize.go) compares
+	// these pointers for identity, so records must never move. The
+	// alloc* methods below enforce this structurally: they append
+	// ONLY while len < cap (so append can never grow the array) and
+	// fall back to an individual per-record heap allocation once the
+	// slab is full — an individually allocated record trivially keeps
+	// a stable address. Nothing else may append to these slices.
+	vertBacking []Vertex
+	edgeBacking []HalfEdge
+	faceBacking []Face
+}
+
+// allocVertex carves a Vertex record out of the slab while it has
+// room, falling back to an individual heap allocation once it is full.
+// See the backing-slab invariant on the DCEL struct.
+func (d *DCEL) allocVertex(v Vertex) *Vertex {
+	if len(d.vertBacking) < cap(d.vertBacking) {
+		d.vertBacking = append(d.vertBacking, v)
+		return &d.vertBacking[len(d.vertBacking)-1]
+	}
+	out := v
+	return &out
+}
+
+// allocEdge carves a HalfEdge record out of the slab while it has
+// room, falling back to an individual heap allocation once it is full.
+// See the backing-slab invariant on the DCEL struct.
+func (d *DCEL) allocEdge(e HalfEdge) *HalfEdge {
+	if len(d.edgeBacking) < cap(d.edgeBacking) {
+		d.edgeBacking = append(d.edgeBacking, e)
+		return &d.edgeBacking[len(d.edgeBacking)-1]
+	}
+	out := e
+	return &out
+}
+
+// allocFace carves a zero-value Face record out of the slab while it
+// has room, falling back to an individual heap allocation once it is
+// full. See the backing-slab invariant on the DCEL struct.
+func (d *DCEL) allocFace() *Face {
+	if len(d.faceBacking) < cap(d.faceBacking) {
+		d.faceBacking = append(d.faceBacking, Face{})
+		return &d.faceBacking[len(d.faceBacking)-1]
+	}
+	return &Face{}
+}
+
+// pseudoAngle returns a monotonic stand-in for math.Atan2(dy, dx) that
+// is order-isomorphic to it on the same (-π, π] domain, including the
+// dx<0 branch-cut boundary where the sign of a zero dy matters
+// (atan2(+0, neg) = +π, the ordering maximum; atan2(-0, neg) = -π, the
+// ordering minimum). buildDCELCore's `angle` field is read only by the
+// CCW sort below, so any function with the same ordering — not the
+// same numeric value — produces byte-identical Out orderings and next
+// wiring.
+//
+// Standard 2-branch octant construction: p = dx/(|dx|+|dy|) is
+// monotonically decreasing in the true angle over dy>=0 (mapped to
+// 1-p, range [0,2]) and, by symmetry, over dy<0 (mapped to p-1, range
+// [-2,0)). The branch is chosen by math.Signbit(dy), not dy<0, so that
+// dy == -0.0 takes the same branch atan2 does.
+func pseudoAngle(dx, dy float64) float64 {
+	ax, ay := math.Abs(dx), math.Abs(dy)
+	var p float64
+	if sum := ax + ay; sum != 0 {
+		p = dx / sum
+	}
+	if math.Signbit(dy) {
+		return p - 1
+	}
+	return 1 - p
 }
 
 // vertexKey is used to deduplicate vertices that fall on the same point
@@ -123,40 +211,54 @@ func BuildDepthDCEL(segs []DepthSegment) *DCEL {
 // endpoint, never a true interior crossing. Producing the noding is the
 // caller's responsibility (typically: snap → node before building).
 func buildDCELCore(segs []taggedSegment, depthMode bool) *DCEL {
+	n := len(segs)
 	d := &DCEL{}
-	// Heuristic capacities: vmap typically holds ~half the segment count
-	// (each interior vertex is shared by two segments); edgeMap holds at
-	// most 2*len(segs) directed entries. Slight over-sizing is cheap and
-	// avoids rehashes for the common dense-polygon case.
-	d.Vertices = make([]*Vertex, 0, len(segs))
-	d.Edges = make([]*HalfEdge, 0, 2*len(segs))
-	vmap := make(map[vertexKey]*Vertex, len(segs))
+	// Slab arenas, pre-sized to typical-case estimates (overflow falls
+	// back to individual allocation; see the DCEL field comment):
+	//   - vertices: noded inputs are overwhelmingly closed rings/chains
+	//     where each endpoint is shared by two segments, so distinct
+	//     vertices ≈ n (the hard bound is 2n, only approached by
+	//     fields of mutually disjoint segments, which real noder
+	//     output never is).
+	//   - half-edges: exactly 2 per UNIQUE segment — coincident-merge
+	//     duplicates only reduce it — so 2n is both the hard bound and
+	//     the typical count; the edge slab never overflows.
+	// The face slab is sized in traceFaceCycles, which runs after
+	// construction and can use the ACTUAL vertex/edge counts (Euler's
+	// formula) instead of a pre-construction bound.
+	d.vertBacking = make([]Vertex, 0, n)
+	d.edgeBacking = make([]HalfEdge, 0, 2*n)
+	d.Vertices = make([]*Vertex, 0, n)
+	d.Edges = make([]*HalfEdge, 0, 2*n)
+	vmap := make(map[vertexKey]*Vertex, n)
 
-	getVertex := func(p geom.XY) *Vertex {
+	getVertex := func(p geom.XY) (*Vertex, vertexKey) {
 		k := makeKey(p)
 		if v, ok := vmap[k]; ok {
-			return v
+			return v, k
 		}
-		v := &Vertex{P: p, index: len(d.Vertices)}
+		v := d.allocVertex(Vertex{P: p, index: len(d.Vertices)})
 		vmap[k] = v
 		d.Vertices = append(d.Vertices, v)
-		return v
+		return v, k
 	}
 
 	// Coincident-edge merge: a map keyed by ordered (origin,target) pair.
 	// If the same directed edge appears twice (same source AND same
 	// direction), tags merge — same for the reverse direction.
 	type edgeKey struct{ a, b vertexKey }
-	edgeMap := make(map[edgeKey]*HalfEdge, 2*len(segs))
+	edgeMap := make(map[edgeKey]*HalfEdge, 2*n)
 
 	for _, s := range segs {
 		if s.p0 == s.p1 {
 			continue // skip degenerate
 		}
-		va := getVertex(s.p0)
-		vb := getVertex(s.p1)
-		ka := makeKey(va.P)
-		kb := makeKey(vb.P)
+		// getVertex already computed each point's vertexKey internally
+		// (to probe/populate vmap); reuse it here instead of re-hashing
+		// va.P/vb.P — they're bit-identical to s.p0/s.p1 by construction
+		// (a vmap hit only occurs on an exact Float64bits match).
+		va, ka := getVertex(s.p0)
+		vb, kb := getVertex(s.p1)
 
 		fk := edgeKey{ka, kb}
 		bk := edgeKey{kb, ka}
@@ -174,12 +276,12 @@ func buildDCELCore(segs []taggedSegment, depthMode bool) *DCEL {
 			}
 			continue
 		}
-		eFwd := &HalfEdge{Origin: va, Target: vb, tags: s.tag, DepthDelta: s.depthDelta}
-		eBack := &HalfEdge{Origin: vb, Target: va, tags: s.tag, DepthDelta: -s.depthDelta}
+		eFwd := d.allocEdge(HalfEdge{Origin: va, Target: vb, tags: s.tag, DepthDelta: s.depthDelta})
+		eBack := d.allocEdge(HalfEdge{Origin: vb, Target: va, tags: s.tag, DepthDelta: -s.depthDelta})
 		eFwd.Twin = eBack
 		eBack.Twin = eFwd
-		eFwd.angle = math.Atan2(vb.P.Y-va.P.Y, vb.P.X-va.P.X)
-		eBack.angle = math.Atan2(va.P.Y-vb.P.Y, va.P.X-vb.P.X)
+		eFwd.angle = pseudoAngle(vb.P.X-va.P.X, vb.P.Y-va.P.Y)
+		eBack.angle = pseudoAngle(va.P.X-vb.P.X, va.P.Y-vb.P.Y)
 		va.Out = append(va.Out, eFwd)
 		vb.Out = append(vb.Out, eBack)
 		d.Edges = append(d.Edges, eFwd, eBack)
@@ -187,11 +289,17 @@ func buildDCELCore(segs []taggedSegment, depthMode bool) *DCEL {
 		edgeMap[bk] = eBack
 	}
 
-	// Sort outgoing half-edges at each vertex by angle (CCW from +X).
+	// Sort outgoing half-edges at each vertex by angle (CCW from +X),
+	// then record each half-edge's position in its Origin's sorted Out
+	// slice: this is what lets the next-pointer wiring below look up a
+	// twin's angular position in O(1) instead of scanning Out.
 	for _, v := range d.Vertices {
 		slices.SortFunc(v.Out, func(a, b *HalfEdge) int {
 			return cmp.Compare(a.angle, b.angle)
 		})
+		for i, e := range v.Out {
+			e.outIdx = i
+		}
 	}
 
 	// Set next pointers: for half-edge `e` (origin → target), the next
@@ -203,19 +311,10 @@ func buildDCELCore(segs []taggedSegment, depthMode bool) *DCEL {
 	// face traversal.
 	for _, e := range d.Edges {
 		t := e.Target
-		// Locate twin in t.out (twin of e is outgoing from target back to origin).
-		twin := e.Twin
-		idx := -1
-		for i, oe := range t.Out {
-			if oe == twin {
-				idx = i
-				break
-			}
-		}
-		if idx < 0 {
-			// shouldn't happen
-			continue
-		}
+		// twin is outgoing from target back to origin, so it lives in
+		// t.Out; twin.outIdx (set above) is its position there —
+		// exactly what a linear scan of t.Out for twin used to compute.
+		idx := e.Twin.outIdx
 		// Standard half-edge DCEL rule (de Berg et al., Computational
 		// Geometry):
 		//   next(e) = predecessor of twin(e) in the CCW-sorted outgoing
@@ -250,11 +349,25 @@ func (d *DCEL) traceFaces() {
 // records. Each half-edge ends up assigned to exactly one face (its left
 // face, by the CCW walking convention).
 func (d *DCEL) traceFaceCycles() {
+	// Size the face slab from the ACTUAL vertex/edge counts, available
+	// now that construction is done. Euler's formula for a connected
+	// planar graph gives F = E − V + 2 (E undirected = len(d.Edges)/2);
+	// each additional connected component contributes one more face
+	// than the formula predicts, and those rare extras overflow to
+	// individual allocations (see the DCEL field comment).
+	if d.faceBacking == nil {
+		est := len(d.Edges)/2 - len(d.Vertices) + 2
+		if est < 4 {
+			est = 4
+		}
+		d.faceBacking = make([]Face, 0, est)
+		d.Faces = make([]*Face, 0, est)
+	}
 	for _, e := range d.Edges {
 		if e.Face != nil {
 			continue
 		}
-		f := &Face{}
+		f := d.allocFace()
 		cur := e
 		for {
 			cur.Face = f
