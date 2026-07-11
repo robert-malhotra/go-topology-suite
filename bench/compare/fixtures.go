@@ -42,6 +42,17 @@ func coastlineB() *geom.Polygon {
 	return geom.NewPolygon(nil, out)
 }
 
+// coastlineLine returns coastlineA's exterior ring as an OPEN LineString
+// (closing duplicate dropped), used by BenchmarkLength. A LineString is
+// the only fixture on which Length is comparable across implementations:
+// simplefeatures defines a polygon's Length as 0 (returned from a bare
+// type check), while gts and GEOS return the perimeter — so a polygon
+// fixture would compare a no-op against a real computation.
+func coastlineLine() *geom.LineString {
+	ring := coastlineA().ExteriorRing()
+	return geom.NewLineString(nil, ring[:len(ring)-1])
+}
+
 // star returns a fresh n-vertex jagged star centred at the origin, built
 // with the same alternating-radius-plus-jitter shape as
 // bench.CoastlinePolygon but parameterised by vertex count, for the Buffer

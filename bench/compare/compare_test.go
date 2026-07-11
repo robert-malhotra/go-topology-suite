@@ -165,8 +165,13 @@ func BenchmarkArea(b *testing.B) {
 	})
 }
 
+// BenchmarkLength measures Length on an open 1,024-vertex LineString
+// (coastlineA's ring, unclosed) rather than the polygon itself: polygon
+// Length is not comparable across implementations (simplefeatures defines
+// it as 0 and answers from a bare type check; gts and GEOS compute the
+// perimeter).
 func BenchmarkLength(b *testing.B) {
-	a := coastlineA()
+	a := coastlineLine()
 	runImplSub(b, 1024, func(b *testing.B, impl Impl) {
 		ha, err := impl.Convert(a)
 		if err != nil {

@@ -82,6 +82,11 @@ func newGeosContext() *geosContext {
 		handle:    handle,
 		wkbReader: C.GEOSWKBReader_create_r(handle),
 	}
+	// Unlike the geom/prep finalizers, this one need not (and cannot
+	// usefully) take mu: geosGeom/geosPrep hold a *geosContext, so the
+	// context becomes unreachable only after every geom/prep that used it
+	// has already been collected — by which point no other goroutine can be
+	// touching this handle.
 	runtime.SetFinalizer(c, func(c *geosContext) {
 		if c.wkbReader != nil {
 			C.GEOSWKBReader_destroy_r(c.handle, c.wkbReader)
@@ -103,7 +108,14 @@ func newGeosGeom(ctx *geosContext, ptr *C.GEOSGeometry) *geosGeom {
 		return nil
 	}
 	g := &geosGeom{ctx: ctx, ptr: ptr}
+	// The finalizer runs on the runtime's finalizer goroutine, concurrently
+	// with whatever benchmark goroutine is driving the same context. GEOS's
+	// _r API is not safe for concurrent use of one context, so the destroy
+	// must take the same mu every explicit op takes — otherwise a GC-fired
+	// destroy races an in-flight Buffer/Union/etc and corrupts the context.
 	runtime.SetFinalizer(g, func(g *geosGeom) {
+		g.ctx.mu.Lock()
+		defer g.ctx.mu.Unlock()
 		C.GEOSGeom_destroy_r(g.ctx.handle, g.ptr)
 	})
 	return g
@@ -124,7 +136,10 @@ func newGeosPrep(ctx *geosContext, ptr *C.GEOSPreparedGeometry, owner *geosGeom)
 		return nil
 	}
 	p := &geosPrep{ctx: ctx, ptr: ptr, owner: owner}
+	// Locks the context for the same reason newGeosGeom's finalizer does.
 	runtime.SetFinalizer(p, func(p *geosPrep) {
+		p.ctx.mu.Lock()
+		defer p.ctx.mu.Unlock()
 		C.GEOSPreparedGeom_destroy_r(p.ctx.handle, p.ptr)
 	})
 	return p

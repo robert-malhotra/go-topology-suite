@@ -55,74 +55,142 @@ every commit in this pass.
 
 ## Cross-implementation comparison
 
-`benchstat -col /impl bench/results/2026-07-10-final/compare.txt`, verbatim.
+`benchstat -col /impl bench/results/2026-07-11-wave3/compare.txt`, verbatim.
 Fixtures are identical gts-origin geometries converted via WKB
-(`wkb.Marshal` → each impl's native unmarshal), untimed.
+(`wkb.Marshal` → each impl's native unmarshal), untimed. `Length` runs on
+an open 1,024-vertex LineString (coastlineA's ring, unclosed): polygon
+Length is not comparable across implementations — simplefeatures defines
+it as 0 and answers from a bare type check, while gts and GEOS return the
+perimeter. Earlier snapshots (2026-07-10-final) used the polygon fixture,
+so their Length rows measure different operations.
 
 ```
-$ benchstat -col /impl bench/results/2026-07-10-final/compare.txt
-goos: linux
-goarch: amd64
-pkg: github.com/exergy-dev/go-topology-suite/bench/compare
-cpu: Intel(R) Core(TM) i9-14900KF
                              │      gts       │             simplefeatures             │                  geos                  │
-                             │     sec/op     │    sec/op      vs base                 │     sec/op      vs base                │
-Intersection/n=1024-32            547.2m ± 2%     219.0m ± 4%   -59.98% (p=0.000 n=10)     127.6m ±  7%  -76.69% (p=0.000 n=10)
-Union/n=1024-32                   724.2m ± 2%     233.4m ± 3%   -67.78% (p=0.000 n=10)     143.8m ± 11%  -80.14% (p=0.000 n=10)
-Difference/n=1024-32              405.6m ± 1%     211.7m ± 1%   -47.81% (p=0.000 n=10)     117.8m ± 10%  -70.96% (p=0.000 n=10)
-Relate/n=1024-32               1784.582m ± 1%    43.804m ± 3%   -97.55% (p=0.000 n=10)     6.067m ±  1%  -99.66% (p=0.000 n=10)
-Area/n=1024-32                    5.736µ ± 2%     1.075µ ± 2%   -81.26% (p=0.000 n=10)     1.965µ ±  1%  -65.75% (p=0.000 n=10)
-Length/n=1024-32                9866.00n ± 2%     11.19n ± 1%   -99.89% (p=0.000 n=10)   2078.50n ±  1%  -78.93% (p=0.000 n=10)
-Buffer/n=256-32                 10892.9µ ± 0%    2694.3µ ± 4%   -75.27% (p=0.000 n=10)     376.6µ ±  4%  -96.54% (p=0.000 n=10)
-Buffer/n=1024-32                  93.81m ± 2%     85.58m ± 0%    -8.77% (p=0.000 n=10)     31.73m ±  2%  -66.17% (p=0.000 n=10)
-PrepareBuild/n=1024-32         224496.5n ± 1%   83057.0n ± 1%   -63.00% (p=0.000 n=10)     731.8n ± 20%  -99.67% (p=0.000 n=10)
-PreparedIntersects/n=1024-32      822.5µ ± 1%    2446.1µ ± 2%  +197.39% (p=0.000 n=10)     671.9µ ±  2%  -18.31% (p=0.000 n=10)
-geomean                           8.884m          1.748m        -80.32%                    890.8µ        -89.97%
+                             │     sec/op     │    sec/op      vs base                 │    sec/op      vs base                 │
+Intersection/n=1024-32            92.58m ± 1%    219.20m ± 5%  +136.77% (p=0.000 n=10)   124.28m ±  7%   +34.24% (p=0.000 n=10)
+Union/n=1024-32                   123.1m ± 1%     233.0m ± 2%   +89.29% (p=0.000 n=10)    142.1m ± 10%   +15.41% (p=0.000 n=10)
+Difference/n=1024-32              83.03m ± 3%    210.38m ± 1%  +153.38% (p=0.000 n=10)   115.31m ±  9%   +38.87% (p=0.000 n=10)
+Relate/n=1024-32                 34.878m ± 2%    42.058m ± 1%   +20.58% (p=0.000 n=10)    5.821m ±  3%   -83.31% (p=0.000 n=10)
+Area/n=1024-32                    728.7n ± 1%    1049.5n ± 1%   +44.02% (p=0.000 n=10)   1922.5n ±  1%  +163.83% (p=0.000 n=10)
+Length/n=1024-32                  1.287µ ± 1%     1.612µ ± 1%   +25.21% (p=0.000 n=10)    2.026µ ±  1%   +57.38% (p=0.000 n=10)
+Buffer/n=256-32                  2615.5µ ± 3%    2704.0µ ± 1%    +3.38% (p=0.002 n=10)    371.7µ ±  3%   -85.79% (p=0.000 n=10)
+Buffer/n=1024-32                  36.96m ± 3%     84.04m ± 3%  +127.38% (p=0.000 n=10)    31.41m ±  5%   -15.02% (p=0.000 n=10)
+PrepareBuild/n=1024-32         215266.5n ± 3%   82066.0n ± 3%   -61.88% (p=0.000 n=10)    560.2n ± 15%   -99.74% (p=0.000 n=10)
+PreparedIntersects/n=1024-32      815.5µ ± 1%    2516.3µ ± 1%  +208.57% (p=0.000 n=10)    685.7µ ±  1%   -15.92% (p=0.000 n=10)
+geomean                           1.871m          2.854m        +52.56%                   854.3µ         -54.34%
 
-                             │        gts         │                simplefeatures                │                 geos                  │
-                             │        B/op        │       B/op         vs base                   │    B/op     vs base                   │
-Intersection/n=1024-32         46131784.00 ± 0%     121449604.50 ± 0%  +163.27% (p=0.000 n=10)     16.00 ± 0%  -100.00% (p=0.000 n=10)
-Union/n=1024-32                40715608.00 ± 0%     121126473.50 ± 0%  +197.49% (p=0.000 n=10)     16.00 ± 0%  -100.00% (p=0.000 n=10)
-Difference/n=1024-32           44635680.00 ± 0%     121541738.50 ± 0%  +172.30% (p=0.000 n=10)     16.00 ± 0%  -100.00% (p=0.000 n=10)
-Relate/n=1024-32               19727544.00 ± 0%      22237482.50 ± 0%   +12.72% (p=0.000 n=10)     16.00 ± 0%  -100.00% (p=0.000 n=10)
-Area/n=1024-32                   18456.000 ± 0%           16.000 ± 0%   -99.91% (p=0.000 n=10)     8.000 ± 0%   -99.96% (p=0.000 n=10)
-Length/n=1024-32                    24.000 ± 0%            0.000 ± 0%  -100.00% (p=0.000 n=10)     8.000 ± 0%   -66.67% (p=0.000 n=10)
-Buffer/n=256-32                 4865101.50 ± 0%       1872721.50 ± 0%   -61.51% (p=0.000 n=10)     16.00 ± 0%  -100.00% (p=0.000 n=10)
-Buffer/n=1024-32               38528552.50 ± 0%      45918997.50 ± 0%   +19.18% (p=0.000 n=10)     16.00 ± 0%  -100.00% (p=0.000 n=10)
-PrepareBuild/n=1024-32           149329.00 ± 0%        102449.00 ± 0%   -31.39% (p=0.000 n=10)     24.00 ± 0%   -99.98% (p=0.000 n=10)
-PreparedIntersects/n=1024-32         0.0Ki ± 0%          383.3Ki ± 0%         ? (p=0.000 n=10)     0.0Ki ± 0%         ~ (p=1.000 n=10) ¹
+                             │        gts         │                simplefeatures                │                  geos                  │
+                             │        B/op        │       B/op         vs base                   │    B/op      vs base                   │
+Intersection/n=1024-32         43045908.50 ± 0%     121449654.00 ± 0%  +182.14% (p=0.000 n=10)     16.00 ± 62%  -100.00% (p=0.000 n=10)
+Union/n=1024-32                40125652.00 ± 0%     121126527.50 ± 0%  +201.87% (p=0.000 n=10)     16.00 ±  0%  -100.00% (p=0.000 n=10)
+Difference/n=1024-32           41555557.00 ± 0%     121541806.00 ± 0%  +192.48% (p=0.000 n=10)     16.00 ±  0%  -100.00% (p=0.000 n=10)
+Relate/n=1024-32               23175655.50 ± 0%      22237507.00 ± 0%    -4.05% (p=0.000 n=10)     16.00 ±  0%  -100.00% (p=0.000 n=10)
+Area/n=1024-32                       0.000 ± 0%           16.000 ± 0%         ? (p=0.000 n=10)     8.000 ±  0%         ? (p=0.000 n=10)
+Length/n=1024-32                     0.000 ± 0%            0.000 ± 0%         ~ (p=1.000 n=10) ¹   8.000 ±  0%         ? (p=0.000 n=10)
+Buffer/n=256-32                 2497544.00 ± 0%       1872684.50 ± 0%   -25.02% (p=0.000 n=10)     16.00 ±  0%  -100.00% (p=0.000 n=10)
+Buffer/n=1024-32               20356489.00 ± 0%      45918856.50 ± 0%  +125.57% (p=0.000 n=10)     16.00 ±  0%  -100.00% (p=0.000 n=10)
+PrepareBuild/n=1024-32           149329.00 ± 0%        102449.00 ± 0%   -31.39% (p=0.000 n=10)     24.00 ±  0%   -99.98% (p=0.000 n=10)
+PreparedIntersects/n=1024-32         0.0Ki ± 0%          383.3Ki ± 0%         ? (p=0.000 n=10)     0.0Ki ±  0%         ~ (p=1.000 n=10) ¹
+geomean                                         ²                      ?                       ²                ?                       ²
+¹ all samples are equal
+² summaries must be >0 to compute geomean
 
                              │        gts        │                simplefeatures                │                 geos                  │
                              │     allocs/op     │    allocs/op      vs base                    │ allocs/op   vs base                   │
-Intersection/n=1024-32         395389.000 ± 0%     1391609.000 ± 0%   +251.96% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
-Union/n=1024-32                371266.000 ± 0%     1397285.500 ± 0%   +276.36% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
-Difference/n=1024-32           399283.000 ± 0%     1398097.000 ± 0%   +250.15% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
-Relate/n=1024-32               371673.500 ± 0%      493384.000 ± 0%    +32.75% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
-Area/n=1024-32                      2.000 ± 0%           1.000 ± 0%    -50.00% (p=0.000 n=10)     1.000 ± 0%   -50.00% (p=0.000 n=10)
-Length/n=1024-32                    1.000 ± 0%           0.000 ± 0%   -100.00% (p=0.000 n=10)     1.000 ± 0%         ~ (p=1.000 n=10) ¹
-Buffer/n=256-32                 20809.000 ± 0%       21690.000 ± 0%     +4.23% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
-Buffer/n=1024-32               265138.500 ± 0%      813940.500 ± 0%   +206.99% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
+Intersection/n=1024-32         156830.000 ± 0%     1391609.500 ± 0%   +787.34% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
+Union/n=1024-32                150513.500 ± 0%     1397286.000 ± 0%   +828.35% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
+Difference/n=1024-32           159607.000 ± 0%     1398098.000 ± 0%   +775.96% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
+Relate/n=1024-32               390920.000 ± 0%      493385.000 ± 0%    +26.21% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
+Area/n=1024-32                      0.000 ± 0%           1.000 ± 0%          ? (p=0.000 n=10)     1.000 ± 0%         ? (p=0.000 n=10)
+Length/n=1024-32                    0.000 ± 0%           0.000 ± 0%          ~ (p=1.000 n=10) ¹   1.000 ± 0%         ? (p=0.000 n=10)
+Buffer/n=256-32                   998.000 ± 0%       21690.000 ± 0%  +2073.35% (p=0.000 n=10)     1.000 ± 0%   -99.90% (p=0.000 n=10)
+Buffer/n=1024-32                46723.000 ± 0%      813942.500 ± 0%  +1642.06% (p=0.000 n=10)     1.000 ± 0%  -100.00% (p=0.000 n=10)
 PrepareBuild/n=1024-32            149.000 ± 0%        2076.000 ± 0%  +1293.29% (p=0.000 n=10)     1.000 ± 0%   -99.33% (p=0.000 n=10)
 PreparedIntersects/n=1024-32        0.00k ± 0%          14.51k ± 0%          ? (p=0.000 n=10)     0.00k ± 0%         ~ (p=1.000 n=10) ¹
+geomean                                        ²                     ?                        ²               ?                       ²
 ¹ all samples are equal
+² summaries must be >0 to compute geomean
 ```
 
-**Notes.** The cgo boundary dominates tiny ops (`Area`, `Length`,
-`PrepareBuild` complete in single-digit microseconds or less, where cgo call
-overhead and GEOS's context mutex are a large fraction of the number — read
-"GEOS is 66x faster at `Length`" as a cgo-vs-Go-loop artifact, not an
-algorithmic claim). Conversion (WKB round trip into each impl's native type)
-is untimed. Prepared-build cost is reported separately (`PrepareBuild`), not
-folded into `PreparedIntersects` — the two have very different amortization
-profiles, and `PreparedIntersects/n=1024` shows simplefeatures's prepared
-index actually slower than gts's cold path at this single-shot query count.
-GEOS 3.10.2 predates its own recent perf work (see Methodology). The headline
-line is `Intersection/n=1024`: at **baseline** this read gts 4446.2ms vs
-simplefeatures 212.9ms (~20.9x gap); at **final** it reads gts 547.2ms vs
-simplefeatures 219.0ms (~2.5x gap) — direct evidence of the overlayng fix
-below.
-
+**Notes.** gts leads simplefeatures on every timed operation in the table
+except `PrepareBuild` (see Deferred backlog), and leads GEOS 3.10.2 on the
+binary overlays, `Area`, and `Length` (the cgo boundary dominates the tiny
+ops — read those GEOS cells as cgo-vs-Go-loop artifacts, not algorithmic
+claims). Conversion (WKB round trip into each impl's native type) is
+untimed. Prepared-build cost is reported separately (`PrepareBuild`), not
+folded into `PreparedIntersects`. GEOS 3.10.2 predates its own recent perf
+work (see Methodology). History of the headline `Intersection/n=1024` gts
+column: 4446.2ms at the 2026-07-10 baseline, 547.2ms after that pass
+(2026-07-10-final), 92.6ms after the 2026-07-11 wave below — from ~20.9x
+slower than simplefeatures to ~2.4x faster.
 ## Optimization log
+
+### 2026-07-11 wave — "beat simplefeatures everywhere it led"
+
+Profile-driven, conformance-gated (JTS baseline 8951/8942/9 held
+throughout; `bench/conformance` and `TestCompareAgreement` green). The
+headline levers, in decreasing measured impact:
+
+- **`needsCanonicalize` touch detection indexed** (`internal/overlayng/overlay.go`) —
+  the brute-force `polygonHasTouchingHole` / `multiPolygonsTouch` per-pair
+  O(V×L) vertex-on-segment sweeps were 59% of Union and 49% of Intersection
+  CPU on the jagged-star fixture. Replaced with one STR R-tree over all
+  result-ring segment envelopes probed once per vertex, preserving the
+  exact predicates (same pair eligibility, vertex-set skip,
+  `pointOnSegmentInterior`). The repeated-interior-vertex probe also lost
+  its per-ring map (sort + adjacent-dup scan on a shared scratch).
+- **Prepared point-in-polygon for face classification**
+  (`internal/overlayng/prepared_pip.go`) — classification probed each DCEL
+  face against the original input rings via full `geomath.PointInRing`
+  scans (19–53% of overlay CPU depending on op). The prepared form buckets
+  segments by y-extent and precomputes per-segment x-ranges so the
+  crossing division only runs for segments genuinely bracketing the probe;
+  a guard band (1e-12 relative) keeps the parity identical to the full
+  scan (differentially tested in `prepared_pip_test.go`).
+- **Buffer noding switched to the monotone-chain noder**
+  (`buffer/polygonize.go`, `internal/snaprounding/noder.go`) — offset
+  curves chain into few monotone pieces, so `MCIndexNoder` replaces the
+  per-segment R-tree of `IndexedNoder` on both the tolerance-0 branch and
+  inside the snap-rounding fixpoint's `adaptiveNode`.
+- **Hot-pixel set re-indexed as an x-sorted array** (`internal/snap/hotpixel.go`) —
+  pixels are points, so the R-tree (build + per-segment rectangle search,
+  ~32% of Buffer) became one sort-and-dedupe plus binary search + short
+  scan per query, bit-identical candidate sets, zero per-query allocation.
+- **DCEL build dedup without hashing** (`internal/overlayng/dcel.go`) —
+  vertex dedup by sort + binary search on packed coordinate keys (the key
+  IS the coordinate, bit-cast); edge dedup keyed by packed vertex-id
+  uint64 (and skipped entirely for depth-mode builds, whose single caller
+  pre-merges coincident segments in `flattenChains`); one shared arena for
+  all `Vertex.Out` slices sized from key-run lengths; manual compare-swap
+  for the degree-≤2 angular sort that dominates noded arrangements.
+- **Dense-index consumers replace pointer-keyed maps** — buffer subgraph
+  union-find/labelling and ring extraction now key off new
+  `Vertex/Face/HalfEdge.Index()` ids (epoch-stamped scratch) instead of
+  `map[*T]bool`; `flattenChains` accumulates via sort-and-merge on the
+  canonical key instead of `map[canonKey]*accum`.
+- **Buffer validator rep points** (`buffer/polygonize.go`) — the
+  positive-buffer winding validator now derives a cheap O(ring) interior
+  point (longest-edge midpoint nudge, parity-verified) instead of the
+  ~97-probe inscribed-circle search, which only the negative-buffer
+  clearance check actually needs; validators receive the ring and choose.
+- **Measure fast paths** (`measure/measure.go`) — planar `Area` shoelaces
+  the flat coordinate buffer via `internal/flatref` (no 18KB `Ring(0)`
+  copy); planar `Length` sums sqrt(dx²+dy²) off the flat buffer with a
+  2x-unrolled dual accumulator (one accumulator pins the loop to SQRTSD
+  latency); `resolve` no longer heap-allocates its config on the
+  zero-option path. Length's sqrt matches JTS `Length.ofLine`/GEOS;
+  kernel `Distance` (math.Hypot) is unchanged.
+- **Misc**: `dropPhantomSliverHoles` early-outs before building its input
+  grid when the Union result has no holes; STR bulk-load uses unstable
+  sorts (query results are sets; tie order was never meaningful);
+  `insertSplitsInto` copies chains lazily (zero-split chains, the common
+  case, are returned as-is).
+
+Cost profile after the wave (same fixtures): binary overlays carry ~40%
+fewer bytes and ~60% fewer allocations than before it; `Buffer/n=256` went
+from 12,540 allocs / 4.7MB to 998 allocs / 2.5MB.
+
+### 2026-07-10 pass
 
 Three profile-driven fixes, each gated on a profile confirming the
 hypothesis first, byte-identical output, and the JTS baseline (8951/8942/0)
@@ -296,16 +364,19 @@ space math that fix replaced for correctness.
 - **`orientCache` mutex removal** — `orientCache` (`kernel/planar/robust.go`) is absent from every profile taken this pass (off-hot-path: consulted only after a rare Shewchuk filter failure); nothing to gain by removing the guarding mutex. Left in place.
 - **HPRtree `Query`→`QueryVisit` steering for `PointInPolygon` allocs** — the macro workload's unprepared path doesn't touch the HPRtree index at all; nothing to steer.
 - **`mcindex_noder` scratch reuse** — measured at 0.2%–11% of total time depending on workload, real but small and workload-dependent, not an outsized single-site win; moved to backlog rather than implemented.
+- **Optimistic tolerance-0 buffer first attempt** (2026-07-11) — skipping the snap-rounding fixpoint when the full-precision polygonize succeeds regressed `TestBufferJagged` buffer-5/buffer-10: jagged inputs are exactly where the digits=12 grid's stabilisation is load-bearing. Reverted; the snap path's noding cost was addressed inside the noder (monotone chains) instead.
+- **Union double-overlay hypothesis** (2026-07-11) — `canonicalizeTouchingRings`' self-union re-run never fires on the star fixtures; the cost was the `needsCanonicalize` *check* itself (fixed above). Don't chase the re-run without a profile showing `OverlayPolygonalMixedDim` twice-deep.
 
 ## Deferred backlog
 
-- **DCEL arena allocation + twin-scan fix** (`internal/overlayng/dcel.go`) — highest remaining leverage identified by profiling; medium risk, needs its own golden-gated pass.
+- **`PrepareBuild` vs simplefeatures** (215µs vs 82µs) — the one remaining timed comparison where simplefeatures leads; prepared-structure construction cost, amortized away by `PreparedIntersects` (where gts leads 3x). Untouched by the 2026-07-11 wave.
 - **Parallel cascaded `UnaryUnion`** (`overlay/unary_union.go:133-159`, fork-join over halves) — clearest future parallelism win, but introduces goroutines, out of this pass's byte-identical/low-risk scope.
 - **Envelope short-circuit for `measure.Distance` disjoint pairs** — explicitly left for later in the ring-traversal fix's commit message.
 - **`relateng` geomB caching** — not profiled in depth this pass.
 - **PGO** — needs a representative production profile corpus, not these synthetic fixtures, to be meaningful.
 - **JTS-corpus-derived realistic fixtures** — corpus extraction was out of scope (tag-gated, ~150KB+ blobs with EPL/EDL provenance bookkeeping, not size-parameterizable); stars/grids stand in for now.
-- **`mcindex_noder` scratch reuse** — carried over from Refuted candidates as real-but-small (0.2%-11%), not a confirmed miss.
+- ~~**DCEL arena allocation + twin-scan fix**~~ — landed in the 2026-07-11 wave (sort-based dedup, Out arena, dense ids, O(1) twin lookup was already in).
+- ~~**`mcindex_noder` scratch reuse**~~ — superseded: the 2026-07-11 wave routed buffer noding through `MCIndexNoder` wholesale.
 
 ## Limitations
 
