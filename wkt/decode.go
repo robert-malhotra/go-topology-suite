@@ -160,6 +160,11 @@ func (p *parser) parseSRIDPrefix() error {
 // If the type token itself carried a glued dimension modifier (e.g.
 // POINTZ, LINESTRINGZM, parsed by parseGeometry), pendingLayout is
 // returned and consumed without scanning further input.
+//
+// When no modifier is present, NoLayout is returned: the layout is then
+// inferred from the per-vertex number count (2 -> XY, 3 -> XYZ, 4 -> XYZM,
+// the PostGIS/JTS convention — an untagged third ordinate is Z, never M),
+// or defaults to XY for EMPTY geometries.
 func (p *parser) parseLayout() geom.Layout {
 	if p.pendingLayout != geom.NoLayout {
 		out := p.pendingLayout
@@ -177,8 +182,23 @@ func (p *parser) parseLayout() geom.Layout {
 		return geom.LayoutXYZM
 	default:
 		p.pos = save
-		return geom.LayoutXY
+		return geom.NoLayout
 	}
+}
+
+// layoutForStride maps an inferred per-vertex number count to a layout.
+// Untagged 3-number vertices are XYZ by convention (XYM requires an
+// explicit M tag).
+func layoutForStride(stride, offset int) (geom.Layout, error) {
+	switch stride {
+	case 2:
+		return geom.LayoutXY, nil
+	case 3:
+		return geom.LayoutXYZ, nil
+	case 4:
+		return geom.LayoutXYZM, nil
+	}
+	return geom.NoLayout, fmt.Errorf("wkt: coordinate with %d ordinates at offset %d (want 2, 3, or 4)", stride, offset)
 }
 
 // parseGeometry dispatches on the leading type word.
@@ -236,11 +256,19 @@ func stripDimensionSuffix(typ string) (string, geom.Layout) {
 // parseEmptyOrLayout looks ahead. If the next word is EMPTY (after an
 // optional layout suffix) it returns layout, true (empty). Otherwise it
 // returns layout, false and leaves the parser positioned just before '('.
+//
+// For non-empty geometries the returned layout may be NoLayout, meaning
+// "infer from the first coordinate" (stride 0 in the readers). EMPTY
+// geometries have no coordinates to infer from, so an untagged EMPTY
+// defaults to XY.
 func (p *parser) parseEmptyOrLayout() (geom.Layout, bool) {
 	layout := p.parseLayout()
 	save := p.pos
 	w := p.readWord()
 	if w == "EMPTY" {
+		if layout == geom.NoLayout {
+			layout = geom.LayoutXY
+		}
 		return layout, true
 	}
 	p.pos = save
@@ -292,6 +320,11 @@ func (p *parser) parsePoint() (geom.Geometry, error) {
 	if err := p.consume(')'); err != nil {
 		return nil, err
 	}
+	if layout == geom.NoLayout {
+		if layout, err = layoutForStride(len(coord), p.pos); err != nil {
+			return nil, err
+		}
+	}
 	switch layout {
 	case geom.LayoutXY:
 		return geom.NewPoint(p.crs, geom.XY{X: coord[0], Y: coord[1]}), nil
@@ -306,7 +339,29 @@ func (p *parser) parsePoint() (geom.Geometry, error) {
 	}
 }
 
+// readCoord reads one vertex. stride > 0 reads exactly that many numbers;
+// stride 0 (untagged layout) reads numbers until the vertex ends at ',',
+// ')', or EOF, and the caller derives the layout from the returned length.
 func (p *parser) readCoord(stride int) ([]float64, error) {
+	if stride == 0 {
+		start := p.pos
+		var out []float64
+		for {
+			v, err := p.readNumber()
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, v)
+			p.skipWhitespace()
+			if p.pos >= len(p.src) || p.src[p.pos] == ',' || p.src[p.pos] == ')' {
+				break
+			}
+		}
+		if _, err := layoutForStride(len(out), start); err != nil {
+			return nil, err
+		}
+		return out, nil
+	}
 	out := make([]float64, stride)
 	for i := 0; i < stride; i++ {
 		v, err := p.readNumber()
@@ -318,29 +373,35 @@ func (p *parser) readCoord(stride int) ([]float64, error) {
 	return out, nil
 }
 
-func (p *parser) readCoordSequence(stride int) ([]float64, error) {
+// readCoordSequence reads a parenthesised vertex list. stride 0 infers the
+// stride from the first vertex; every subsequent vertex must match it. The
+// resolved stride is returned so callers that passed 0 can fix their layout.
+func (p *parser) readCoordSequence(stride int) ([]float64, int, error) {
 	if err := p.consume('('); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	var out []float64
 	for {
 		c, err := p.readCoord(stride)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
+		}
+		if stride == 0 {
+			stride = len(c)
 		}
 		out = append(out, c...)
 		p.skipWhitespace()
 		if p.pos >= len(p.src) {
-			return nil, errors.New("wkt: unexpected EOF in coord sequence")
+			return nil, 0, errors.New("wkt: unexpected EOF in coord sequence")
 		}
 		switch p.src[p.pos] {
 		case ',':
 			p.pos++
 		case ')':
 			p.pos++
-			return out, nil
+			return out, stride, nil
 		default:
-			return nil, fmt.Errorf("wkt: expected ',' or ')' at offset %d", p.pos)
+			return nil, 0, fmt.Errorf("wkt: expected ',' or ')' at offset %d", p.pos)
 		}
 	}
 }
@@ -350,9 +411,14 @@ func (p *parser) parseLineString() (geom.Geometry, error) {
 	if empty {
 		return geom.NewEmptyLineString(p.crs, layout), nil
 	}
-	flat, err := p.readCoordSequence(layout.Stride())
+	flat, stride, err := p.readCoordSequence(layout.Stride())
 	if err != nil {
 		return nil, err
+	}
+	if layout == geom.NoLayout {
+		if layout, err = layoutForStride(stride, p.pos); err != nil {
+			return nil, err
+		}
 	}
 	return geom.NewLineStringOwned(layout, p.crs, flat), nil
 }
@@ -362,9 +428,14 @@ func (p *parser) parseLinearRing() (geom.Geometry, error) {
 	if empty {
 		return geom.NewLinearRingOwned(layout, p.crs, nil), nil
 	}
-	flat, err := p.readCoordSequence(layout.Stride())
+	flat, stride, err := p.readCoordSequence(layout.Stride())
 	if err != nil {
 		return nil, err
+	}
+	if layout == geom.NoLayout {
+		if layout, err = layoutForStride(stride, p.pos); err != nil {
+			return nil, err
+		}
 	}
 	return geom.NewLinearRingOwned(layout, p.crs, flat), nil
 }
@@ -385,9 +456,15 @@ func (p *parser) parsePolygon() (geom.Geometry, error) {
 		if p.tryReadEmpty() {
 			// Skip empty ring; matches JTS POLYGON((..) EMPTY) semantics.
 		} else {
-			flat, err := p.readCoordSequence(stride)
+			flat, rs, err := p.readCoordSequence(stride)
 			if err != nil {
 				return nil, err
+			}
+			if stride == 0 {
+				stride = rs
+				if layout, err = layoutForStride(stride, p.pos); err != nil {
+					return nil, err
+				}
 			}
 			ringStarts = append(ringStarts, vertexOff)
 			allFlat = append(allFlat, flat...)
@@ -400,6 +477,9 @@ func (p *parser) parsePolygon() (geom.Geometry, error) {
 			return nil, err
 		}
 		if done {
+			if layout == geom.NoLayout {
+				layout = geom.LayoutXY // all rings EMPTY; nothing to infer from
+			}
 			return geom.NewPolygonOwned(layout, p.crs, allFlat, ringStarts), nil
 		}
 	}
@@ -442,6 +522,13 @@ func (p *parser) parseMultiPoint() (geom.Geometry, error) {
 				}
 				c = cc
 			}
+			if stride == 0 {
+				stride = len(c)
+				var err error
+				if layout, err = layoutForStride(stride, p.pos); err != nil {
+					return nil, err
+				}
+			}
 			// readCoord returns the full stride, so Z/M values survive.
 			flat = append(flat, c...)
 		}
@@ -450,6 +537,9 @@ func (p *parser) parseMultiPoint() (geom.Geometry, error) {
 			return nil, err
 		}
 		if done {
+			if layout == geom.NoLayout {
+				layout = geom.LayoutXY // all members EMPTY
+			}
 			return geom.NewMultiPointOwned(layout, p.crs, flat), nil
 		}
 	}
@@ -467,11 +557,21 @@ func (p *parser) parseMultiLineString() (geom.Geometry, error) {
 	var lines []*geom.LineString
 	for {
 		if p.tryReadEmpty() {
-			lines = append(lines, geom.NewEmptyLineString(p.crs, layout))
+			el := layout
+			if el == geom.NoLayout {
+				el = geom.LayoutXY
+			}
+			lines = append(lines, geom.NewEmptyLineString(p.crs, el))
 		} else {
-			flat, err := p.readCoordSequence(stride)
+			flat, rs, err := p.readCoordSequence(stride)
 			if err != nil {
 				return nil, err
+			}
+			if stride == 0 {
+				stride = rs
+				if layout, err = layoutForStride(stride, p.pos); err != nil {
+					return nil, err
+				}
 			}
 			lines = append(lines, geom.NewLineStringOwned(layout, p.crs, flat))
 		}
@@ -497,7 +597,11 @@ func (p *parser) parseMultiPolygon() (geom.Geometry, error) {
 	var polys []*geom.Polygon
 	for {
 		if p.tryReadEmpty() {
-			polys = append(polys, geom.NewEmptyPolygon(p.crs, layout))
+			el := layout
+			if el == geom.NoLayout {
+				el = geom.LayoutXY
+			}
+			polys = append(polys, geom.NewEmptyPolygon(p.crs, el))
 			done, err := p.consumeMemberSeparator("multipolygon")
 			if err != nil {
 				return nil, err
@@ -517,9 +621,15 @@ func (p *parser) parseMultiPolygon() (geom.Geometry, error) {
 			if p.tryReadEmpty() {
 				// Skip empty ring.
 			} else {
-				flat, err := p.readCoordSequence(stride)
+				flat, rs, err := p.readCoordSequence(stride)
 				if err != nil {
 					return nil, err
+				}
+				if stride == 0 {
+					stride = rs
+					if layout, err = layoutForStride(stride, p.pos); err != nil {
+						return nil, err
+					}
 				}
 				ringStarts = append(ringStarts, vertexOff)
 				allFlat = append(allFlat, flat...)
@@ -536,7 +646,11 @@ func (p *parser) parseMultiPolygon() (geom.Geometry, error) {
 			}
 			break
 		}
-		polys = append(polys, geom.NewPolygonOwned(layout, p.crs, allFlat, ringStarts))
+		pl := layout
+		if pl == geom.NoLayout {
+			pl = geom.LayoutXY // all rings EMPTY; nothing to infer from
+		}
+		polys = append(polys, geom.NewPolygonOwned(pl, p.crs, allFlat, ringStarts))
 		done, err := p.consumeMemberSeparator("multipolygon")
 		if err != nil {
 			return nil, err
